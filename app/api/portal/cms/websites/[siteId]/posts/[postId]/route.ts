@@ -5,8 +5,9 @@ import { db } from '@/lib/db';
 import { posts, postCategories, postTags, postRevisions } from '@/lib/db/schema';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
+import { authorizePortalSite, isAuthError } from '@/lib/portal-auth';
 import { revalidateSiteContent } from '@/lib/sites/site-cache';
-import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
+import { assertBlocksAllowedForRole, assertCustomCodeAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
 import { syncTemplateUsages } from '@/lib/sites/sync-template-usages';
 
 // How recent the previous revision needs to be for an autosave write to be
@@ -62,9 +63,18 @@ export async function PUT(
   const { siteId, postId } = await params;
   const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  const authorization = await authorizePortalSite({ siteId: site.id, action: 'write' });
+  if (isAuthError(authorization)) return authorization.response;
 
   const body = await req.json();
   const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl, customCss, customJs, revisionTrigger, scheduledPublishAt } = body;
+
+  try {
+    assertCustomCodeAllowedForRole(customJs, (session.user as { role?: string }).role);
+  } catch (err) {
+    if (err instanceof BlockGateError) return NextResponse.json({ success: false, message: err.message }, { status: 403 });
+    throw err;
+  }
 
   // Gate raw-HTML / raw-script block types to admin/editor staff only.
   if (content !== undefined) {
@@ -236,6 +246,8 @@ export async function DELETE(
   const { siteId, postId } = await params;
   const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  const authorization = await authorizePortalSite({ siteId: site.id, action: 'write' });
+  if (isAuthError(authorization)) return authorization.response;
 
   await db
     .delete(posts)

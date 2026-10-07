@@ -279,6 +279,7 @@ export const orders = pgTable('orders', {
   total: integer('total').notNull(),
   stripePaymentIntentId: varchar('stripe_payment_intent_id', { length: 255 }),
   stripeChargeId: varchar('stripe_charge_id', { length: 255 }),
+  refundedAmount: integer('refunded_amount').default(0).notNull(),
   paymentStatus: varchar('payment_status', { length: 20 }).default('pending').notNull(),
   paidAt: timestamp('paid_at'),
   status: varchar('status', { length: 20 }).default('pending').notNull(),

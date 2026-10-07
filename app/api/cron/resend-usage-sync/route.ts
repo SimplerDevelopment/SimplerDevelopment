@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
  * Cron: roll up the current period's email-send count per client into
  * `usage_meter_events`.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  * Mirrors the pattern in app/api/cron/stuck-booking-holds/route.ts.
  *
  * STUB: this counts rows in `email_campaign_sends` (joined to campaigns to

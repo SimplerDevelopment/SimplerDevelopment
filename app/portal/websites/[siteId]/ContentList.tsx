@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useSyncExternalStore, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -26,6 +26,9 @@ type SortKey = 'title' | 'slug' | 'published' | 'updatedAt';
 type SortDir = 'asc' | 'desc';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const subscribeToHydration = () => () => undefined;
+const browserSnapshot = () => true;
+const serverSnapshot = () => false;
 
 export default function ContentList({
   siteId,
@@ -40,6 +43,7 @@ export default function ContentList({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const browserReady = useSyncExternalStore(subscribeToHydration, browserSnapshot, serverSnapshot);
   const [search, setSearch] = useState('');
   const [deleting, setDeleting] = useState<number | null>(null);
   const [, startTransition] = useTransition();
@@ -249,7 +253,7 @@ export default function ContentList({
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(post.updatedAt).toLocaleDateString()}
+                      <time dateTime={new Date(post.updatedAt).toISOString()}>{browserReady ? new Date(post.updatedAt).toLocaleDateString() : new Date(post.updatedAt).toISOString().slice(0, 10)}</time>
                     </td>
                     <td className="px-2 py-3 text-right">
                       <button

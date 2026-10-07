@@ -1,3 +1,4 @@
+import { authenticateBrowserContext, seededAccounts } from './setup/auth-session';
 /**
  * Pitch Deck Editor — Refactor Baseline Characterization Spec
  *
@@ -36,20 +37,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
  * isolation between page.request and the actual page navigation.
  */
 async function loginAsClientOnContext(context: BrowserContext) {
-  const apiCtx = context.request;
-  const csrfRes = await apiCtx.get(`${BASE_URL}/api/auth/csrf`);
-  const { csrfToken } = await csrfRes.json();
-  const res = await apiCtx.post(`${BASE_URL}/api/auth/callback/credentials`, {
-    form: {
-      email: 'client@example.com',
-      password: 'client123',
-      csrfToken,
-      json: 'true',
-    },
-  });
-  if (res.status() >= 400) {
-    throw new Error(`Login failed: ${res.status()}`);
-  }
+  await authenticateBrowserContext(context, seededAccounts.client.email, seededAccounts.client.password);
 }
 
 async function gotoEditor(page: Page, id: number) {

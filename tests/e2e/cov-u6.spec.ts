@@ -10,22 +10,13 @@
  * All tests are pure API (no browser), use the clientApi fixture, and clean up
  * created rows in afterAll / finally blocks so the suite is rerunnable.
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
-import { exec as execCb } from 'child_process';
-import { promisify } from 'util';
-
-const exec = promisify(execCb);
 
 const uniq = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-const DB_URL =
-  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
-
 async function psql(sql: string): Promise<string> {
-  const { stdout } = await exec(`psql "${DB_URL}" -t -c "${sql.replace(/"/g, '\\"')}"`);
-  return stdout.trim();
+  return e2eSql(sql);
 }
 
 /** Insert a minimal pending review item for clientId=1 and return its id. */

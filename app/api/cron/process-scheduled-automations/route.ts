@@ -20,7 +20,7 @@ export const runtime = 'nodejs';
  * rule (errors are caught individually so one bad rule doesn't break the
  * whole tick).
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 async function _GET(req: Request) {
   if (!isAuthorizedCron(req)) {

@@ -6,8 +6,8 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { findOrCreateGoogleUser } from '@/lib/signup/service';
-import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
-import { verifyTOTP } from '@/lib/totp';
+import { checkRateLimit, getClientIp, isAuthRateLimitDisabled } from '@/lib/security/rate-limit';
+import { consumeLoginMfa } from '@/lib/security/login-mfa';
 import { safeCallbackUrl } from '@/lib/security/safe-callback-url';
 
 // Login-capable Google OAuth app. Reuses the platform Google client unless a
@@ -23,18 +23,11 @@ const googleClientSecret = process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_
 // OFF by default and only ever set by the test harness (`next dev` forces
 // NODE_ENV=development, so the harness exports DISABLE_AUTH_RATE_LIMIT=1). Unit
 // tests run with NODE_ENV=test (cf. lib/plugins/jwt.ts) and are covered too.
-// Production sets neither, so the guard stays fully active there.
-const AUTH_RATE_LIMIT_DISABLED =
-  process.env.DISABLE_AUTH_RATE_LIMIT === '1' || process.env.NODE_ENV === 'test';
+// Production ignores bypass flags, so the guard stays fully active there.
 
-// A production BUILD served over plain HTTP (the Critical-e2e CI job runs
-// `bun start` on http://localhost:3000, and self-hosters may terminate TLS
-// upstream) otherwise mints a `__Secure-`-prefixed `secure` session cookie that
-// the runtime/browser rejects on an insecure origin — which surfaced as a 500
-// on the credentials callback and cascaded ~1000 e2e specs (QAD-047). Opt out
-// with AUTH_INSECURE_COOKIES=1. Real production (HTTPS) leaves it unset.
+// Production cookies remain Secure even if a test bypass flag is inherited.
 const USE_SECURE_COOKIES =
-  process.env.AUTH_INSECURE_COOKIES !== '1' && process.env.NODE_ENV === 'production';
+  process.env.NODE_ENV === 'production';
 
 // A fixed bcrypt hash to compare against when the user doesn't exist / is
 // inactive, so the credentials path spends the same ~bcrypt time on every branch
@@ -62,7 +55,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Brute-force guard: throttle credential attempts per IP *before* any DB
         // hit or bcrypt compare. `request` is a standard Request in the
         // credentials flow; guard in case a future flow omits it.
-        if (!AUTH_RATE_LIMIT_DISABLED && request && !(await checkRateLimit(`${getClientIp(request as Request)}:login`, 10, 15 * 60 * 1000))) {
+        if (!isAuthRateLimitDisabled() && request && !(await checkRateLimit(`${getClientIp(request as Request)}:login`, 10, 15 * 60 * 1000))) {
           throw new Error('Too many sign-in attempts. Please wait a few minutes and try again.');
         }
 
@@ -95,12 +88,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // is mandatory. Fail closed (return null) for a missing or wrong code —
         // same outcome as a bad password, so login never reveals whether MFA is
         // on for an account. The login form carries the code in `totpCode`.
-        if (user.mfaEnabled && user.totpSecret) {
-          const totpCode = (credentials.totpCode as string | undefined)?.trim() ?? '';
-          if (!verifyTOTP(user.totpSecret, totpCode)) {
-            return null;
-          }
-        }
+        if (!(await consumeLoginMfa(user, credentials.totpCode))) return null;
 
         return {
           id: user.id.toString(),
@@ -140,7 +128,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // (undefined), since pinning a domain on a `*.vercel.app` preview or
         // localhost makes the browser reject the cookie outright.
         domain:
-          process.env.AUTH_COOKIE_DOMAIN ??
+          process.env.AUTH_COOKIE_DOMAIN?.trim() ||
           (process.env.VERCEL_ENV === 'production' ? '.simplerdevelopment.com' : undefined),
       },
     },

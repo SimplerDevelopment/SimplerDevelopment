@@ -306,7 +306,7 @@ describe('GET /api/portal/workflows', () => {
     expect(body.success).toBe(true);
     expect(body.data).toEqual(rows);
     expect(getPortalClientMock).toHaveBeenCalledWith(7);
-    expect(authorizePortalMock).toHaveBeenCalledWith({ action: 'read' });
+    expect(authorizePortalMock).toHaveBeenCalledWith({ action: 'read', scope: 'automations:read' });
   });
 
   it('returns empty list when no workflows exist', async () => {
@@ -343,7 +343,7 @@ describe('POST /api/portal/workflows', () => {
 
     const res = await workflowsRoute.POST(makeJsonReq('http://x/wf', 'POST', {}));
     expect(res.status).toBe(403);
-    expect(authorizePortalMock).toHaveBeenCalledWith({ action: 'write' });
+    expect(authorizePortalMock).toHaveBeenCalledWith({ action: 'write', scope: 'automations:write' });
   });
 
   it('returns 404 when client not found', async () => {
@@ -535,7 +535,7 @@ describe('GET /api/portal/workflows/templates', () => {
     authorizePortalMock.mockResolvedValue({ response: forbidden });
     const res = await workflowTemplatesRoute.GET();
     expect(res.status).toBe(403);
-    expect(authorizePortalMock).toHaveBeenCalledWith({ action: 'read' });
+    expect(authorizePortalMock).toHaveBeenCalledWith({ action: 'read', scope: 'automations:read' });
   });
 
   it('returns slim template payload (id, icon, name, description, triggerKind, nodeCount)', async () => {

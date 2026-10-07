@@ -168,6 +168,7 @@ vi.mock('@/lib/db', () => {
         const rows = insertReturnQueue.shift() ?? [];
         insertCalls.push({ table: table.__table, values: v, returnedRows: rows });
         return {
+          onConflictDoNothing() { return Promise.resolve(); },
           returning() {
             return Promise.resolve(rows.map((r) => ({ ...r })));
           },
@@ -539,7 +540,8 @@ describe('DELETE /api/portal/cards/[id]/files/[fileId]', () => {
   it('deletes file from S3 and DB for staff', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     selectQueue.push([{ id: 1, projectId: 5 }]); // card
-    selectQueue.push([{ id: 2, cardId: 1, userId: 7, storedFilename: 'abc.png' }]); // file
+    selectQueue.push([{ id: 2, cardId: 1, userId: 7, projectId: 5, storedFilename: 'abc.png' }]); // file
+    selectQueue.push([{ clientId: 33 }]); // durable private-marker owner lookup
     const res = await DELETE(
       makeJsonRequest({}, 'DELETE'),
       makeParams({ id: '1', fileId: '2' }),
@@ -570,7 +572,8 @@ describe('DELETE /api/portal/cards/[id]/files/[fileId]', () => {
     selectQueue.push([{ id: 1, projectId: 5 }]); // card
     getPortalClientMock.mockResolvedValue({ id: 33 });
     selectQueue.push([{ id: 5, clientId: 33 }]); // project ownership ok
-    selectQueue.push([{ id: 2, cardId: 1, userId: 12, storedFilename: 'mine.pdf' }]);
+    selectQueue.push([{ id: 2, cardId: 1, userId: 12, projectId: 5, storedFilename: 'mine.pdf' }]);
+    selectQueue.push([{ clientId: 33 }]); // durable private-marker owner lookup
     const res = await DELETE(
       makeJsonRequest({}, 'DELETE'),
       makeParams({ id: '1', fileId: '2' }),
@@ -582,10 +585,11 @@ describe('DELETE /api/portal/cards/[id]/files/[fileId]', () => {
   it('returns 500 when S3 deletion throws', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     selectQueue.push([{ id: 1, projectId: 5 }]); // card
-    selectQueue.push([{ id: 2, cardId: 1, userId: 7, storedFilename: 'fail.png' }]);
+    selectQueue.push([{ id: 2, cardId: 1, userId: 7, projectId: 5, storedFilename: 'fail.png' }]);
     deleteFromS3Mock.mockRejectedValueOnce(new Error('s3 boom'));
     // Suppress console.error noise for this test
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    selectQueue.push([{ clientId: 33 }]); // durable private-marker owner lookup
     const res = await DELETE(
       makeJsonRequest({}, 'DELETE'),
       makeParams({ id: '1', fileId: '2' }),

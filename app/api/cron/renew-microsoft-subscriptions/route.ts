@@ -24,7 +24,7 @@ export const runtime = 'nodejs';
  * cron runs every 25 minutes so we always have at least one renewal window
  * left even if a single tick is skipped.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  *
  * Behavior:
  *   - Pick connections that are: not revoked, AND either no subscriptionId yet

@@ -35,8 +35,9 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { portalApiKeys, users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { getPortalClient } from '@/lib/portal-client';
+import { getPortalClientForCredentials, getPortalRole } from '@/lib/portal-client';
 import { generatePortalApiKey } from '@/lib/mcp-auth';
+import { mobileScopesForRole } from '@/lib/security/mobile-scopes';
 
 const MOBILE_REDIRECT = 'sd-chat://callback';
 const KEY_NAME = 'SimplerDev Chat (Mobile)';
@@ -50,33 +51,35 @@ async function mintTokenAndRedirect() {
   }
 
   const userId = parseInt(session.user!.id, 10);
-  const client = await getPortalClient(userId);
+  const client = await getPortalClientForCredentials(userId);
   if (!client) {
     redirect(`${MOBILE_REDIRECT}?error=no_client`);
   }
 
   const [userRow] = await db
-    .select({ id: users.id, email: users.email, name: users.name, role: users.role })
+    .select({ id: users.id, email: users.email, name: users.name, role: users.role, active: users.active })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
-  if (!userRow) {
+  if (!userRow?.active) {
     redirect(`${MOBILE_REDIRECT}?error=no_user`);
   }
 
+  const role = await getPortalRole(userId, client.id);
+  if (!role) redirect(`${MOBILE_REDIRECT}?error=no_client`);
   const { key, hash, preview } = generatePortalApiKey();
   const expiresAt = new Date(Date.now() + KEY_TTL_MS);
 
   await db.insert(portalApiKeys).values({
     clientId: client.id,
+    clientIds: [client.id],
     userId: userRow.id,
     name: `${KEY_NAME} — ${new Date().toISOString().slice(0, 10)}`,
     keyHash: hash,
     keyPreview: preview,
-    scopes: ['*'],
-    // Mobile is a trusted first-party client; CMS writes don't need staging.
-    requireCmsApproval: false,
+    scopes: mobileScopesForRole(role),
+    requireCmsApproval: true,
     expiresAt,
   });
 

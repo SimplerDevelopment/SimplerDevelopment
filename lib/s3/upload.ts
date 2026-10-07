@@ -11,6 +11,8 @@ export interface UploadResult {
 }
 
 export interface UploadToS3Options {
+  /** Tenant attachments must never enter the public media namespace. */
+  privateClientId?: number;
   /**
    * Explicit S3 key (without the bucket). When provided, this exact key is
    * used instead of the default `media/<uuid>.<ext>`. Used by zip uploads so
@@ -48,7 +50,12 @@ export async function uploadToS3(
 
   let key: string;
   let storedFilename: string;
-  if (options.key) {
+  if (options.privateClientId !== undefined) {
+    if (!Number.isSafeInteger(options.privateClientId) || options.privateClientId < 1) throw new Error('Invalid private client');
+    const generated = generateMediaKey(originalFilename);
+    key = `private/${options.privateClientId}/${generated.storedFilename}`;
+    storedFilename = key;
+  } else if (options.key) {
     key = options.key.replace(/^\/+/, '');
     // For multi-file uploads (zip), `storedFilename` doubles as the
     // proxy-relative path so callers can reconstruct sibling URLs.
@@ -67,6 +74,10 @@ export async function uploadToS3(
   });
 
   await s3Client.send(command);
+  if (options.privateClientId !== undefined) {
+    const { rememberPrivateAttachment } = await import('@/lib/security/private-media-registry');
+    await rememberPrivateAttachment(key, options.privateClientId);
+  }
 
   const url = `/api/media/proxy/${key}`;
 

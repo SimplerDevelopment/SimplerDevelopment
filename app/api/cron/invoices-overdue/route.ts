@@ -6,7 +6,7 @@
  * SQL update rather than a row-by-row loop — invoice counts can be large and
  * individual round-trips would be slow and wasteful.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  * Schedule: every hour — granularity matches day-level due dates.
  */
 

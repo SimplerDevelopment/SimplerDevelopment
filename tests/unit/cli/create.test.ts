@@ -11,7 +11,8 @@ import {
 
 describe('resolveTargetDir', () => {
   it('resolves the dir arg against cwd', () => {
-    expect(resolveTargetDir(['create', 'my-app'], '/home/x')).toBe('/home/x/my-app');
+    const cwd = join(tmpdir(), 'cli-workspace');
+    expect(resolveTargetDir(['create', 'my-app'], cwd)).toBe(join(cwd, 'my-app'));
   });
 
   it('throws when no dir is given', () => {

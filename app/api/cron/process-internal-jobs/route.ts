@@ -17,7 +17,7 @@ export const maxDuration = 60;
  * without a request. Schedule: every minute; jobs here are user-visible
  * (a paid order reaching the printer), so latency matters.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 async function _GET(req: Request) {
   if (!isAuthorizedCron(req)) {

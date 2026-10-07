@@ -31,7 +31,7 @@
  * Runs daily; weekly surveys are filtered by their own watermark age, so a single
  * schedule serves both cadences and there is only one cron entry to keep alive.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}` — mirrors
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}` — mirrors
  * app/api/cron/approval-digest/route.ts.
  */
 

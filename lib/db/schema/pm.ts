@@ -182,6 +182,8 @@ export const kanbanCardFiles = pgTable('kanban_card_files', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('kanban_card_files_card_idx').on(t.cardId),
+  index('kanban_card_files_stored_filename_idx').on(t.storedFilename),
+  index('kanban_card_files_url_idx').on(t.url),
 ]);
 
 export const kanbanCardComments = pgTable('kanban_card_comments', {

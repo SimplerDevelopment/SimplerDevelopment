@@ -1,12 +1,9 @@
 import * as dotenv from 'dotenv';
 import { hash } from 'bcryptjs';
-import crypto from 'crypto';
+import { randomSeedToken as randomToken } from './seed-utils';
 
 dotenv.config({ path: '.env' });
 
-function randomToken(len = 64): string {
-  return crypto.randomBytes(len / 2).toString('hex');
-}
 
 async function seedAdminE2E() {
   try {
@@ -772,6 +769,7 @@ async function seedAdminE2E() {
 
   } catch (error) {
     console.error('Error seeding admin E2E data:', error);
+    process.exit(1);
   }
   process.exit(0);
 }

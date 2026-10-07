@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { portalApiKeys, oauthAccessTokens, clients } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 export const PORTAL_KEY_PREFIX = 'sd_mcp_';
 export const OAUTH_TOKEN_PREFIX = 'sd_oauth_';
@@ -130,6 +130,7 @@ export async function resolvePortalApiKey(rawKey: string): Promise<PortalMcpCont
     .limit(1);
 
   if (!client) return null;
+  if (!(await hasCurrentCredentialAccess(record.userId, client, record.clientIds))) return null;
 
   // Fire-and-forget usage tracking
   db.update(portalApiKeys)
@@ -179,6 +180,7 @@ export async function resolveOAuthToken(rawToken: string): Promise<PortalMcpCont
     .where(eq(clients.id, record.clientId))
     .limit(1);
   if (!client) return null;
+  if (!(await hasCurrentCredentialAccess(record.userId, client, record.clientIds))) return null;
 
   db.update(oauthAccessTokens)
     .set({ lastUsedAt: new Date() })
@@ -198,6 +200,22 @@ export async function resolveOAuthToken(rawToken: string): Promise<PortalMcpCont
     // RFC 8707 audience binding (e.g. the MCP server URL), or null = unrestricted.
     resource: record.resource ?? null,
   };
+}
+
+/** Credentials cannot outlive account deactivation or company membership. */
+async function hasCurrentCredentialAccess(userId: number, client: typeof clients.$inferSelect, clientIds?: number[] | null): Promise<boolean> {
+  const { users, clientMembers } = await import('@/lib/db/schema');
+  const [user] = await db.select({ active: users.active }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!user?.active) return false;
+  if (client.userId === userId) return true;
+  const allowed = clientIds?.length ? clientIds : [client.id];
+  const [membership] = await db.select({ id: clientMembers.id }).from(clientMembers)
+    .where(and(inArray(clientMembers.clientId, allowed), eq(clientMembers.userId, userId))).limit(1);
+  if (membership) return true;
+  if (allowed.length === 1) return false;
+  const [owned] = await db.select({ id: clients.id }).from(clients)
+    .where(and(inArray(clients.id, allowed), eq(clients.userId, userId))).limit(1);
+  return Boolean(owned);
 }
 
 /**

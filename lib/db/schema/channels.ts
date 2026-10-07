@@ -208,6 +208,7 @@ export const channelOutbox = pgTable(
     provider: varchar('provider', { length: 40 }).notNull(),
     // Provider message id, once known; unique per (connection) for idempotency.
     externalMessageId: varchar('external_message_id', { length: 255 }),
+    idempotencyKey: varchar('idempotency_key', { length: 255 }),
     recipientIdentity: json('recipient_identity').$type<{ kind: string; value: string }>().notNull(),
     senderIdentity: json('sender_identity').$type<{ kind: string; value: string }>(),
     messageType: varchar('message_type', { length: 20 }).default('text').notNull(),
@@ -228,6 +229,7 @@ export const channelOutbox = pgTable(
   },
   (t) => [
     uniqueIndex('channel_outbox_connection_external_idx').on(t.connectionId, t.externalMessageId),
+    uniqueIndex('channel_outbox_connection_key_idx').on(t.connectionId, t.idempotencyKey),
     index('channel_outbox_due_idx').on(t.clientId, t.status, t.nextAttemptAt),
   ],
 );

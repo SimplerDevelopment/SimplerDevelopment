@@ -10,7 +10,7 @@
  * onConflictDoNothing — a step can't double-send even on concurrent ticks.
  * Cap per tick to stay under Resend's rate limit.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';

@@ -11,18 +11,12 @@
  * Environments have no public POST endpoint — they are provisioner-created.
  * We seed one via psql in beforeAll and tear it down in afterAll.
  */
-import { execSync } from 'child_process';
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { createTestWebsite } from './setup/helpers';
 
-// ── DB seed helpers ──────────────────────────────────────────────────────────
-
-const DB_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
-
 function psql(sql: string): string {
-  return execSync(`psql "${DB_URL}" -t -c "${sql.replace(/"/g, '\\"')}"`, {
-    encoding: 'utf-8',
-  }).trim();
+  return e2eSql(sql).trim();
 }
 
 // Resolved to a freshly-created test website in beforeAll (no hardcoded seed id).

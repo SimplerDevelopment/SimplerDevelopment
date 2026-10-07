@@ -44,6 +44,18 @@ async function makeDue(id: number): Promise<void> {
   await sql`UPDATE ${sql(TEST_SCHEMA)}.internal_jobs SET next_retry_at = NULL WHERE id = ${id}`;
 }
 
+/** Keep the payload IDs pinned while satisfying the real fulfillment guard. */
+async function seedPaidOrder(tenant: TenantCtx, orderId: number): Promise<void> {
+  const sql = getTestSql();
+  const [website] = await sql<{ id: number }[]>`
+    INSERT INTO ${sql(TEST_SCHEMA)}.client_websites (client_id, name, domain)
+    VALUES (${tenant.client.id}, ${`POD store ${orderId}`}, ${`pod-${orderId}.test`}) RETURNING id`;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.orders
+      (id, website_id, order_number, customer_email, customer_name, subtotal, total, payment_status, paid_at)
+    VALUES (${orderId}, ${website.id}, ${`POD-${orderId}`}, 'buyer@test.local', 'Buyer', 1000, 1000, 'paid', now())`;
+}
+
 describe('internal jobs queue @jobs', () => {
   let A: TenantCtx;
 
@@ -59,6 +71,7 @@ describe('internal jobs queue @jobs', () => {
   });
 
   it('A) runs a queued pod.submit job and marks it completed', async () => {
+    await seedPaidOrder(A, 42);
     await enqueueJob({
       clientId: A.client.id,
       type: 'pod.submit',
@@ -82,6 +95,7 @@ describe('internal jobs queue @jobs', () => {
   });
 
   it('B) retries a failing job with backoff, then dead-letters it', async () => {
+    await seedPaidOrder(A, 43);
     mockSubmit.mockRejectedValue(new Error('Printful 503'));
 
     await enqueueJob({
@@ -118,9 +132,13 @@ describe('internal jobs queue @jobs', () => {
     expect(dead.attempt_count).toBe(MAX_ATTEMPTS);
     expect(dead.error).toContain('Printful 503');
     expect(mockSubmit).toHaveBeenCalledTimes(MAX_ATTEMPTS);
+    // A paid order cannot make a terminal job resume printing on later drains.
+    expect(await drainInternalJobs()).toEqual({ processed: 0, failed: 0, deadLettered: 0 });
+    expect(mockSubmit).toHaveBeenCalledTimes(MAX_ATTEMPTS);
   });
 
   it('C) a duplicate dedupeKey does not enqueue a second job', async () => {
+    await seedPaidOrder(A, 44);
     const params = {
       clientId: A.client.id,
       type: 'pod.submit' as const,
@@ -139,6 +157,7 @@ describe('internal jobs queue @jobs', () => {
   });
 
   it('D) reclaims a job whose lease expired mid-run', async () => {
+    await seedPaidOrder(A, 45);
     const sql = getTestSql();
     // A worker claimed this and died: 'running' with a lease that has passed.
     const [job] = await sql<{ id: number }[]>`
@@ -164,6 +183,8 @@ describe('internal jobs queue @jobs', () => {
     // survive it intact — that column is what any future per-tenant view, and
     // the ON DELETE CASCADE, will both key on.
     const B = await sessionForNewClientUser('jobs-b');
+    await seedPaidOrder(A, 47);
+    await seedPaidOrder(B, 48);
 
     await enqueueJob({
       clientId: A.client.id, type: 'pod.submit',
@@ -187,9 +208,16 @@ describe('internal jobs queue @jobs', () => {
     // Both ran, each exactly once, with its own order.
     const orderIds = mockSubmit.mock.calls.map((c) => c[0]).sort();
     expect(orderIds).toEqual([47, 48]);
+    const sql = getTestSql();
+    const ownership = await sql<{ id: number; client_id: number }[]>`
+      SELECT o.id, w.client_id FROM ${sql(TEST_SCHEMA)}.orders o
+      JOIN ${sql(TEST_SCHEMA)}.client_websites w ON w.id = o.website_id
+      WHERE o.id IN (47, 48) ORDER BY o.id`;
+    expect(ownership).toEqual([{ id: 47, client_id: A.client.id }, { id: 48, client_id: B.client.id }]);
   });
 
   it('D2) leaves a job whose lease is still valid alone', async () => {
+    await seedPaidOrder(A, 46);
     const sql = getTestSql();
     await sql`
       INSERT INTO ${sql(TEST_SCHEMA)}.internal_jobs
@@ -200,5 +228,15 @@ describe('internal jobs queue @jobs', () => {
     const result = await drainInternalJobs();
     expect(result.processed).toBe(0);
     expect(mockSubmit).not.toHaveBeenCalled(); // still owned by the live worker
+  });
+
+  it.each(['refunded', 'cancelled'])('F) does not submit an order changed to %s before the job is drained', async paymentStatus => {
+    await seedPaidOrder(A, 49);
+    await enqueueJob({ clientId: A.client.id, type: 'pod.submit', payload: { orderId: 49 }, dedupeKey: 'pod.submit:49' });
+    const sql = getTestSql();
+    await sql`UPDATE ${sql(TEST_SCHEMA)}.orders SET payment_status = ${paymentStatus} WHERE id = 49`;
+    expect(await drainInternalJobs()).toEqual({ processed: 1, failed: 0, deadLettered: 0 });
+    expect(mockSubmit).not.toHaveBeenCalled();
+    expect((await jobsFor(A.client.id))[0].status).toBe('completed');
   });
 });

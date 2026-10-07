@@ -18,20 +18,13 @@
  *             enabled. Requires a verified domain + agencyName to be set — achieved
  *             by directly patching the DB via psql in a beforeAll/afterAll block.
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups, createTestApiKey, McpTestClient } from './setup/helpers';
-import { execSync } from 'child_process';
-
-// ── DB helper (test-only) ─────────────────────────────────────────────────────
-// Direct psql mutations are the only way to simulate a verified domain without
-// performing real DNS. We scope them to client id=1 (client@example.com) which
-// is the seed owner in the simplerdev_test DB.
-
-const TEST_DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 const CLIENT_ID = 1;
 
 function psql(sql: string) {
-  execSync(`psql "${TEST_DB}" -c "${sql.replace(/"/g, '\\"')}"`, { stdio: 'pipe' });
+  e2eSql(sql);
 }
 
 // The chrome describe block (Gap 3) stamps custom_domain + white_label_enabled on

@@ -37,6 +37,7 @@ export async function classifyIntent(
   try {
     const { object } = await completeObject({
       task: 'brainClassify',
+      credits: { category: 'brain_classifier' },
       clientId,
       maxTokens: 256,
       schema: classificationSchema,

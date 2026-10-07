@@ -6,7 +6,7 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   // Bearer-aware (mobile) + NextAuth (web). Read access = any member.
-  const authResult = await authorizePortal({ action: 'read' });
+  const authResult = await authorizePortal({ action: 'read', scope: 'approvals:read' });
   if (isAuthError(authResult)) return authResult.response;
   const { client } = authResult;
 

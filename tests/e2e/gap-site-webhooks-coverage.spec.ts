@@ -11,13 +11,11 @@
  *
  * Cross-tenant isolation uses a throwaway client seeded via psql.
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups } from './setup/helpers';
-import { execSync } from 'child_process';
-
-const TEST_DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 function sql(q: string): string {
-  return execSync(`psql "${TEST_DB}" -At -c "${q.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+  return e2eSql(q).trim();
 }
 
 const PUB_URL = 'https://example.com/sd-site-webhook-test';

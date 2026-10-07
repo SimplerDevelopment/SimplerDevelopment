@@ -557,6 +557,7 @@ describe('POST /api/portal/cards/[id]/files', () => {
     });
     insertReturnQueue.push([{ id: 99, cardId: 1, originalName: 'a.txt' }]);
 
+    selectQueue.push([{ clientId: 33 }]); // private upload owner lookup
     const res = await filesRoute.POST(
       makeFileFormRequest(new File(['hello'], 'a.txt', { type: 'text/plain' })),
       makeParams('1'),
@@ -566,7 +567,7 @@ describe('POST /api/portal/cards/[id]/files', () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(99);
     expect(body.data.userName).toBe('Alice');
-    expect(uploadToS3Mock).toHaveBeenCalled();
+    expect(uploadToS3Mock).toHaveBeenCalledWith(expect.any(Buffer), 'a.txt', 'text/plain', { privateClientId: 33 });
     expect(insertCalls.some((c) => c.table === 'kanbanCardFiles')).toBe(true);
   });
 
@@ -580,6 +581,7 @@ describe('POST /api/portal/cards/[id]/files', () => {
       fileSize: 5,
     });
     insertReturnQueue.push([{ id: 99 }]);
+    selectQueue.push([{ clientId: 33 }]); // private upload owner lookup
     const res = await filesRoute.POST(
       makeFileFormRequest(new File(['hi'], 'a.txt', { type: 'text/plain' })),
       makeParams('1'),
@@ -600,6 +602,7 @@ describe('POST /api/portal/cards/[id]/files', () => {
       fileSize: 5,
     });
     insertReturnQueue.push([{ id: 99 }]);
+    selectQueue.push([{ clientId: 33 }]); // private upload owner lookup
     const res = await filesRoute.POST(
       makeFileFormRequest(new File(['hi'], 'a.txt', { type: 'text/plain' })),
       makeParams('1'),
@@ -612,6 +615,7 @@ describe('POST /api/portal/cards/[id]/files', () => {
     selectQueue.push([{ id: 1, projectId: 5 }]); // card
     uploadToS3Mock.mockRejectedValue(new Error('s3 down'));
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    selectQueue.push([{ clientId: 33 }]); // private upload owner lookup
     const res = await filesRoute.POST(
       makeFileFormRequest(new File(['hi'], 'a.txt', { type: 'text/plain' })),
       makeParams('1'),

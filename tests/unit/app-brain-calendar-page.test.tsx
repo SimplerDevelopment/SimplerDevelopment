@@ -21,6 +21,8 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
+import { hydrateRoot } from 'react-dom/client';
 
 // ─── Mocks (must precede page import) ───────────────────────────────────────
 
@@ -86,6 +88,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   // Restore location if a test mutated it
@@ -137,6 +140,43 @@ function renderPage() {
 // ─── Shell rendering ────────────────────────────────────────────────────────
 
 describe('BrainCalendarPage — shell', () => {
+  it('hydrates without recovery when server and browser dates and locales differ', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 0, 31, 23, 59));
+    const format = vi.spyOn(Date.prototype, 'toLocaleDateString').mockReturnValue('enero de 2026');
+    const html = renderToString(<BrainCalendarPage />);
+    expect(html).toContain('Loading calendar…');
+    expect(format).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    vi.setSystemTime(new Date(2026, 1, 1, 0, 1));
+    format.mockImplementation(function (this: Date) {
+      return `${this.getMonth() === 1 ? 'February' : 'January'} ${this.getFullYear()}`;
+    });
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    document.body.appendChild(container);
+    const onRecoverableError = vi.fn();
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    try {
+      await act(async () => {
+        root = hydrateRoot(container, <BrainCalendarPage />, { onRecoverableError });
+      });
+      await waitFor(() => expect(container.querySelector('h2')?.textContent).toBe('February 2026'));
+      expect(onRecoverableError).not.toHaveBeenCalled();
+      expect(container.querySelectorAll('button.min-h-\\[110px\\]').length).toBe(42);
+      const agendaCalls = fetchMock.mock.calls.filter(([url]) => url.includes('/calendar/agenda'));
+      expect(agendaCalls).toHaveLength(1);
+      const requestedStart = new Date(new URL(agendaCalls[0][0], 'http://localhost').searchParams.get('from')!);
+      expect(requestedStart.getFullYear()).toBe(2026);
+      expect(requestedStart.getMonth()).toBe(1);
+      expect(requestedStart.getDate()).toBe(1);
+    } finally {
+      await act(async () => root?.unmount());
+      container.remove();
+    }
+  });
+
   it('renders the Calendar heading', async () => {
     const { container } = renderPage();
     await waitFor(() => {

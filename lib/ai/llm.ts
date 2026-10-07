@@ -16,6 +16,7 @@ import {
 } from 'ai';
 import type { z } from 'zod';
 import { getModelForTask, type AiTask } from './models';
+import { creditTrackedCompletion, type AiCreditContext } from './credit-accounting';
 
 export interface BaseLlmOpts {
   /** Which aspect of AI use this is — selects the model via the registry. */
@@ -27,6 +28,7 @@ export interface BaseLlmOpts {
   messages?: ModelMessage[];
   maxTokens?: number;
   temperature?: number;
+  credits?: Pick<AiCreditContext, 'category' | 'price'>;
 }
 
 /**
@@ -43,8 +45,8 @@ function promptPart(opts: BaseLlmOpts): { messages: ModelMessage[] } | { prompt:
 export async function complete(
   opts: BaseLlmOpts & { tools?: ToolSet; toolChoice?: ToolChoice<ToolSet> },
 ) {
-  const { model } = await getModelForTask(opts.task, opts.clientId);
-  return generateText({
+  const { model, keySource } = await getModelForTask(opts.task, opts.clientId);
+  const execute = () => generateText({
     model,
     system: opts.system,
     maxOutputTokens: opts.maxTokens,
@@ -53,14 +55,15 @@ export async function complete(
     toolChoice: opts.toolChoice,
     ...promptPart(opts),
   });
+  return opts.credits ? creditTrackedCompletion({ ...opts.credits, clientId: opts.clientId, source: keySource }, opts, opts.maxTokens ?? 4096, execute) : execute();
 }
 
 /** Forced structured output — replaces the `tool_choice`-to-get-JSON pattern. */
 export async function completeObject<T>(
   opts: BaseLlmOpts & { schema: z.ZodType<T> },
 ): Promise<{ object: T; usage: Awaited<ReturnType<typeof generateObject>>['usage'] }> {
-  const { model } = await getModelForTask(opts.task, opts.clientId);
-  const result = await generateObject({
+  const { model, keySource } = await getModelForTask(opts.task, opts.clientId);
+  const execute = () => generateObject({
     model,
     schema: opts.schema,
     system: opts.system,
@@ -68,6 +71,7 @@ export async function completeObject<T>(
     temperature: opts.temperature,
     ...promptPart(opts),
   });
+  const result = opts.credits ? await creditTrackedCompletion({ ...opts.credits, clientId: opts.clientId, source: keySource }, opts, opts.maxTokens ?? 4096, execute) : await execute();
   return { object: result.object as T, usage: result.usage };
 }
 

@@ -30,8 +30,8 @@ import { db } from '@/lib/db';
 import { aiConversations, aiMessages } from '@/lib/db/schema';
 import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
-import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
-import { recordAiUsage } from '@/lib/ai/audit';
+import { hasCredits, getBalance } from '@/lib/ai-credits';
+import { anthropicInputTokens, creditTrackedAnthropic, creditTrackedStream } from '@/lib/ai/credit-accounting';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { BRAIN_TOOLS, executeBrainTool } from '@/lib/ai/brain-tools';
 import { classifyIntent } from '@/lib/ai/brain-tools/classifier';
@@ -225,7 +225,8 @@ export async function POST(req: Request): Promise<Response> {
     .set({ updatedAt: new Date() })
     .where(eq(aiConversations.id, convId));
 
-  const anthropic = new Anthropic({ apiKey: resolved.key });
+  const creditContext = { clientId: client.id, source: resolved.source, category: 'ai' };
+  const anthropic = creditTrackedAnthropic(new Anthropic({ apiKey: resolved.key }), creditContext);
 
   // ── 7. SSE stream with agentic tool loop.
   const encoder = new TextEncoder();
@@ -270,22 +271,9 @@ export async function POST(req: Request): Promise<Response> {
           console.error('[brain/agent] persist error', persistErr);
         }
 
-        // Credits + audit (best-effort, platform-key only).
+        // Every provider call has already settled its own reservation, including
+        // partial/error turns. Conversation IDs are not charge identifiers.
         const totalTokens = totalInputTokens + totalOutputTokens;
-        if (resolved.source === 'platform' && totalTokens > 0) {
-          try {
-            await deductCredits(
-              client.id,
-              totalTokens,
-              'ai',
-              String(convId),
-              `Brain Agent #${convId}`,
-            );
-          } catch (creditErr) {
-            console.error('[brain/agent] deduct error', creditErr);
-          }
-        }
-        void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
         try {
           if (errMessage) {
@@ -353,13 +341,13 @@ export async function POST(req: Request): Promise<Response> {
 
           if (isLikelyFinalTurn) {
             // Use streaming for the final text-generating turn.
-            const sdkStream = anthropic.messages.stream({
+            const sdkStream = await creditTrackedStream(anthropic, {
               model: loopModel,
               max_tokens: MAX_TOKENS,
               system: systemPrompt,
               tools: BRAIN_TOOLS,
               messages: currentMessages,
-            });
+            }, creditContext);
 
             let stopReason: string | null = null;
             // Use a mutable accumulation type; cast to Anthropic.ContentBlock when passing to SDK.
@@ -372,7 +360,7 @@ export async function POST(req: Request): Promise<Response> {
 
             for await (const event of sdkStream) {
               if (event.type === 'message_start') {
-                streamInputTokens = event.message.usage.input_tokens ?? 0;
+                streamInputTokens = anthropicInputTokens(event.message.usage);
                 streamOutputTokens = event.message.usage.output_tokens ?? 0;
               } else if (event.type === 'content_block_start') {
                 if (event.content_block.type === 'text') {
@@ -390,7 +378,8 @@ export async function POST(req: Request): Promise<Response> {
                 if (event.delta.type === 'text_delta' && block?.type === 'text') {
                   (block as MutableTextBlock).text += event.delta.text;
                   finalText += event.delta.text;
-                  write({ type: 'token', text: event.delta.text });
+                  // Buffer until grounding completes. Emitting first and adding
+                  // a disclaimer afterward exposes unsupported claims live.
                 } else if (event.delta.type === 'input_json_delta' && block?.type === 'tool_use') {
                   // Accumulate tool input JSON — will be parsed after stream ends.
                   const toolBlock = block as MutableToolBlock;
@@ -476,7 +465,7 @@ export async function POST(req: Request): Promise<Response> {
               messages: currentMessages,
             });
 
-            totalInputTokens += response.usage.input_tokens;
+            totalInputTokens += anthropicInputTokens(response.usage);
             totalOutputTokens += response.usage.output_tokens;
 
             if (response.stop_reason === 'tool_use') {
@@ -525,9 +514,6 @@ export async function POST(req: Request): Promise<Response> {
               .join('');
 
             // Emit all text as tokens so the client gets something.
-            if (finalText) {
-              write({ type: 'token', text: finalText });
-            }
             break;
           }
         }
@@ -554,12 +540,16 @@ export async function POST(req: Request): Promise<Response> {
           });
 
           if (grounding.uncertain) {
-            finalText = `I don't have enough reliable information in the Company Brain to answer this with confidence.\n\n${finalText}`;
+            finalText = "I don't have enough reliable information in the Company Brain to answer this with confidence.";
           }
+          write({ type: 'token', text: finalText });
         }
 
         await finalize();
       } catch (err) {
+        // Partial, unchecked inference must not become replayable conversation
+        // evidence when a provider/tool/credit error interrupted the turn.
+        finalText = '';
         const msg = err instanceof Error ? err.message : 'Stream error';
         console.error('[brain/agent] inference error', err);
         await finalize(msg);

@@ -89,7 +89,8 @@ vi.mock('@/lib/db', () => {
     };
     chain.where = () => chain;
     chain.limit = async () => {
-      const out = await dbHandlers.selectHandler(currentTable);
+      const out = (currentTable as { __table?: string })?.__table === 'users'
+        ? [{ active: true, role: 'client' }] : await dbHandlers.selectHandler(currentTable);
       return out;
     };
     // For cron route: select().from(...).where(...) is awaited directly
@@ -765,13 +766,25 @@ describe('GET /api/cron/renew-gmail-watches', () => {
     expect(res.status).toBe(401);
   });
 
-  it('accepts the Vercel cron header with no candidates', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     dbHandlers.selectHandler = () => [];
     const { GET } = await import('@/app/api/cron/renew-gmail-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-gmail-watches', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    dbHandlers.selectHandler = () => [];
+    const { GET } = await import('@/app/api/cron/renew-gmail-watches/route');
+    const res = await GET(
+      new Request('http://x/api/cron/renew-gmail-watches', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -799,7 +812,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
   });
 
   it('filters out connections without a gmail scope', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     dbHandlers.selectHandler = () => [
       {
         id: 10,
@@ -814,7 +827,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-gmail-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-gmail-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -825,7 +838,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
   });
 
   it('skips connections whose gmailWatchExpiration is far in the future', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     const farFuture = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     dbHandlers.selectHandler = () => [
       {
@@ -841,7 +854,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-gmail-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-gmail-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = await res.json();
@@ -849,7 +862,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
   });
 
   it('skips connections whose tenant credentials are missing', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     dbHandlers.selectHandler = () => [
       {
         id: 20,
@@ -865,7 +878,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-gmail-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-gmail-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = await res.json();
@@ -876,7 +889,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
   });
 
   it('skips connections whose tenant credentials are revoked', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     dbHandlers.selectHandler = () => [
       {
         id: 21,
@@ -896,7 +909,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-gmail-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-gmail-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = await res.json();
@@ -906,7 +919,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
   });
 
   it('renews an eligible connection and persists refreshed tokens', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     dbHandlers.selectHandler = () => [
       {
         id: 30,
@@ -941,7 +954,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-gmail-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-gmail-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -958,7 +971,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
   });
 
   it('keeps existing tokens when refreshIfExpired reports no refresh', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     dbHandlers.selectHandler = () => [
       {
         id: 31,
@@ -988,7 +1001,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-gmail-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-gmail-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -999,7 +1012,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
   });
 
   it('isolates per-row failures and reports them in the envelope', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     dbHandlers.selectHandler = () => [
       {
         id: 40,
@@ -1036,7 +1049,7 @@ describe('GET /api/cron/renew-gmail-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-gmail-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-gmail-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);

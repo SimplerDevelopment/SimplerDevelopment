@@ -24,7 +24,7 @@ import { Gradients, T, linearGradientProps } from '@/lib/theme';
 /**
  * Sign-in — native credentials form.
  *
- * Replaces the original in-app-browser bridge. POSTs `{ email, password }`
+ * Replaces the original in-app-browser bridge. POSTs `{ email, password, totpCode? }`
  * to `/api/portal/auth/mobile-sign-in` via `useAuth().signInWithCredentials`.
  * On success: token is persisted, `(tabs)` is the next stop — NO onboarding
  * chain (pick-workspace / meet-assistant / etc. are no longer auto-routed).
@@ -37,6 +37,7 @@ export default function SignIn() {
   const { signInWithCredentials } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,12 +49,12 @@ export default function SignIn() {
     setBusy(true);
     setError(null);
     try {
-      await signInWithCredentials({ email: email.trim(), password });
+      await signInWithCredentials({ email: email.trim(), password, totpCode });
       router.replace('/(tabs)');
     } catch (err) {
       if (err instanceof AuthError) {
         if (err.code === 'invalid_token') {
-          setError('Wrong email or password.');
+          setError('Check your email, password and authenticator code.');
         } else if (err.code === 'network') {
           setError("Couldn't reach SimplerDevelopment. Check your connection and try again.");
         } else {
@@ -285,6 +286,20 @@ export default function SignIn() {
             </View>
 
             {/* Forgot password */}
+            <TextInput
+              value={totpCode}
+              onChangeText={setTotpCode}
+              placeholder="Authenticator code (if enabled)"
+              placeholderTextColor="rgba(255,255,255,0.55)"
+              accessibilityLabel="Authenticator code"
+              keyboardType="number-pad"
+              maxLength={6}
+              autoComplete="one-time-code"
+              textContentType="oneTimeCode"
+              editable={!busy}
+              style={{ backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 12,
+                padding: 14, color: 'white', marginBottom: 12 }}
+            />
             <Pressable
               onPress={handleForgotPassword}
               style={({ pressed }) => ({

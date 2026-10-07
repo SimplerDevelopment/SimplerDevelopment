@@ -16,6 +16,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { anthropicInputTokens } from '@/lib/ai/credit-accounting';
 import { PORTAL_DOMAINS, type PortalDomain } from './domains';
 
 export interface PortalClassification {
@@ -92,7 +93,7 @@ export async function classifyPortalRequest(
           complexity: input.complexity === 'simple' ? 'simple' : 'complex',
           domains: parseDomains(input.domains),
           reasoning: String(input.reasoning ?? ''),
-          inputTokens: response.usage.input_tokens,
+          inputTokens: anthropicInputTokens(response.usage),
           outputTokens: response.usage.output_tokens,
         };
       }
@@ -104,7 +105,7 @@ export async function classifyPortalRequest(
       complexity: 'complex',
       domains: [],
       reasoning: 'fallback (no classification block)',
-      inputTokens: response.usage.input_tokens,
+      inputTokens: anthropicInputTokens(response.usage),
       outputTokens: response.usage.output_tokens,
     };
   } catch {

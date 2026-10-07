@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ runId: 
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const authResult = await authorizePortal({ action: 'read' });
+  const authResult = await authorizePortal({ action: 'read', scope: 'automations:read' });
   if (isAuthError(authResult)) return authResult.response;
 
   const userId = parseInt(session.user.id, 10);

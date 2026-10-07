@@ -18,7 +18,7 @@ export const runtime = 'nodejs';
  * fans out to the helper. Per-note `auto_purged` audit rows are written by
  * the helper so users can see what disappeared and why.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}` (matches
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}` (matches
  * `app/api/cron/brain-daily-notes/route.ts`).
  *
  * Suggested schedule: 7:15 UTC daily — staggered off the daily-notes 06:05

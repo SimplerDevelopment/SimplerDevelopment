@@ -26,7 +26,7 @@ import { isBrainEntitled } from '@/lib/brain/entitlement';
 const mockedEntitled = isBrainEntitled as unknown as ReturnType<typeof vi.fn>;
 
 function makeCtx(scopes: string[]) {
-  return { userId: 1, keyId: 1, scopes, client: { id: 1, company: 'Test Co' } } as never;
+  return { userId: 1, keyId: 1, scopes, target: { client: { id: 1, company: 'Test Co' }, role: 'owner' }, client: { id: 1, company: 'Test Co' } } as never;
 }
 function getTools(server: unknown) {
   return (server as { _registeredTools: Record<string, { handler: (...a: unknown[]) => Promise<unknown> }> })

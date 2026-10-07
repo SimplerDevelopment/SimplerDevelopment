@@ -26,12 +26,21 @@ test.describe('Public CMS API @public-cms @critical', () => {
     const { tag, cleanup: tagCleanup } = await createTestTag(clientApi, siteId);
     cleanups.push(tagCleanup);
 
+    // Client authors use normal CMS blocks; raw HTML still requires staff.
+    const forbidden = await clientApi.post(`/api/portal/cms/websites/${siteId}/posts`, {
+      title: 'Restricted HTML', slug: `restricted-${Date.now()}`,
+      content: '<p>Raw HTML</p>', published: false,
+    });
+    expect(forbidden.status).toBe(403);
+
     // Create a published post with category and tag
     publishedSlug = `pub-${Date.now()}`;
     const { post: pubPost, cleanup: pubCleanup } = await createTestPost(clientApi, siteId, {
       title: 'Published Post',
       slug: publishedSlug,
-      content: '<p>Hello from the public API test</p>',
+      content: JSON.stringify({ version: '1.0', blocks: [
+        { id: 'public-content', type: 'text', order: 0, content: 'Hello from the public API test' },
+      ] }),
       excerpt: 'Test excerpt',
       published: true,
       categoryIds: [category.id],
@@ -44,7 +53,9 @@ test.describe('Public CMS API @public-cms @critical', () => {
     const { cleanup: draftCleanup } = await createTestPost(clientApi, siteId, {
       title: 'Draft Post',
       slug: draftSlug,
-      content: '<p>This is a draft</p>',
+      content: JSON.stringify({ version: '1.0', blocks: [
+        { id: 'draft-content', type: 'text', order: 0, content: 'This is a draft' },
+      ] }),
       published: false,
     });
     cleanups.push(draftCleanup);

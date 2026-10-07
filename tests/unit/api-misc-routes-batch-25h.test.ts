@@ -186,6 +186,21 @@ beforeEach(() => {
 // ===========================================================================
 
 describe('POST /api/portal/sign-out', () => {
+  it('clears host and self-host domain cookies while keeping production Secure', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    vi.stubEnv('AUTH_COOKIE_DOMAIN', '.example.test');
+    vi.stubEnv('AUTH_INSECURE_COOKIES', '1');
+    const res = await signOutRoute.POST();
+    const cookies = res.headers.getSetCookie();
+    const sessions = cookies.filter((value) => value.startsWith('__Secure-authjs.session-token='));
+    expect(sessions.some((value) => !value.includes('Domain='))).toBe(true);
+    expect(sessions.some((value) => value.includes('Domain=.example.test'))).toBe(true);
+    expect(sessions.every((value) => value.includes('; Secure'))).toBe(true);
+    expect(cookies.some((value) => value.includes('simplerdevelopment.com'))).toBe(false);
+    vi.unstubAllEnvs();
+  });
+
   it('returns success JSON', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     const res = await signOutRoute.POST();
@@ -212,6 +227,8 @@ describe('POST /api/portal/sign-out', () => {
   });
 
   it('emits __Secure-prefixed cookies and wildcard domain in production', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.stubEnv('AUTH_COOKIE_DOMAIN', '');
     vi.stubEnv('NODE_ENV', 'production');
     const res = await signOutRoute.POST();
     const setCookies: string[] = [];
@@ -224,6 +241,7 @@ describe('POST /api/portal/sign-out', () => {
     // dedupe same-named cookies; bare-domain set is overwritten by wildcard).
     expect(joined).toMatch(/Domain=\.simplerdevelopment\.com/i);
     expect(joined).toMatch(/Secure/i);
+    vi.unstubAllEnvs();
   });
 });
 

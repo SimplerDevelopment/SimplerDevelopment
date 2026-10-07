@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 async function handle(req: NextRequest, paramsPromise: Promise<{ id: string }>) {
-  const authz = await authorizePortal({ action: 'write' });
+  const authz = await authorizePortal({ action: 'write', scope: 'media:write' });
   if (isAuthError(authz)) return authz.response;
   const { client, userId } = authz;
 

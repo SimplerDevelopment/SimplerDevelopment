@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
 
-  const authResult = await authorizePortal({ action: 'read' });
+  const authResult = await authorizePortal({ action: 'read', scope: 'crm:read' });
   if (isAuthError(authResult)) return authResult.response;
 
   const userId = parseInt(session.user.id, 10);
@@ -66,7 +66,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
 
-  const authResult = await authorizePortal({ action: 'write' });
+  const authResult = await authorizePortal({ action: 'write', scope: 'crm:write' });
   if (isAuthError(authResult)) return authResult.response;
 
   const userId = parseInt(session.user.id, 10);
@@ -108,7 +108,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
 
-  const authResult = await authorizePortal({ action: 'admin' });
+  const authResult = await authorizePortal({ action: 'admin', scope: 'crm:write' });
   if (isAuthError(authResult)) return authResult.response;
 
   const userId = parseInt(session.user.id, 10);

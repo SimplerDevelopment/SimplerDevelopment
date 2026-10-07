@@ -170,3 +170,20 @@ describe('assertBlocksAllowedForUserId', () => {
     ).rejects.toThrow(BlockGateError);
   });
 });
+
+ describe('serialized CMS content policy', () => {
+  it('rejects the same restricted tree as an object or serialized JSON', () => {
+    const tree = { blocks: [{ type: 'html-embed', inlineHtml: '<script>example()</script>' }] };
+    for (const value of [tree, JSON.stringify(tree)]) {
+      expect(() => assertBlocksAllowedForRole(value, 'client')).toThrow(BlockGateError);
+    }
+  });
+  it('rejects malformed JSON and legacy executable HTML for non-staff', () => {
+    for (const value of ['{bad-json', '<img src=x onerror=example()>']) {
+      expect(() => assertBlocksAllowedForRole(value, 'client')).toThrow(BlockGateError);
+    }
+  });
+  it('allows safe serialized blocks for clients', () => {
+    expect(() => assertBlocksAllowedForRole(JSON.stringify({blocks: [{type: 'heading', text: 'Hello'}]}), 'client')).not.toThrow();
+  });
+ });

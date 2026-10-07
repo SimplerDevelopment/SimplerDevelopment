@@ -4,13 +4,11 @@
  * A public signup POST adds a subscriber to the form's list and enrolls them
  * into matching active list_join journeys (closing the journeys loop).
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { resolveClientSiteId } from './setup/helpers';
-import { execSync } from 'child_process';
-
-const DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 function sql(q: string): string {
-  return execSync(`psql "${DB}" -At -c "${q.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+  return e2eSql(q).trim();
 }
 
 test.describe.configure({ mode: 'serial' });

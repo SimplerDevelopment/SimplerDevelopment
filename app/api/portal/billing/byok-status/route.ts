@@ -15,7 +15,7 @@ import { requiredByokProviders, allByokProviders } from '@/lib/billing/domain-ca
  * Auth: portal read (viewer+).
  */
 export async function GET() {
-  const authResult = await authorizePortal({ action: 'read' });
+  const authResult = await authorizePortal({ action: 'read', scope: 'billing:read' });
   if (isAuthError(authResult)) return authResult.response;
 
   const { client } = authResult;

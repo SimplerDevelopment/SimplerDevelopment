@@ -1,6 +1,6 @@
 // Email marketing: lists, subscribers, campaigns, segments, templates, and per-website transactional templates.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clientWebsites, clients } from './sites';
 import { brandingProfiles } from './cms';
@@ -52,10 +52,11 @@ export const emailCampaigns = pgTable('email_campaigns', {
   blockContent: json('block_content'), // BlockEditorData JSON when created via visual editor
   contentBlocks: json('content_blocks'), // Block[] tree for the new block-builder send path (parallel to template/htmlContent)
   useBlockEditor: boolean('use_block_editor').default(false).notNull(), // when true, render from contentBlocks at send time
-  status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, scheduled, sending, sent, cancelled
+  status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, scheduled, sending, partial, failed, sent, cancelled
   scheduledAt: timestamp('scheduled_at'),
   sentAt: timestamp('sent_at'),
   totalRecipients: integer('total_recipients').default(0).notNull(),
+  dispatchPlan: jsonb('dispatch_plan').$type<Array<{ id: number; email: string; unsubscribeToken: string; variant: 'a' | 'b' | null }>>(),
   totalSent: integer('total_sent').default(0).notNull(),
   totalOpened: integer('total_opened').default(0).notNull(),
   totalClicked: integer('total_clicked').default(0).notNull(),
@@ -205,6 +206,16 @@ export const websiteEmailTemplates = pgTable('website_email_templates', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// Durable provider intent precedes every dispatch. Preserve the exact payload
+// on retry and stop ambiguous resends before Resend's 24-hour key expires.
+export const emailCampaignDeliveryIntents = pgTable('email_campaign_delivery_intents', {
+  id: serial('id').primaryKey(),
+  campaignId: integer('campaign_id').notNull().references(() => emailCampaigns.id, { onDelete: 'cascade' }),
+  subscriberId: integer('subscriber_id').notNull().references(() => emailSubscribers.id, { onDelete: 'cascade' }),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+  firstAttemptAt: timestamp('first_attempt_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => [uniqueIndex('email_delivery_campaign_subscriber_idx').on(t.campaignId, t.subscriberId)]);
 
 // API keys for public SDK/API access
 

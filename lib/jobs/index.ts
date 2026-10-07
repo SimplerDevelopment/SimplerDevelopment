@@ -14,7 +14,7 @@
 
 import { and, asc, eq, isNull, lt, lte, or } from 'drizzle-orm';
 import { db as defaultDb } from '@/lib/db';
-import { internalJobs, type InternalJobType } from '@/lib/db/schema';
+import { internalJobs, orders, type InternalJobType } from '@/lib/db/schema';
 
 type Db = typeof defaultDb;
 
@@ -52,6 +52,10 @@ export const JOB_HANDLERS: Record<
     if (typeof orderId !== 'number') {
       throw new Error(`pod.submit: payload.orderId must be a number, got ${typeof orderId}`);
     }
+    const [order] = await db.select({ paymentStatus: orders.paymentStatus }).from(orders).where(eq(orders.id, orderId)).limit(1);
+    // A refund/cancellation may arrive before the fulfillment job is drained.
+    // Hold such orders for an operator rather than printing refunded goods.
+    if (!order || order.paymentStatus !== 'paid') return;
     const { submitPODOrder } = await import('@/lib/fulfillment/pod');
     // Idempotent on its own (returns early once printfulOrderId is set), so a
     // duplicate delivery is a no-op rather than a second printed garment.
@@ -66,6 +70,14 @@ export const JOB_HANDLERS: Record<
   'automation.delayed_action': async (payload, db) => {
     const { runDelayedAutomationAction } = await import('@/lib/automation/delayed-action-job');
     await runDelayedAutomationAction(payload, db);
+  },
+  'store.payment_notification': async (payload) => {
+    const { sendStorePaymentNotification } = await import('@/lib/store/payment-notification');
+    await sendStorePaymentNotification(payload);
+  },
+  'store.reservation_expire': async (payload) => {
+    const { expireCheckout } = await import('@/lib/store/checkout-expiration');
+    await expireCheckout(payload);
   },
 };
 

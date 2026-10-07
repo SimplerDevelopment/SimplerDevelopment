@@ -30,7 +30,7 @@ export const chatWidgets = pgTable('chat_widgets', {
   position: varchar('position', { length: 32 }).default('bottom-right').notNull(),
   primaryColor: varchar('primary_color', { length: 7 }).default('#0070f3').notNull(),
   awayMessage: text('away_message'),
-  // Future: AI first-line answers from Company Brain. Schema-only flag for now.
+  // Explicit opt-in to automated first-line reception; human handoffs retain their mode.
   brainEnabled: boolean('brain_enabled').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

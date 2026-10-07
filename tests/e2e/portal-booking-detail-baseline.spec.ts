@@ -1,3 +1,4 @@
+import { authenticateBrowserContext } from './setup/auth-session';
 /**
  * Portal Booking Page Detail — Refactor Baseline Spec
  *
@@ -28,20 +29,7 @@ const CLIENT_EMAIL = 'client@example.com';
 const CLIENT_PASSWORD = 'client123';
 
 async function loginAsClientOnContext(context: BrowserContext) {
-  const apiCtx = context.request;
-  const csrfRes = await apiCtx.get(`${BASE_URL}/api/auth/csrf`);
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-  const res = await apiCtx.post(`${BASE_URL}/api/auth/callback/credentials`, {
-    form: {
-      email: CLIENT_EMAIL,
-      password: CLIENT_PASSWORD,
-      csrfToken,
-      json: 'true',
-    },
-  });
-  if (res.status() >= 400) {
-    throw new Error(`Login failed: ${res.status()}`);
-  }
+  await authenticateBrowserContext(context, CLIENT_EMAIL, CLIENT_PASSWORD);
 }
 
 /**

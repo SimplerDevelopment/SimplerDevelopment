@@ -19,8 +19,8 @@ interface Tag {
 
 interface Contact {
   id: number;
-  firstName: string;
-  lastName: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   linkedinUrl: string | null;
@@ -41,8 +41,8 @@ interface Contact {
 
 // First letter of first + last name, uppercased, for the avatar fallback
 // circle. Matches the initials pattern used on brain/people/[id].
-function contactInitials(firstName: string, lastName: string): string {
-  return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase() || '?';
+function contactInitials(firstName: string | null, lastName: string | null): string {
+  return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || '?';
 }
 
 interface Activity {
@@ -179,8 +179,8 @@ export default function CrmContactDetailPage() {
   function startEditing() {
     if (!contact) return;
     setEditForm({
-      firstName: contact.firstName,
-      lastName: contact.lastName,
+      firstName: contact.firstName ?? '',
+      lastName: contact.lastName ?? '',
       email: contact.email ?? '',
       phone: contact.phone ?? '',
       linkedinUrl: contact.linkedinUrl ?? '',
@@ -354,7 +354,7 @@ export default function CrmContactDetailPage() {
                 {contactInitials(contact.firstName, contact.lastName)}
               </span>
             )}
-            <span>{contact.firstName} {contact.lastName}</span>
+            <span>{[contact.firstName, contact.lastName].filter(Boolean).join(' ') || contact.email || 'Unnamed contact'}</span>
           </span>
         }
         subtitle={

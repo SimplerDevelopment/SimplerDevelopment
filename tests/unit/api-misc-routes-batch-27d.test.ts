@@ -384,14 +384,14 @@ describe('/api/media/proxy/[...path]', () => {
     it('returns 404 when S3 has no Body', async () => {
       s3SendMock.mockResolvedValueOnce({ Body: undefined });
       const res = await mediaProxyRoute.GET(makeReq('http://x') as never, {
-        params: Promise.resolve({ path: ['missing', 'file.png'] }),
+        params: Promise.resolve({ path: ['media', 'missing', 'file.png'] }),
       });
       expect(res.status).toBe(404);
       const body = await res.json();
       expect(body.success).toBe(false);
       expect(body.error).toMatch(/not found/i);
       // Key was joined from the path segments.
-      expect(getObjectCommandCalls[0].Key).toBe('missing/file.png');
+      expect(getObjectCommandCalls[0].Key).toBe('media/missing/file.png');
       expect(getObjectCommandCalls[0].Bucket).toBe('test-bucket');
     });
 
@@ -402,7 +402,7 @@ describe('/api/media/proxy/[...path]', () => {
         ContentType: 'image/png',
       });
       const res = await mediaProxyRoute.GET(makeReq('http://x') as never, {
-        params: Promise.resolve({ path: ['uuid', 'image.png'] }),
+        params: Promise.resolve({ path: ['media', 'uuid', 'image.png'] }),
       });
       expect(res.status).toBe(200);
       expect(res.headers.get('Content-Type')).toBe('image/png');
@@ -423,7 +423,7 @@ describe('/api/media/proxy/[...path]', () => {
         ContentType: 'text/html',
       });
       const res = await mediaProxyRoute.GET(makeReq('http://x') as never, {
-        params: Promise.resolve({ path: ['evil', 'index.html'] }),
+        params: Promise.resolve({ path: ['media', 'evil', 'index.html'] }),
       });
       expect(res.status).toBe(200);
       // text/html is served inline (for html-embed iframes) with charset and CSP sandbox,
@@ -442,7 +442,7 @@ describe('/api/media/proxy/[...path]', () => {
         ContentType: undefined,
       });
       const res = await mediaProxyRoute.GET(makeReq('http://x') as never, {
-        params: Promise.resolve({ path: ['file.bin'] }),
+        params: Promise.resolve({ path: ['media', 'file.bin'] }),
       });
       expect(res.status).toBe(200);
       // Default -> not inline-safe -> attachment.
@@ -457,7 +457,7 @@ describe('/api/media/proxy/[...path]', () => {
         ContentType: 'image/jpeg; charset=binary',
       });
       const res = await mediaProxyRoute.GET(makeReq('http://x') as never, {
-        params: Promise.resolve({ path: ['photo.jpg'] }),
+        params: Promise.resolve({ path: ['media', 'photo.jpg'] }),
       });
       expect(res.status).toBe(200);
       // Original Content-Type preserved when allowed inline.
@@ -470,7 +470,7 @@ describe('/api/media/proxy/[...path]', () => {
       // Suppress the expected console.error from the catch.
       const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
       const res = await mediaProxyRoute.GET(makeReq('http://x') as never, {
-        params: Promise.resolve({ path: ['boom.png'] }),
+        params: Promise.resolve({ path: ['media', 'boom.png'] }),
       });
       expect(res.status).toBe(500);
       const body = await res.json();
@@ -479,7 +479,7 @@ describe('/api/media/proxy/[...path]', () => {
       spy.mockRestore();
     });
 
-    it('uses "download" filename when key has no segments after the slash', async () => {
+    it('rejects an empty media object key before reading S3', async () => {
       const data = new Uint8Array([1]);
       s3SendMock.mockResolvedValueOnce({
         Body: await asyncIterFromChunks([data]),
@@ -489,8 +489,8 @@ describe('/api/media/proxy/[...path]', () => {
       const res = await mediaProxyRoute.GET(makeReq('http://x') as never, {
         params: Promise.resolve({ path: [''] }),
       });
-      expect(res.status).toBe(200);
-      expect(res.headers.get('Content-Disposition')).toContain('filename="download"');
+      expect(res.status).toBe(404);
+      expect(s3SendMock).not.toHaveBeenCalled();
     });
   });
 });

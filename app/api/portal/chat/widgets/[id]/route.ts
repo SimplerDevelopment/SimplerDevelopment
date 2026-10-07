@@ -9,6 +9,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { chatWidgets } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { and, eq } from 'drizzle-orm';
 
 async function loadWidget(userId: number, widgetId: number) {
@@ -45,6 +46,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
   const body = await req.json().catch(() => ({}));
   const patch: Partial<typeof chatWidgets.$inferInsert> = { updatedAt: new Date() };
+  if (typeof body.brainEnabled === 'boolean') {
+    const authorization = await authorizePortal({ action: 'admin', scope: 'chat:write' });
+    if (isAuthError(authorization)) return authorization.response;
+    if (authorization.client.id !== result.client.id) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+    patch.brainEnabled = body.brainEnabled;
+  }
   if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
   if (typeof body.greetingMessage === 'string') patch.greetingMessage = body.greetingMessage;
   if (typeof body.position === 'string') patch.position = body.position;

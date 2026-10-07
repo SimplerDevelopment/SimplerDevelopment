@@ -14,6 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { assertMockUsed } from '@/tests/helpers/assertMockUsed';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -29,6 +30,11 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const resolveClientSiteMock = vi.fn();
+const authorizePortalSiteMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortalSite: (...args: unknown[]) => authorizePortalSiteMock(...args),
+  isAuthError: (result: object) => 'response' in result,
+}));
 vi.mock('@/lib/portal-client', () => ({
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
 }));
@@ -44,6 +50,7 @@ const assertBlocksAllowedForRoleMock = vi.fn();
 vi.mock('@/lib/security/block-allowlist', () => ({
   assertBlocksAllowedForRole: (...args: unknown[]) =>
     assertBlocksAllowedForRoleMock(...args),
+  assertCustomCodeAllowedForRole: () => undefined,
   BlockGateError: FakeBlockGateError,
 }));
 
@@ -300,6 +307,8 @@ beforeEach(() => {
   state.nextId = 1000;
 
   authMock.mockReset();
+  authorizePortalSiteMock.mockReset();
+  authorizePortalSiteMock.mockResolvedValue({ site: { id: 50 }, userId: 7, role: 'owner' });
   resolveClientSiteMock.mockReset();
   assertBlocksAllowedForRoleMock.mockReset();
 
@@ -387,6 +396,15 @@ describe('GET /api/portal/cms/websites/[siteId]/posts/[postId]', () => {
 // ---------------------------------------------------------------------------
 
 describe('PUT /api/portal/cms/websites/[siteId]/posts/[postId]', () => {
+  it('stops a forbidden writer before changing the post', async () => {
+    state.posts.push(defaultPost());
+    authorizePortalSiteMock.mockResolvedValueOnce({ response: new Response(null, {status: 403}) });
+    const res = await PUT(makeRequest({ title: 'blocked' }), makeParams('1', '1'));
+    expect(res.status).toBe(403);
+    assertMockUsed(authorizePortalSiteMock, 'authorizePortalSite');
+    expect(authorizePortalSiteMock).toHaveBeenCalledWith({siteId: 50, action: 'write'});
+    expect(state.posts[0].title).not.toBe('blocked');
+  });
   it('returns 401 when there is no session', async () => {
     authMock.mockResolvedValueOnce(null);
     const res = await PUT(makeRequest({ title: 'X' }), makeParams('1', '1'));

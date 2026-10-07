@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, clientMembers, clientServices, services, clientWebsites } from '@/lib/db/schema';
+import { clients, clientMembers, clientServices, services, clientWebsites, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient, resolveClientSite, resolvePortalSite, getPortalRole } from '@/lib/portal-client';
 import { resolvePortalFromCurrentRequest, hasScope } from '@/lib/mcp-auth';
@@ -47,11 +47,8 @@ interface AuthorizeError {
  * Role/action gate shared by authorizePortal and authorizePortalSite. Returns an
  * AuthorizeError when the role is insufficient, or null when allowed.
  *
- * When `observe` is set (the AUTH79-020 rollout on newly-guarded routes) an
- * insufficient role is LOGGED but ALLOWED until AUTH_ROLE_ENFORCE=1 — so we can
- * watch real multi-member traffic before turning enforcement on for routes that
- * never had a role gate. Routes that already enforced roles (the original
- * authorizePortal callers) pass observe=false and keep hard-enforcing.
+ * Insufficient roles are always denied. `observe` adds diagnostics for
+ * newly guarded routes without weakening enforcement.
  */
 function roleGate(
   role: PortalRole,
@@ -60,7 +57,7 @@ function roleGate(
   ctx: { clientId: number; userId: number },
 ): AuthorizeError | null {
   if (ROLE_LEVELS[role] >= ACTION_REQUIRED_LEVEL[action]) return null;
-  if (observe && process.env.AUTH_ROLE_ENFORCE !== '1') {
+  if (observe) {
     console.warn(
       JSON.stringify({
         level: 'warn',
@@ -69,10 +66,9 @@ function roleGate(
         action,
         clientId: ctx.clientId,
         userId: ctx.userId,
-        enforced: false,
+        enforced: true,
       }),
     );
-    return null;
   }
   const actionLabels: Record<PortalAction, string> = {
     read: 'view this resource',
@@ -99,7 +95,7 @@ function roleGate(
  * @param opts.scope - Explicit OAuth scope this route requires (for routes with no
  *   requireService). When omitted, the scope is derived from requireService+action.
  * @param opts.observeRole - Log-only role enforcement (AUTH79-020 rollout): when
- *   true, an insufficient role is logged but allowed until AUTH_ROLE_ENFORCE=1.
+ *   true, an insufficient role is logged and denied.
  *   Set on newly-guarded routes; omit on routes that already enforced roles.
  */
 export async function authorizePortal(opts?: {
@@ -134,12 +130,11 @@ export async function authorizePortal(opts?: {
   }
 
   // OAuth scope enforcement (AUTH79-011) — bearer tokens only. A session user has
-  // no consented-scope restriction. Rollout is LOG-ONLY: we record would-be
-  // denials against real sd_oauth_ traffic and only 403 once AUTH_SCOPE_ENFORCE=1.
-  // Existing sd_mcp_ keys are minted with ['*'] so hasScope is always true for them.
+  // no consented-scope restriction. Bearer routes must declare and grant a scope;
+  // missing declarations deny access instead of silently exempting tenant data.
   if (bearer) {
     const requiredScope = requiredScopeFor(opts);
-    if (requiredScope && !hasScope(bearer.scopes, requiredScope)) {
+    if (!requiredScope || !hasScope(bearer.scopes, requiredScope)) {
       console.warn(
         JSON.stringify({
           level: 'warn',
@@ -149,22 +144,27 @@ export async function authorizePortal(opts?: {
           granted_scopes: bearer.scopes,
           clientId: client.id,
           userId,
-          enforced: process.env.AUTH_SCOPE_ENFORCE === '1',
+          enforced: true,
         }),
       );
-      if (process.env.AUTH_SCOPE_ENFORCE === '1') {
-        return {
-          response: NextResponse.json(
-            { success: false, error: 'insufficient_scope', required_scope: requiredScope },
-            { status: 403 },
-          ),
-        };
-      }
+      return {
+        response: NextResponse.json(
+          { success: false, error: 'insufficient_scope', required_scope: requiredScope },
+          { status: 403 },
+        ),
+      };
     }
   }
 
-  // Resolve role + gate the action (log-only when observeRole is set).
-  const role = await resolveRole(userId, client);
+  // Resolve current account state and company role before gating the action.
+  const [liveUser] = await db.select({ active: users.active, role: users.role }).from(users)
+    .where(eq(users.id, userId)).limit(1);
+  if (!liveUser?.active) {
+    return { response: NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 }) };
+  }
+  const role = !bearer && ['admin', 'employee'].includes(liveUser.role)
+    ? 'admin' : await resolveRole(userId, client);
+  if (!role) return { response: NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 }) };
   const gate = roleGate(role, opts?.action ?? 'read', opts?.observeRole ?? false, {
     clientId: client.id,
     userId,
@@ -206,8 +206,8 @@ interface AuthorizeSiteResult {
  * Site-scoped authorization for `app/api/portal/websites/[siteId]/**` routes.
  * Resolves the `[siteId]` with ownership (existing behavior, via resolveClientSite)
  * AND gates the caller's role (new — AUTH79-020). Session-only: these routes don't
- * accept bearer tokens. Role enforcement defaults to LOG-ONLY (observeRole) since
- * every caller is a newly-guarded route — flip AUTH_ROLE_ENFORCE=1 to enforce.
+ * accept bearer tokens. Missing membership and insufficient roles are always
+ * denied; observeRole only adds rollout diagnostics.
  */
 export async function authorizePortalSite(opts: {
   siteId: number;
@@ -229,7 +229,11 @@ export async function authorizePortalSite(opts: {
   }
   const { site, client } = resolved;
 
-  const role = await getPortalRole(userId, client.id);
+  const [liveUser] = await db.select({ active: users.active, role: users.role }).from(users)
+    .where(eq(users.id, userId)).limit(1);
+  if (!liveUser?.active) return { response: NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 }) };
+  const role = ['admin', 'employee'].includes(liveUser.role)
+    ? 'admin' : await getPortalRole(userId, client.id);
   if (!role) {
     return { response: NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 }) };
   }
@@ -262,7 +266,7 @@ export async function resolveStoreSite(userId: number, siteId: number, preferred
 /**
  * Resolve the user's role for a given client.
  */
-async function resolveRole(userId: number, client: typeof clients.$inferSelect): Promise<PortalRole> {
+async function resolveRole(userId: number, client: typeof clients.$inferSelect): Promise<PortalRole | null> {
   // Direct owner check
   if (client.userId === userId) return 'owner';
 
@@ -273,7 +277,7 @@ async function resolveRole(userId: number, client: typeof clients.$inferSelect):
     .where(and(eq(clientMembers.clientId, client.id), eq(clientMembers.userId, userId)))
     .limit(1);
 
-  return (membership?.role as PortalRole) ?? 'viewer';
+  return membership?.role && membership.role in ROLE_LEVELS ? membership.role as PortalRole : null;
 }
 
 /**

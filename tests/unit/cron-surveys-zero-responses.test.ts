@@ -73,13 +73,25 @@ describe('GET /api/cron/surveys-zero-responses', () => {
     expect(json.success).toBe(false);
   });
 
-  it('accepts the Vercel cron header without bearer token', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     queue.push([]); // candidate query: no surveys at risk
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
     const res = await GET(
       new Request('http://x/api/cron/surveys-zero-responses', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    queue.push([]); // candidate query: no surveys at risk
+    const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
+    const res = await GET(
+      new Request('http://x/api/cron/surveys-zero-responses', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -111,7 +123,7 @@ describe('GET /api/cron/surveys-zero-responses', () => {
   });
 
   it('skips dedupe when an existing notification is within the 14-day window', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     queue.push([
       { id: 42, title: 'Customer NPS', clientId: 7, createdBy: 11, createdAt: new Date() },
     ]);
@@ -120,7 +132,7 @@ describe('GET /api/cron/surveys-zero-responses', () => {
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
     const res = await GET(
       new Request('http://x/api/cron/surveys-zero-responses', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -132,7 +144,7 @@ describe('GET /api/cron/surveys-zero-responses', () => {
   });
 
   it('files a notification with the documented payload shape when no recent dup exists', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     queue.push([
       { id: 42, title: 'Customer NPS', clientId: 7, createdBy: 11, createdAt: new Date() },
     ]);
@@ -141,7 +153,7 @@ describe('GET /api/cron/surveys-zero-responses', () => {
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
     const res = await GET(
       new Request('http://x/api/cron/surveys-zero-responses', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -164,7 +176,7 @@ describe('GET /api/cron/surveys-zero-responses', () => {
   });
 
   it('skips a candidate with a null owner without crashing', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     queue.push([
       { id: 42, title: 'Orphan Survey', clientId: 7, createdBy: null, createdAt: new Date() },
     ]);
@@ -173,7 +185,7 @@ describe('GET /api/cron/surveys-zero-responses', () => {
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
     const res = await GET(
       new Request('http://x/api/cron/surveys-zero-responses', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);

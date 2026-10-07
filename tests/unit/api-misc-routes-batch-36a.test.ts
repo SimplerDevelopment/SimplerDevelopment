@@ -65,6 +65,12 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+const authorizePortalSiteMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortalSite: (...args: unknown[]) => authorizePortalSiteMock(...args),
+  isAuthError: (result: { response?: unknown }) => 'response' in result,
+}));
+
 const uploadToS3Mock = vi.fn();
 vi.mock('@/lib/s3/upload', () => ({
   uploadToS3: (...args: unknown[]) => uploadToS3Mock(...args),
@@ -226,6 +232,8 @@ beforeEach(() => {
   resolveClientSiteMock.mockResolvedValue({ id: 55, brandingProfileId: 99 });
   getPortalClientMock.mockResolvedValue({ id: 10 });
   assertBlocksAllowedForRoleMock.mockReturnValue(undefined);
+  authorizePortalSiteMock.mockReset();
+  authorizePortalSiteMock.mockResolvedValue({ site: { id: 55 }, role: 'owner', userId: 7 });
 });
 
 // ===========================================================================
@@ -633,6 +641,13 @@ describe('GET /api/portal/cms/websites/[siteId]/posts', () => {
 // ===========================================================================
 
 describe('POST /api/portal/cms/websites/[siteId]/posts', () => {
+  it('stops before inserting when the current company role cannot write', async () => {
+    authorizePortalSiteMock.mockResolvedValue({ response: Response.json({ success: false }, { status: 403 }) });
+    const res = await POSTS_POST(makeReq({ title: 'Draft', slug: 'draft', content: {} }), siteParams('55'));
+    expect(res.status).toBe(403);
+    expect(authorizePortalSiteMock).toHaveBeenCalledWith({ siteId: 55, action: 'write' });
+    expect(insertCalls).toHaveLength(0);
+  });
   function makeReq(body: unknown): Request {
     return new Request('http://x/api/portal/cms/websites/55/posts', {
       method: 'POST',

@@ -21,7 +21,6 @@
 import { NextResponse } from 'next/server';
 
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
-import { hasCredits } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { voiceToolsForRealtime } from '@/lib/voice/tools';
@@ -40,7 +39,7 @@ Never invent data — if a tool returns nothing, say so. Format money as dollars
 
 export async function POST(req: Request) {
   // ── 1. Auth (session cookie or bearer). 'write' so the assistant may act.
-  const authed = await authorizePortal({ action: 'write' });
+  const authed = await authorizePortal({ action: 'write', scope: 'chat:write' });
   if (isAuthError(authed)) return authed.response;
   const { client } = authed;
 
@@ -55,13 +54,13 @@ export async function POST(req: Request) {
 
   const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'openai' });
   if (resolved.source === 'platform') {
-    const ok = await hasCredits(client.id);
-    if (!ok) {
-      return NextResponse.json(
-        { success: false, message: 'Insufficient AI credits for voice.' },
-        { status: 402 },
-      );
-    }
+    // Browser-to-provider Realtime usage is not reported by a trusted server
+    // meter. Issuing a platform session here would allow unbounded unbilled use.
+    return NextResponse.json({
+      success: false,
+      message: 'Voice requires your own OpenAI key. Add it in Settings → API Keys.',
+      reason: 'voice_requires_byok',
+    }, { status: 402 });
   }
 
   // ── 3. Optional page context from the client (truncated, untrusted).

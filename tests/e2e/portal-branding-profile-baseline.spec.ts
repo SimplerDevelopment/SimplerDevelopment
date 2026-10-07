@@ -1,3 +1,4 @@
+import { authenticateBrowserContext } from './setup/auth-session';
 /**
  * Brand Profile Editor — UI baseline spec
  *
@@ -21,11 +22,7 @@ const CLIENT_EMAIL = 'client@example.com';
 const CLIENT_PASSWORD = 'client123';
 
 async function loginAsClient(page: Page) {
-  const csrfRes = await page.request.get('/api/auth/csrf');
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-  await page.request.post('/api/auth/callback/credentials', {
-    form: { email: CLIENT_EMAIL, password: CLIENT_PASSWORD, csrfToken, json: 'true' },
-  });
+  await authenticateBrowserContext(page.context(), CLIENT_EMAIL, CLIENT_PASSWORD);
 }
 
 async function createBrandProfile(api: ApiClient, name: string) {

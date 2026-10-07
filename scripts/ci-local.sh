@@ -72,16 +72,16 @@ step "doc drift"                       bun scripts/check-doc-drift.ts
 # .claude/worktrees/ are created WITHOUT an install, so "$PWD/node_modules" is
 # frequently missing (or an empty dir holding only .cache/.vite from a prior
 # vitest run). Symlinking that produced a 37s failure with a misleading
-# "Cannot find module .../node_modules/.bin/tsc" that reads like a type error.
+# "Cannot find module .../node_modules/typescript/bin/tsc" that reads like a type error.
 # Fall back to the main checkout's install, which a worktree shares anyway.
 resolve_node_modules() {
   local nm="$PWD/node_modules" main_root
-  if [ ! -x "$nm/.bin/tsc" ]; then
+  if [ ! -f "$nm/typescript/bin/tsc" ]; then
     main_root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")
-    if [ -n "$main_root" ] && [ -x "$main_root/node_modules/.bin/tsc" ]; then
+    if [ -n "$main_root" ] && [ -f "$main_root/node_modules/typescript/bin/tsc" ]; then
       nm="$main_root/node_modules"
     else
-      printf '\033[31mERROR: no node_modules containing .bin/tsc found.\033[0m\n' >&2
+      printf '\033[31mERROR: no node_modules containing typescript/bin/tsc found.\033[0m\n' >&2
       printf '\033[31m       Looked in: %s\033[0m\n' "$PWD/node_modules" >&2
       [ -n "$main_root" ] && printf '\033[31m              and: %s\033[0m\n' "$main_root/node_modules" >&2
       printf '\033[31m       Run `bun install` (in this worktree or the main checkout).\033[0m\n' >&2
@@ -94,14 +94,44 @@ resolve_node_modules() {
 # next-env.d.ts / .next/types are gitignored, so absent from a HEAD checkout;
 # copy the ambient Next types in (if present) so this matches a normal tsc run.
 prepare_tc_dir() {
-  local dir="$1" nm="$2"
-  [ -e "$dir/node_modules" ] || ln -s "$nm" "$dir/node_modules"
-  [ -f next-env.d.ts ] && cp next-env.d.ts "$dir/next-env.d.ts"
+  local dir="$1" nm="$2" expected_head="$3" checkout_root actual_head
+  actual_head=$(git -C "$dir" rev-parse HEAD) || return 1
+  checkout_root=$(git -C "$dir" rev-parse --show-toplevel) || return 1
+  if [ "$actual_head" != "$expected_head" ]; then
+    echo "ERROR: isolated typecheck checkout does not match the requested commit." >&2
+    return 1
+  fi
+  if [ "$(bun -p 'process.platform')" = "win32" ]; then
+    # MSYS ln can copy directories instead of linking them. A Windows junction
+    # avoids copying dependencies and works without symlink privileges.
+    local dir_win nm_win root_win
+    command -v cygpath >/dev/null || { echo "ERROR: cygpath is required on Windows." >&2; return 1; }
+    dir_win=$(cygpath -w "$dir") || return 1
+    nm_win=$(cygpath -w "$nm") || return 1
+    root_win=$(cygpath -w "$checkout_root") || return 1
+    bun -e '
+      const fs = require("node:fs"), path = require("node:path");
+      const [dir, nm, root] = process.argv.slice(-3);
+      if (path.relative(fs.realpathSync(root), fs.realpathSync(dir)) !== "")
+        throw new Error("Typecheck directory must be the isolated Git checkout root");
+      const link = path.join(dir, "node_modules");
+      if (!fs.existsSync(link)) fs.symlinkSync(nm, link, "junction");
+      if (path.relative(fs.realpathSync(nm), fs.realpathSync(link)) !== "")
+        throw new Error("Typecheck dependencies resolve to an unexpected directory");
+      if (!fs.statSync(path.join(link, "typescript/bin/tsc")).isFile())
+        throw new Error("TypeScript compiler is missing from the dependency junction");
+    ' "$dir_win" "$nm_win" "$root_win" || return 1
+  else
+    [ "$(cd "$dir" && pwd -P)" = "$(cd "$checkout_root" && pwd -P)" ] || return 1
+    [ -e "$dir/node_modules" ] || ln -s "$nm" "$dir/node_modules" || return 1
+    [ -f "$dir/node_modules/typescript/bin/tsc" ] || return 1
+  fi
+  if [ -f next-env.d.ts ]; then cp next-env.d.ts "$dir/next-env.d.ts" || return 1; fi
   return 0
 }
 
 run_tsc_in() {
-  ( cd "$1" && node --max-old-space-size=6144 node_modules/.bin/tsc --noEmit )
+  ( cd "$1" && node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit )
 }
 
 # Slow path: a throwaway worktree. Correct but always cold (~5 min). Used when
@@ -116,8 +146,9 @@ typecheck_ephemeral() {
     rm -rf "$tmpdir"
     return 1
   fi
-  prepare_tc_dir "$tmpdir" "$nm"
-  run_tsc_in "$tmpdir" || rc=$?
+  if prepare_tc_dir "$tmpdir" "$nm" "$(git rev-parse HEAD)"; then
+    run_tsc_in "$tmpdir" || rc=$?
+  else rc=1; fi
   git worktree remove -f "$tmpdir" >/dev/null 2>&1 || rm -rf "$tmpdir"
   return $rc
 }
@@ -180,7 +211,7 @@ typecheck_committed() {
     fi
   fi
 
-  prepare_tc_dir "$wt" "$nm"
+  prepare_tc_dir "$wt" "$nm" "$head_sha" || return 1
   run_tsc_in "$wt" || rc=$?
   return $rc
 }

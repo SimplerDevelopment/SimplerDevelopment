@@ -24,7 +24,7 @@ export const runtime = 'nodejs';
  * Idempotent on (clientId, sourceRef=driveFileId) — re-running on the same
  * file updates the existing row instead of duplicating.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 async function _GET(req: Request) {
   if (!isAuthorizedCron(req)) {

@@ -42,7 +42,7 @@ export async function POST() {
   }
 
   const secret = generateTOTPSecret();
-  await db.update(users).set({ totpSecret: secret, updatedAt: new Date() }).where(eq(users.id, userId));
+  await db.update(users).set({ totpSecret: secret, mfaLastUsedStep: null, updatedAt: new Date() }).where(eq(users.id, userId));
 
   return NextResponse.json({
     success: true,

@@ -130,13 +130,25 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
     expect(json.success).toBe(false);
   });
 
-  it('accepts the Vercel cron header and returns empty counters for an empty queue', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     selectQueue.push([]); // no due rules
     const { GET } = await import('@/app/api/cron/process-scheduled-automations/route');
     const res = await GET(
       new Request('http://x/api/cron/process-scheduled-automations', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    selectQueue.push([]); // no due rules
+    const { GET } = await import('@/app/api/cron/process-scheduled-automations/route');
+    const res = await GET(
+      new Request('http://x/api/cron/process-scheduled-automations', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -170,7 +182,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
   });
 
   it('fires a rule when the CAS claim wins (returning() yields 1 row)', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     const rule = {
       id: 42,
       clientId: 1,
@@ -187,7 +199,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
     const { GET } = await import('@/app/api/cron/process-scheduled-automations/route');
     const res = await GET(
       new Request('http://x/api/cron/process-scheduled-automations', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -203,7 +215,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
   });
 
   it('skips a rule when the CAS update returns 0 rows (lost the race)', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 99,
@@ -220,7 +232,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
     const { GET } = await import('@/app/api/cron/process-scheduled-automations/route');
     const res = await GET(
       new Request('http://x/api/cron/process-scheduled-automations', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -235,7 +247,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
   });
 
   it('isolates a single bad rule: errors increments, sibling rules still fire', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 1,
@@ -279,7 +291,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
     const { GET } = await import('@/app/api/cron/process-scheduled-automations/route');
     const res = await GET(
       new Request('http://x/api/cron/process-scheduled-automations', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -297,7 +309,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
   });
 
   it('skips rules whose schedule or nextRunAt is null without crashing', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     // SQL filters these out under the partial index, but the route's
     // belt-and-suspenders null-check still must not throw.
     selectQueue.push([
@@ -325,7 +337,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
     const { GET } = await import('@/app/api/cron/process-scheduled-automations/route');
     const res = await GET(
       new Request('http://x/api/cron/process-scheduled-automations', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -340,7 +352,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
   });
 
   it('passes the recomputed nextRunAt into the CAS update (delegates to computeNextRunAt)', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 77,
@@ -360,7 +372,7 @@ describe('GET /api/cron/process-scheduled-automations', { timeout: TEST_TIMEOUT_
     const { GET } = await import('@/app/api/cron/process-scheduled-automations/route');
     const res = await GET(
       new Request('http://x/api/cron/process-scheduled-automations', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);

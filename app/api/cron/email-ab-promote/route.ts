@@ -8,7 +8,7 @@
  * logic the manual promote-winner route uses. A per-campaign failure is
  * recorded and logged without aborting the batch.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  * Schedule: every 30 minutes — window is 4h, so 30min polling is fine.
  */
 

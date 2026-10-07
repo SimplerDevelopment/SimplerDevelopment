@@ -165,7 +165,7 @@ describe('runCampaignSendJob', () => {
     expect(state.updates.filter(u => u.table === 'email_campaigns')).toHaveLength(0);
   });
 
-  it('cancels the campaign on the FINAL attempt, then rethrows', async () => {
+  it('marks delivery failed on the FINAL attempt, then rethrows', async () => {
     mockExecuteCampaignSend.mockRejectedValueOnce(new Error('no resend key'));
     state.selects = [
       [[{ id: 5, clientId: 9, status: 'sending' }]],
@@ -174,6 +174,22 @@ describe('runCampaignSendJob', () => {
     await expect(runCampaignSendJob(payload, db)).rejects.toThrow('no resend key');
     const cancels = state.updates.filter(u => u.table === 'email_campaigns');
     expect(cancels).toHaveLength(1);
-    expect(cancels[0].set.status).toBe('cancelled');
+    expect(cancels[0].set.status).toBe('failed');
+  });
+
+  it('treats partial delivery as retryable and runs the remaining recipients on the next attempt', async () => {
+    state.selects = [
+      [[{ id: 5, clientId: 9, status: 'sending' }]],
+      [[{ attemptCount: 0 }]],
+    ];
+    mockExecuteCampaignSend.mockResolvedValueOnce({ sent: 2, failed: 1, total: 3 });
+    await expect(runCampaignSendJob(payload, db)).rejects.toThrow('Campaign delivery incomplete: 1 recipients failed');
+    expect(state.updates).toHaveLength(0);
+    const partial = { id: 5, clientId: 9, status: 'partial' };
+    state.selects = [[[partial]]];
+    mockExecuteCampaignSend.mockResolvedValueOnce({ sent: 1, failed: 0, total: 1 });
+    await expect(runCampaignSendJob(payload, db)).resolves.toBeUndefined();
+    expect(mockExecuteCampaignSend).toHaveBeenLastCalledWith(5, partial);
+    expect(mockExecuteCampaignSend).toHaveBeenCalledTimes(2);
   });
 });

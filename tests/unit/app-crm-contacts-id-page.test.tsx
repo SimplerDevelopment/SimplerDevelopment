@@ -214,6 +214,21 @@ async function flush() {
 
 describe('CrmContactDetailPage', () => {
   describe('initial load + header', () => {
+    it.each([
+      { firstName: 'Jane', lastName: null, email: 'jane@example.test', name: 'Jane', initials: 'J' },
+      { firstName: null, lastName: 'Doe', email: 'jane@example.test', name: 'Doe', initials: 'D' },
+      { firstName: null, lastName: null, email: 'jane@example.test', name: 'jane@example.test', initials: '?' },
+      { firstName: null, lastName: null, email: null, name: 'Unnamed contact', initials: '?' },
+    ])('renders nullable names in the contact header: $name', async ({ name, initials, ...fields }) => {
+      setFetchHandler((url, init) => url === '/api/portal/crm/contacts/7' && !init?.method
+        ? jsonResponse({ success: true, data: { contact: { ...baseContact, ...fields }, deals: baseDeals } })
+        : defaultFetch(url, init));
+      const { container } = render(<CrmContactDetailPage />);
+      await waitFor(() => expect(container.querySelector('h1')?.textContent).toContain(name));
+      expect(container.querySelector('h1 span.rounded-full.font-bold')?.textContent).toBe(initials);
+      expect(container.querySelector('h1')?.textContent).not.toContain('null');
+    });
+
     it('renders the contact name and status', async () => {
       const { container } = await renderPage();
       expect(container.textContent).toContain('Jane Doe');

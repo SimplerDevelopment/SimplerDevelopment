@@ -17,7 +17,7 @@
  *
  * Cap each tick at 100 sends to stay well under Resend's rate limit.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`,
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`,
  * matching app/api/cron/process-embeddings/route.ts.
  */
 

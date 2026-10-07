@@ -749,13 +749,10 @@ describe('classifyAndLinkCrm — credits + final audit', () => {
       usage: { inputTokens: 3000, outputTokens: 500, totalTokens: 3500 }, // 3 + 2 = 5
     });
     await classifyAndLinkCrm(baseArgs());
-    expect(deductCreditsMock).toHaveBeenCalledWith(
-      1,
-      5,
-      'brain_crm_classify',
-      'meeting:42',
-      expect.stringContaining('meeting 42'),
-    );
+    const options = completeMock.mock.calls[0][0];
+    expect(options.credits.category).toBe('brain_crm_classify');
+    expect(options.credits.price(3000, 500)).toBe(5);
+    expect(deductCreditsMock).not.toHaveBeenCalled();
   });
 
   it('floors credits at 1 even when token counts are zero', async () => {
@@ -764,7 +761,7 @@ describe('classifyAndLinkCrm — credits + final audit', () => {
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     });
     await classifyAndLinkCrm(baseArgs());
-    expect(deductCreditsMock).toHaveBeenCalledWith(1, 1, expect.anything(), expect.anything(), expect.anything());
+    expect(completeMock.mock.calls[0][0].credits.price(0, 0)).toBe(1);
   });
 
   it('does NOT charge credits when BYOK key is in use', async () => {
@@ -772,7 +769,7 @@ describe('classifyAndLinkCrm — credits + final audit', () => {
     completeMock.mockResolvedValueOnce(defaultClaudeResponse());
     await classifyAndLinkCrm(baseArgs());
     expect(deductCreditsMock).not.toHaveBeenCalled();
-    expect(recordAiUsageMock).toHaveBeenCalledWith(expect.objectContaining({ source: 'byok' }));
+    expect(completeMock.mock.calls[0][0].credits.category).toBe('brain_crm_classify');
   });
 
   it('logs brain.crm_classified audit entry on success', async () => {

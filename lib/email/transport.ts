@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import type { SendMailOptions } from 'nodemailer';
 import { Resend, type CreateEmailOptions } from 'resend';
+import { batchResultAt, EMAIL_BATCH_SIZE } from './batch';
 
 type EmailAddress = string | string[];
 
@@ -12,6 +13,7 @@ export type EmailAttachment = {
 };
 
 export type EmailPayload = {
+  idempotencyKey?: string;
   from: string;
   to: EmailAddress;
   subject: string;
@@ -31,6 +33,13 @@ export type EmailSendResponse = {
 
 export type EmailTransport = {
   send(payload: EmailPayload): Promise<EmailSendResponse>;
+  /**
+   * Send up to EMAIL_BATCH_SIZE payloads in one provider call (Resend
+   * batch API, max 100). Results are positional — results[i] belongs to
+   * payloads[i]. A whole-call transport failure throws; per-recipient
+   * failures come back as { data: null, error } entries.
+   */
+  sendBatch(payloads: EmailPayload[], options?: { idempotencyKey: string }): Promise<EmailSendResponse[]>;
 };
 
 type TransportOptions = {
@@ -59,6 +68,15 @@ function createMailpitTransport(): EmailTransport {
       const result = await transport.sendMail(payload as SendMailOptions);
       return { data: { id: result.messageId }, error: null };
     },
+    async sendBatch(payloads) {
+      // Mailpit has no batch endpoint — serial loop, same positional contract.
+      const out: EmailSendResponse[] = [];
+      for (const p of payloads) {
+        const result = await transport.sendMail(p as SendMailOptions);
+        out.push({ data: { id: result.messageId }, error: null });
+      }
+      return out;
+    },
   };
 }
 
@@ -67,15 +85,34 @@ function createResendTransport(apiKey: string): EmailTransport {
 
   return {
     async send(payload) {
+      const { idempotencyKey, ...content } = payload;
       const resendPayload: CreateEmailOptions = {
-        ...payload,
+        ...content,
         html: payload.html ?? '',
       };
-      const result = await resend.emails.send(resendPayload);
+      const result = await resend.emails.send(resendPayload, idempotencyKey ? { idempotencyKey } : undefined);
       return {
         data: result.data?.id ? { id: result.data.id } : null,
-        error: result.error?.message ? { message: result.error.message } : null,
+        error: result.error ? { message: result.error.message || JSON.stringify(result.error) } : null,
       };
+    },
+    async sendBatch(payloads, options) {
+      if (payloads.length > EMAIL_BATCH_SIZE) {
+        throw new Error(`sendBatch supports at most ${EMAIL_BATCH_SIZE} payloads`);
+      }
+      // The batch endpoint rejects attachments — campaigns never set them,
+      // but strip defensively so a future caller can't 400 the whole chunk.
+      const batchPayloads = payloads.map((p) => {
+        const copy = { ...p, html: p.html ?? '' };
+        delete copy.idempotencyKey;
+        delete copy.attachments;
+        return copy;
+      });
+      const result = await resend.batch.send(batchPayloads, { batchValidation: 'permissive', ...options });
+      if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
+      const ids = result.data?.data ?? [];
+      const errors = result.data?.errors ?? [];
+      return payloads.map((_, i) => batchResultAt(ids, errors, i));
     },
   };
 }

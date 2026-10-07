@@ -258,6 +258,7 @@ vi.mock('@/lib/db', () => {
           return row;
         });
         return {
+          onConflictDoNothing() { return Promise.resolve(); },
           returning() {
             return Promise.resolve(inserted.map((r) => ({ ...r })));
           },

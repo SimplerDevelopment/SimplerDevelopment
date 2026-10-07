@@ -190,7 +190,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     expect(res.status).toBe(401);
   });
 
-  it('accepts the Vercel cron header without bearer token', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     const { GET } = await import(
       '@/app/api/cron/renew-microsoft-subscriptions/route'
@@ -198,6 +198,19 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     const res = await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    const { GET } = await import(
+      '@/app/api/cron/renew-microsoft-subscriptions/route'
+    );
+    const res = await GET(
+      new Request('http://x/api/cron/renew-microsoft-subscriptions', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -225,7 +238,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('short-circuits with skipped envelope when Microsoft OAuth is not configured', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     getEnvMicrosoftCredentialsMock.mockImplementation(() => {
       throw new Error('MICROSOFT_CLIENT_ID is required');
     });
@@ -234,7 +247,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     const res = await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -249,14 +262,14 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('uses a fallback redirect URI when NEXTAUTH_URL is unset', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     delete process.env.NEXTAUTH_URL;
     const { GET } = await import(
       '@/app/api/cron/renew-microsoft-subscriptions/route'
     );
     await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(getEnvMicrosoftCredentialsMock).toHaveBeenCalledWith(
@@ -265,14 +278,14 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('honors NEXTAUTH_URL when set', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     process.env.NEXTAUTH_URL = 'https://staging.example.com';
     const { GET } = await import(
       '@/app/api/cron/renew-microsoft-subscriptions/route'
     );
     await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(getEnvMicrosoftCredentialsMock).toHaveBeenCalledWith(
@@ -281,7 +294,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('creates a subscription for connections that do not yet have one', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectState.rows = [
       {
         id: 11,
@@ -311,7 +324,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     const res = await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -336,7 +349,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('does not overwrite tokens when create did not refresh', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectState.rows = [
       {
         id: 12,
@@ -365,7 +378,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(updateCalls).toHaveLength(1);
@@ -377,7 +390,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('renews an existing subscription that is expiring soon', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectState.rows = [
       {
         id: 21,
@@ -403,7 +416,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     const res = await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -423,7 +436,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('persists refreshed tokens on renewal when transcripts-watch reports refresh', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectState.rows = [
       {
         id: 22,
@@ -449,7 +462,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(updateCalls[0].set).toMatchObject({
@@ -459,7 +472,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('falls back to create when renew throws SubscriptionGoneError (404)', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectState.rows = [
       {
         id: 31,
@@ -487,7 +500,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     const res = await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as {
@@ -504,7 +517,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('reports a failure entry when create throws and continues to next row', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectState.rows = [
       {
         id: 41,
@@ -546,7 +559,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     const res = await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -562,7 +575,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('annotates the error with GraphRequestError.status when available', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectState.rows = [
       {
         id: 51,
@@ -584,7 +597,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     const res = await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as {
@@ -598,7 +611,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('coerces a non-Error throw to a string in the failure entry', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectState.rows = [
       {
         id: 61,
@@ -618,7 +631,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     const res = await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as {
@@ -634,7 +647,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
   });
 
   it('iterates multiple connections in order, mixing create + renew', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectState.rows = [
       {
         id: 71,
@@ -674,7 +687,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     );
     const res = await GET(
       new Request('http://x/api/cron/renew-microsoft-subscriptions', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);

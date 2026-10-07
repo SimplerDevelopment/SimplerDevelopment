@@ -12,7 +12,7 @@ export async function GET() {
   let userId: number;
   let bearerClientId: number | null = null;
   if (bearer) {
-    // Log-only OAuth scope check (AUTH79-011) — this listing is profile-level.
+    // Profile consent is required even when the token can access another resource.
     if (!hasScope(bearer.scopes, 'profile:read')) {
       console.warn(
         JSON.stringify({
@@ -23,9 +23,10 @@ export async function GET() {
           granted_scopes: bearer.scopes,
           clientId: bearer.client.id,
           userId: bearer.userId,
-          enforced: false,
+          enforced: true,
         }),
       );
+      return NextResponse.json({ error: 'insufficient_scope', required_scope: 'profile:read' }, { status: 403 });
     }
     userId = bearer.userId;
     bearerClientId = bearer.client.id;
@@ -36,7 +37,8 @@ export async function GET() {
     }
     userId = parseInt(session.user.id, 10);
   }
-  const clients = await getPortalClientsWithRoles(userId);
+  const allClients = await getPortalClientsWithRoles(userId);
+  const clients = bearer ? allClients.filter((client) => bearer.allowedClientIds?.includes(client.id)) : allClients;
   const activeClientId = bearerClientId ?? (await getActiveClientId());
 
   // Determine effective active client

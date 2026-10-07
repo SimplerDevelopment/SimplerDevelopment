@@ -44,7 +44,7 @@ export const runtime = 'nodejs';
  * Best-effort: emails are sent via `Promise.allSettled` and the route never
  * throws — a broken digest run must not take down the cron scheduler.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}` (mirrors
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}` (mirrors
  * `app/api/cron/failing-automations-notify/route.ts`).
  */
 

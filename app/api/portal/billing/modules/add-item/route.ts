@@ -23,7 +23,7 @@ import Stripe from 'stripe';
 const MODULE_SLUGS = new Set(FEATURE_DOMAINS.map((d) => d.slug));
 
 export async function POST(req: Request) {
-  const auth = await authorizePortal({ action: 'admin' });
+  const auth = await authorizePortal({ action: 'admin', scope: 'billing:write' });
   if (isAuthError(auth)) return auth.response;
   const { client } = auth;
 

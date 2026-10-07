@@ -1,3 +1,4 @@
+import { authenticateBrowserContext, seededAccounts } from './setup/auth-session';
 /**
  * QA Portal-A: Auth / Settings / Billing Walkthrough
  *
@@ -27,16 +28,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3100';
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function loginBrowser(page: Page) {
-  const csrfRes = await page.request.get('/api/auth/csrf');
-  const { csrfToken } = await csrfRes.json() as { csrfToken: string };
-  await page.request.post('/api/auth/callback/credentials', {
-    form: {
-      email: 'client@example.com',
-      password: 'client123',
-      csrfToken,
-      json: 'true',
-    },
-  });
+  await authenticateBrowserContext(page.context(), seededAccounts.client.email, seededAccounts.client.password);
 }
 
 async function screenshotStep(page: Page, name: string) {

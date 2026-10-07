@@ -64,12 +64,23 @@ describe('GET /api/cron/stale-crm-deals — auth + envelope', () => {
     expect(json.success).toBe(false);
   });
 
-  it('accepts the Vercel cron header without bearer token', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     const { GET } = await import('@/app/api/cron/stale-crm-deals/route');
     const res = await GET(
       new Request('http://x/api/cron/stale-crm-deals', {
         headers: { 'x-vercel-cron': '1' },
+      })
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    const { GET } = await import('@/app/api/cron/stale-crm-deals/route');
+    const res = await GET(
+      new Request('http://x/api/cron/stale-crm-deals', {
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
     expect(res.status).toBe(200);

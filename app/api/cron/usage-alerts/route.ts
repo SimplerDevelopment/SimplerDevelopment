@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 /**
  * Cron endpoint: evaluate per-client usage thresholds and fire alerts.
  *
- * Auth: `Authorization: Bearer ${CRON_SECRET}` or Vercel cron header.
+ * Auth: `Authorization: Bearer ${CRON_SECRET}`.
  * Schedule: 05:15 UTC daily — after the 04:45 usage-rollup cron.
  */
 export async function GET(req: Request) {

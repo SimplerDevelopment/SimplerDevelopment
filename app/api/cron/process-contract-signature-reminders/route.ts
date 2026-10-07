@@ -8,7 +8,7 @@
  * The provider call is best-effort — a failure is logged but the reminder is
  * still recorded so we don't hammer the same contract every tick.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';

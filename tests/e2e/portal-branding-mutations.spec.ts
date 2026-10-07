@@ -1,3 +1,4 @@
+import { authenticateBrowserContext } from './setup/auth-session';
 /**
  * Portal Branding mutations — golden-path E2E (@critical).
  *
@@ -82,11 +83,7 @@ test.describe('Portal Branding — mutation lifecycle @branding @mutations @crit
     });
 
     // Carry the existing client session into the page so /portal/* loads.
-    const csrfRes = await page.request.get('/api/auth/csrf');
-    const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-    await page.request.post('/api/auth/callback/credentials', {
-      form: { email: 'client@example.com', password: 'client123', csrfToken, json: 'true' },
-    });
+    await authenticateBrowserContext(page.context(), 'client@example.com', 'client123');
 
     await page.goto(`/portal/branding/profiles/${profileId}?tab=messaging`);
     await page.waitForLoadState('networkidle');

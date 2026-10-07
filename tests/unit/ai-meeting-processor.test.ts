@@ -19,10 +19,10 @@ const anthropicCtorSpy = vi.fn();
 
 vi.mock('@anthropic-ai/sdk', () => {
   class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
+    public messages: { create: typeof messagesCreateMock; countTokens: ReturnType<typeof vi.fn> };
     constructor(opts: { apiKey: string }) {
       anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
+      this.messages = { create: messagesCreateMock, countTokens: vi.fn().mockResolvedValue({ input_tokens: 100 }) };
     }
   }
   return { default: Anthropic };
@@ -177,7 +177,11 @@ vi.mock('@/lib/brain/audit', () => ({
 
 const hasCreditsMock = vi.fn();
 const deductCreditsMock = vi.fn();
+const reserveCreditsMock = vi.fn();
+const settleCreditsMock = vi.fn();
 vi.mock('@/lib/ai-credits', () => ({
+  reserveCredits: (...args: unknown[]) => reserveCreditsMock(...args),
+  settleCredits: (...args: unknown[]) => settleCreditsMock(...args),
   hasCredits: (...args: unknown[]) => hasCreditsMock(...args),
   deductCredits: (...args: unknown[]) => deductCreditsMock(...args),
 }));
@@ -257,6 +261,8 @@ beforeEach(() => {
   setMeetingAiSummaryMock.mockReset().mockResolvedValue(undefined);
   updateMeetingStatusMock.mockReset().mockResolvedValue(undefined);
   hasCreditsMock.mockReset().mockResolvedValue(true);
+  reserveCreditsMock.mockReset().mockResolvedValue({ success: true, newBalance: 1000 });
+  settleCreditsMock.mockReset().mockResolvedValue({ success: true, newBalance: 4242 });
   deductCreditsMock.mockReset().mockResolvedValue(undefined);
   resolveClientApiKeyMock.mockReset().mockResolvedValue({ source: 'platform', key: 'sk-test' });
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);
@@ -425,12 +431,11 @@ describe('processMeetingTranscript — credits', () => {
 
     await processMeetingTranscript(baseArgs());
 
-    expect(deductCreditsMock).toHaveBeenCalledWith(
+    expect(settleCreditsMock).toHaveBeenCalledWith(
       1,
       8,
       'brain_meeting_processing',
-      'meeting:42',
-      expect.stringContaining('Processed meeting 42'),
+      expect.stringMatching(/^request:/),
     );
   });
 
@@ -441,20 +446,20 @@ describe('processMeetingTranscript — credits', () => {
 
     await processMeetingTranscript(baseArgs());
 
-    expect(deductCreditsMock).toHaveBeenCalledWith(1, 1, expect.anything(), expect.anything(), expect.anything());
+    expect(settleCreditsMock).toHaveBeenCalledWith(1, 1, expect.anything(), expect.anything());
   });
 
-  it('handles a response with no usage field — treats tokens as 0', async () => {
+  it('keeps a reservation pending when the provider returns no usage', async () => {
     messagesCreateMock.mockResolvedValueOnce({
       content: [{ type: 'text', text: JSON.stringify(defaultExtraction()) }],
       // no usage
     });
 
-    await processMeetingTranscript(baseArgs());
+    await expect(processMeetingTranscript(baseArgs())).rejects.toThrow('pending reconciliation');
 
     const job = state.brainAiJobs[0];
-    expect(job.inputTokens).toBe(0);
-    expect(job.outputTokens).toBe(0);
+    expect(job.status).toBe('failed');
+    expect(settleCreditsMock).not.toHaveBeenCalled();
   });
 });
 

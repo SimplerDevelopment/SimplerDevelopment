@@ -117,9 +117,10 @@ export function EmailAbConfig({ campaign, onChange }: Props) {
 
   async function promoteWinner(force: boolean) {
     if (!confirm(force
-      ? 'Force-promote the winner now? This will dispatch the held-back recipients immediately.'
-      : 'Promote the winner and dispatch the held-back recipients?')) return;
+      ? 'Force-promote the winner now and queue the held-back recipients?'
+      : 'Promote the winner and queue the held-back recipients?')) return;
     setPromoting(true);
+    setError(null);
     try {
       const url = `/api/portal/email/campaigns/${campaign.id}/promote-winner${force ? '?force=1' : ''}`;
       const res = await fetch(url, { method: 'POST' });
@@ -128,11 +129,13 @@ export function EmailAbConfig({ campaign, onChange }: Props) {
         setError(data.message ?? 'Promotion failed');
       } else {
         onChange({
-          status: 'sent',
+          status: data.data.queued ? 'sending' : data.data.failed > 0 ? 'partial' : 'sent',
           abWinnerSubject: data.data.winnerSubject,
           abDecidedAt: new Date().toISOString(),
         });
       }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Promotion failed');
     } finally {
       setPromoting(false);
     }

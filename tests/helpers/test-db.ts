@@ -22,7 +22,8 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { ADMIN_URL, PER_WORKER_DB, TEMPLATE_DB, TEST_SCHEMA } from './test-bootstrap';
 
@@ -200,9 +201,8 @@ export function getTestSql() {
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Replay every drizzle/*.sql against a fresh copy of TEMPLATE_DB. Idempotent
- * with respect to "already exists" errors so a previous half-built template
- * can be safely rebuilt.
+ * Apply the production migration journal to a fresh TEMPLATE_DB. Errors
+ * fail setup instead of being ignored or repaired by schema push.
  *
  * Connects to TEMPLATE_DB directly (not via @/lib/db). Returns when the
  * template is fully populated and the connection is closed — the DB is then
@@ -247,78 +247,16 @@ export async function buildTemplateDatabase(opts?: { quiet?: boolean }): Promise
     // so the template build must.
     await tpl.unsafe('CREATE EXTENSION IF NOT EXISTS vector');
     await tpl.unsafe('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+    await tpl.unsafe('CREATE EXTENSION IF NOT EXISTS pgcrypto');
 
     const dir = path.resolve(__dirname, '../../drizzle');
-    const files = fs.readdirSync(dir)
-      .filter(f => /^\d{4,}_.+\.sql$/.test(f))
-      .sort();
-
-    for (const file of files) {
-      const raw = fs.readFileSync(path.join(dir, file), 'utf8');
-      const statements = raw.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean);
-      for (const stmt of statements) {
-        // Strip CONCURRENTLY from CREATE INDEX statements: the template build
-        // runs inside an implicit transaction context (postgres-js single
-        // connection) and Postgres refuses `CREATE INDEX CONCURRENTLY` inside
-        // any transaction block. The template DB is fresh + empty, so a plain
-        // CREATE INDEX is semantically identical and instant. This also covers
-        // any future migration that uses CONCURRENTLY.
-        const normalizedStmt = stmt.replace(
-          /\bcreate(\s+unique)?\s+index\s+concurrently\b/gi,
-          (_, unique) => `CREATE${unique ? unique.toUpperCase() : ''} INDEX`,
-        );
-        try {
-          await tpl.unsafe(normalizedStmt);
-        } catch (err) {
-          const msg = (err as Error).message;
-          // Tolerate idempotent re-application: a prior partial build may
-          // have left some objects behind.
-          if (/already exists|does not exist/i.test(msg)) continue;
-          if (/duplicate key value violates unique constraint "(pg_class_|pg_type_|pg_constraint_|pg_namespace_|pg_proc_|pg_extension_)/i.test(msg)) continue;
-          throw new Error(`Template build failed at ${file}: ${msg}\nStatement: ${stmt.slice(0, 240)}`);
-        }
-      }
-      migrationCount++;
-    }
+    const journal = JSON.parse(fs.readFileSync(path.join(dir, 'meta/_journal.json'), 'utf8'));
+    // Use the production journal, fail on any migration error, and never heal
+    // drift with schema push. Missing migrations must fail the suite.
+    await migrate(drizzle(tpl), { migrationsFolder: dir });
+    migrationCount = journal.entries.length;
   } finally {
-    // CRITICAL: Postgres requires the source DB to have no active sessions
-    // before it can be used as a TEMPLATE. Close cleanly.
     await tpl.end({ timeout: 5 });
-  }
-
-  // Heal schema drift: lib/db/schema/*.ts can drift ahead of drizzle/*.sql
-  // when a column is hand-applied in prod (via psql) but the corresponding
-  // migration is never numbered into the regular sequence. `drizzle-kit push`
-  // reads the TS schema and ALTERs the template to match — purely additive
-  // here in practice, since the migration replay above created the tables.
-  // Idempotent: a no-op when schema and migrations are already in sync.
-  //
-  // SOFT-FAILS by design: if drizzle-kit is unavailable or push errors, we
-  // warn but don't break the test run. NOTE the failure mode this enables —
-  // if push times out before adding a schema-only column (e.g. `preview_code`
-  // on client_websites, or `billing_mode` on clients), tests that SELECT that
-  // column will explode with `column "X" does not exist`. The budget below
-  // covers a ~226-table schema pull + diff: the original 60s tripped
-  // routinely, and 180s still tripped (ETIMEDOUT) even on an idle machine.
-  try {
-    const repoRoot = path.resolve(__dirname, '../..');
-    execSync('npx drizzle-kit push --force', {
-      cwd: repoRoot,
-      // DRIZZLE_DATABASE_URL survives drizzle.config.ts's `.env.local`
-      // override (plain DATABASE_URL does not — see config comment).
-      env: { ...process.env, DATABASE_URL: tplUrl.toString(), DRIZZLE_DATABASE_URL: tplUrl.toString() },
-      stdio: quiet ? 'ignore' : ['ignore', 'pipe', 'pipe'],
-      timeout: 600_000,
-    });
-    if (!quiet) {
-      // eslint-disable-next-line no-console
-      console.log('[integration-api:globalSetup] drizzle-kit push healed any schema drift');
-    }
-  } catch (err) {
-    if (!quiet) {
-      // eslint-disable-next-line no-console
-      console.warn('[integration-api:globalSetup] drizzle-kit push failed (drift may persist):', (err as Error).message.slice(0, 200));
-    }
   }
 
   const elapsedMs = Date.now() - t0;

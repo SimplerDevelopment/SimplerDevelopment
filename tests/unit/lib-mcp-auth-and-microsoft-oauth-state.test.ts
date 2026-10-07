@@ -69,6 +69,8 @@ vi.mock('@/lib/db/schema', () => ({
   clients: {
     id: { name: 'id' },
   },
+  users: { id: { name: 'id' }, active: { name: 'active' } },
+  clientMembers: { id: { name: 'id' }, userId: { name: 'user_id' }, clientId: { name: 'client_id' } },
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -209,6 +211,8 @@ describe('lib/mcp-auth', () => {
       const client = { id: 200, name: 'Acme' };
       selectResults.push([record]);
       selectResults.push([client]);
+      selectResults.push([{ active: true }]);
+      selectResults.push([{ id: 1 }]);
 
       const ctx = await resolvePortalApiKey(`${PORTAL_KEY_PREFIX}good`);
 
@@ -232,6 +236,8 @@ describe('lib/mcp-auth', () => {
       };
       selectResults.push([record]);
       selectResults.push([{ id: 201, name: 'Beta' }]);
+      selectResults.push([{ active: true }]);
+      selectResults.push([{ id: 1 }]);
 
       const ctx = await resolvePortalApiKey(`${PORTAL_KEY_PREFIX}nullscopes`);
       expect(ctx!.scopes).toEqual([]);
@@ -309,6 +315,8 @@ describe('lib/mcp-auth', () => {
       const client = { id: 500, name: 'Gamma' };
       selectResults.push([record]);
       selectResults.push([client]);
+      selectResults.push([{ active: true }]);
+      selectResults.push([{ id: 1 }]);
 
       const ctx = await resolveOAuthToken(`${OAUTH_TOKEN_PREFIX}good`);
 
@@ -332,6 +340,8 @@ describe('lib/mcp-auth', () => {
         },
       ]);
       selectResults.push([{ id: 501 }]);
+      selectResults.push([{ active: true }]);
+      selectResults.push([{ id: 1 }]);
       const ctx = await resolveOAuthToken(`${OAUTH_TOKEN_PREFIX}empty`);
       expect(ctx!.scopes).toEqual([]);
     });
@@ -365,6 +375,8 @@ describe('lib/mcp-auth', () => {
       };
       selectResults.push([record]);
       selectResults.push([{ id: 600 }]);
+      selectResults.push([{ active: true }]);
+      selectResults.push([{ id: 1 }]);
 
       const ctx = await resolvePortalFromRequest(
         makeReq({ authorization: `Bearer ${OAUTH_TOKEN_PREFIX}abc123` })
@@ -384,6 +396,8 @@ describe('lib/mcp-auth', () => {
       };
       selectResults.push([record]);
       selectResults.push([{ id: 601 }]);
+      selectResults.push([{ active: true }]);
+      selectResults.push([{ id: 1 }]);
 
       const ctx = await resolvePortalFromRequest(
         makeReq({ authorization: `Bearer ${PORTAL_KEY_PREFIX}xyz` })

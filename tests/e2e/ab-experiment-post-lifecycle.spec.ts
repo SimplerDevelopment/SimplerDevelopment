@@ -1,3 +1,4 @@
+import { authenticateBrowserContext } from './setup/auth-session';
 /**
  * A/B Experiment — POST target lifecycle
  *
@@ -29,11 +30,7 @@ const CLIENT_EMAIL = 'client@example.com';
 const CLIENT_PASSWORD = 'client123';
 
 async function loginAsClient(page: Page) {
-  const csrfRes = await page.request.get('/api/auth/csrf');
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-  await page.request.post('/api/auth/callback/credentials', {
-    form: { email: CLIENT_EMAIL, password: CLIENT_PASSWORD, csrfToken, json: 'true' },
-  });
+  await authenticateBrowserContext(page.context(), CLIENT_EMAIL, CLIENT_PASSWORD);
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -110,10 +107,11 @@ test.describe('A/B experiment post lifecycle @ab @critical', () => {
     await loginAsClient(page);
     await page.goto('/portal/experiments');
     await expect(page.getByRole('heading', { name: /A\/B Experiments/ })).toBeVisible();
-    // Scope the assertions to the row containing the experiment name to keep
-    // the type-label check tight (the page renders multiple <table> rows
-    // when other agents have left fixtures behind).
-    const row = page.locator('tr', { hasText: 'A/B test — fixture' }).first();
+    // Deck and post suites run concurrently and intentionally share a title.
+    // Select this experiment by its unique detail URL rather than the first title match.
+    const row = page.locator('tr', {
+      has: page.locator(`a[href="/portal/experiments/${experimentId}"]`),
+    });
     // Cold dev-server bundle compile for /portal/experiments can exceed the
     // default 5s on the first hit under full-suite load; widen this one wait.
     await expect(row).toBeVisible({ timeout: 30_000 });

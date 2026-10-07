@@ -27,7 +27,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent, act, within } from '@testing-library/react';
 
 // ---------------------------------------------------------------------------
 // Mocks — BookingPaymentForm
@@ -70,6 +70,25 @@ function makeFetch(routes: Record<string, RouteHandler>) {
 }
 
 const flushPromises = () => new Promise<void>((r) => setTimeout(r, 0));
+const SLOT_TIME = '2026-12-15T15:00:00.000Z';
+
+// Freeze only Date: real timers still settle fetch/effect work. Calendar tests
+// and future slot fixtures must not depend on the day the suite happens to run.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-12-15T12:00:00.000Z'));
+});
+afterEach(() => { vi.useRealTimers(); });
+
+function slotButton(container: HTMLElement, time = SLOT_TIME, locale?: string) {
+  const label = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(time));
+  const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
+  // Capacity text can follow the time. Require the exact localized time prefix
+  // so unrelated buttons and another slot cannot satisfy this interaction.
+  return within(container).getByRole('button', {
+    name: name => normalize(name).startsWith(normalize(label)),
+  }) as HTMLButtonElement;
+}
 
 // ---------------------------------------------------------------------------
 // Fixture builders
@@ -144,10 +163,6 @@ async function renderWithInfo(
 // ---------------------------------------------------------------------------
 
 describe('BookingFormInline — loading and not-found', () => {
-  beforeEach(() => {
-    vi.useRealTimers();
-  });
-
   afterEach(() => {
     vi.restoreAllMocks();
     delete (global as any).fetch;
@@ -603,19 +618,41 @@ describe('BookingFormInline — time → info flow', () => {
     ]);
     expect(container.textContent).toContain('1 spot left');
     expect(container.textContent).toContain('4 spots left');
+    expect(slotButton(container)).not.toBe(slotButton(container, '2026-12-15T16:00:00.000Z'));
   });
 
   it('advances to the info step when a slot is selected (no add-ons)', async () => {
     const { container } = await setupAtTime();
-    const slotBtns = Array.from(container.querySelectorAll('button')).filter((b) =>
-      /\d{1,2}:\d{2}\s?(AM|PM)/i.test(b.textContent || ''),
-    );
-    expect(slotBtns.length).toBeGreaterThan(0);
+    const slotBtn = slotButton(container);
+    expect(slotBtn.disabled).toBe(false);
     await act(async () => {
-      fireEvent.click(slotBtns[0]);
+      fireEvent.click(slotBtn);
     });
     expect(container.textContent).toContain('Name');
     expect(container.textContent).toContain('Email');
+  });
+
+  it.each(['en-US', 'es-ES'])('selects the localized time label in %s and advances to details', async locale => {
+    const formatTime = Date.prototype.toLocaleTimeString;
+    vi.spyOn(Date.prototype, 'toLocaleTimeString').mockImplementation(function (this: Date, locales, options) {
+      return formatTime.call(this, locales ?? locale, options);
+    });
+    const { container } = await setupAtTime();
+    const button = slotButton(container, SLOT_TIME, locale);
+    expect(button.disabled).toBe(false);
+    await act(async () => { fireEvent.click(button); });
+    expect(container.querySelector('input[type="email"]')).toBeTruthy();
+    expect(container.querySelector('button[type="submit"]')).toBeTruthy();
+  });
+
+  it('does not allow selecting a fully booked slot, even without a group-size picker', async () => {
+    const { container } = await setupAtTime([{ time: SLOT_TIME, remainingCapacity: 0 }]);
+    expect(container.textContent).toContain('0 spots left');
+    const button = slotButton(container);
+    expect(button.disabled).toBe(true);
+    await act(async () => { fireEvent.click(button); });
+    expect(container.querySelector('input[type="email"]')).toBeNull();
+    expect(container.querySelector('button[type="submit"]')).toBeNull();
   });
 
   it('renders the group-size selector when maxGuests > 1', async () => {
@@ -745,9 +782,7 @@ describe('BookingFormInline — info form & submit', () => {
       fireEvent.click(dayBtn);
       await flushPromises();
     });
-    const slotBtn = Array.from(utils.container.querySelectorAll('button')).find((b) =>
-      /\d{1,2}:\d{2}\s?(AM|PM)/i.test(b.textContent || ''),
-    ) as HTMLButtonElement;
+    const slotBtn = slotButton(utils.container);
     await act(async () => {
       fireEvent.click(slotBtn);
     });
@@ -1013,9 +1048,7 @@ describe('BookingFormInline — discount + gift cert', () => {
       fireEvent.click(dayBtn);
       await flushPromises();
     });
-    const slotBtn = Array.from(utils.container.querySelectorAll('button')).find((b) =>
-      /\d{1,2}:\d{2}\s?(AM|PM)/i.test(b.textContent || ''),
-    ) as HTMLButtonElement;
+    const slotBtn = slotButton(utils.container);
     await act(async () => {
       fireEvent.click(slotBtn);
     });
@@ -1240,9 +1273,7 @@ describe('BookingFormInline — add-ons step', () => {
       fireEvent.click(dayBtn);
       await flushPromises();
     });
-    const slotBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      /\d{1,2}:\d{2}\s?(AM|PM)/i.test(b.textContent || ''),
-    ) as HTMLButtonElement;
+    const slotBtn = slotButton(container);
     await act(async () => {
       fireEvent.click(slotBtn);
     });

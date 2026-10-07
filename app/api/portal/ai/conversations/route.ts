@@ -7,7 +7,7 @@ import { eq, desc } from 'drizzle-orm';
 export async function GET() {
   try {
     // Bearer-aware (mobile) + NextAuth (web). Read access = any member.
-    const authResult = await authorizePortal({ action: 'read' });
+    const authResult = await authorizePortal({ action: 'read', scope: 'chat:read' });
     if (isAuthError(authResult)) return authResult.response;
     const { client } = authResult;
 

@@ -32,7 +32,7 @@ export const runtime = 'nodejs';
  * Errors per connection are logged but don't fail the whole job — one busted
  * row shouldn't prevent the rest from renewing.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 
 const RENEWAL_HORIZON_MS = 48 * 60 * 60 * 1000; // 48h

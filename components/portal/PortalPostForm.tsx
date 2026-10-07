@@ -120,16 +120,6 @@ function PortalPostFormInner({
     return localStorage.getItem('editor-local-port') || '3003';
   });
   const [abError, setAbError] = useState<string | null>(null);
-  // When the server-built siteUrl/publicUrl point at localhost (managed sites in
-  // dev), substitute the actual browser origin. NEXT_PUBLIC_SITE_URL defaults to
-  // http://localhost:3000, but the dev server may be running on another port
-  // (e.g. 3001 if 3000 is held by another worktree). Without this swap, the
-  // editor iframe loads nothing → blank canvas. window.location.origin is the
-  // source of truth at runtime. Captured via lazy init — safe because this
-  // component is client-only ('use client') and always renders in a browser.
-  const [originRewrite] = useState<string | null>(() =>
-    typeof window !== 'undefined' ? window.location.origin : null
-  );
 
   const contentTypes = useContentTypes(siteId);
 
@@ -177,20 +167,16 @@ function PortalPostFormInner({
 
   // On localhost, the starter site serves pages at the root (no /sites/[domain] prefix)
   const localhostBase = `http://localhost:${localPort}`;
-  // Rewrite the server-built siteUrl/publicUrl when they point at a localhost
-  // host that doesn't match the actual dev-server origin (e.g. port 3000 in the
-  // env var vs. the browser actually being on 3001). Production URLs (with a
-  // real domain) are passed through unchanged.
+  // Loopback previews use the current app origin from the first SSR render.
+  // Rewriting after hydration is too late: the browser already loads the iframe
+  // from the configured port, which can point at another app and violate CSP.
+  // Production domains and the explicit localhost starter toggle stay unchanged.
   const rewriteLocalOrigin = (url: string | null | undefined): string | null => {
-    if (!url || !originRewrite) return url ?? null;
+    if (!url) return null;
     try {
       const parsed = new URL(url);
       if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
-        const browser = new URL(originRewrite);
-        if (parsed.origin === browser.origin) return url;
-        parsed.protocol = browser.protocol;
-        parsed.host = browser.host;
-        return parsed.toString().replace(/\/$/, '');
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
       }
       return url;
     } catch {
@@ -206,9 +192,9 @@ function PortalPostFormInner({
     const basePath = `${formData.postType === 'page' ? '' : '/blog'}/${post.slug}`;
     if (!formData.published && effectiveSiteUrl) {
       const tokenParam = previewToken ? `&_token=${previewToken}` : '';
-      return `${effectiveSiteUrl}${basePath}?_preview=true${tokenParam}`;
+      return `${effectiveSiteUrl.replace(/\/$/, '')}${basePath}?_preview=true${tokenParam}`;
     }
-    if (resolvedPublicUrl) return `${resolvedPublicUrl}${basePath}`;
+    if (resolvedPublicUrl) return `${resolvedPublicUrl.replace(/\/$/, '')}${basePath}`;
     return null;
   })();
 
@@ -374,7 +360,8 @@ function PortalPostFormInner({
                   const sep = previewMode ? '?' : '&';
                   const cacheBust = iframeSaveVersion > 0 ? `${sep}_v=${iframeSaveVersion}` : '';
                   const tokenParam = previewToken ? `&_token=${previewToken}` : '';
-                  return previewMode ? `${effectiveSiteUrl}${basePath}?_preview=true${tokenParam}${cacheBust ? '&' + cacheBust.slice(1) : ''}` : `${effectiveSiteUrl}${basePath}?_edit=true${tokenParam}${cacheBust}`;
+                  const baseUrl = effectiveSiteUrl.replace(/\/$/, '');
+                  return previewMode ? `${baseUrl}${basePath}?_preview=true${tokenParam}${cacheBust ? '&' + cacheBust.slice(1) : ''}` : `${baseUrl}${basePath}?_edit=true${tokenParam}${cacheBust}`;
                 })()}
                 viewport={iframeViewport}
                 previewMode={previewMode}

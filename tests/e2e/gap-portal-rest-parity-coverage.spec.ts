@@ -12,14 +12,12 @@
  * Cross-site isolation is checked by seeding a review/message on a SECOND site
  * the tenant also owns and confirming it is invisible to the first site's route.
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups, resolveClientSiteId, createTestWebsite, createTestSurvey } from './setup/helpers';
-import { execSync } from 'child_process';
-
-const TEST_DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 
 function sql(q: string): string {
-  return execSync(`psql "${TEST_DB}" -At -c "${q.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+  return e2eSql(q).trim();
 }
 
 async function seedProduct(websiteId: number): Promise<number> {

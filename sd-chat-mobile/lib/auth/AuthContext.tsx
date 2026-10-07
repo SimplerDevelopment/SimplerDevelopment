@@ -60,7 +60,7 @@ export interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   /** Native credentials sign-in — POSTs to /api/portal/auth/mobile-sign-in. */
-  signInWithCredentials: (input: { email: string; password: string }) => Promise<void>;
+  signInWithCredentials: (input: { email: string; password: string; totpCode?: string }) => Promise<void>;
   /** Open the in-app browser and complete the bridge sign-in (legacy / SSO). */
   signInWithBrowser: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signInWithCredentials = useCallback(
-    async (input: { email: string; password: string }) => {
+    async (input: { email: string; password: string; totpCode?: string }) => {
       const result = await apiSignInWithCredentials(input);
       applySignInResult(result);
     },

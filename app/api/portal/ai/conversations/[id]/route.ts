@@ -7,7 +7,7 @@ import { eq, asc } from 'drizzle-orm';
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Bearer-aware (mobile) + NextAuth (web). Read access = any member.
-    const authResult = await authorizePortal({ action: 'read' });
+    const authResult = await authorizePortal({ action: 'read', scope: 'chat:read' });
     if (isAuthError(authResult)) return authResult.response;
     const { client } = authResult;
 
@@ -33,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 // PATCH /api/portal/ai/conversations/[id] — rename a conversation
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const authResult = await authorizePortal({ action: 'write' });
+    const authResult = await authorizePortal({ action: 'write', scope: 'chat:write' });
     if (isAuthError(authResult)) return authResult.response;
     const { client } = authResult;
 
@@ -67,7 +67,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 // DELETE /api/portal/ai/conversations/[id] — remove a conversation (messages cascade)
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const authResult = await authorizePortal({ action: 'write' });
+    const authResult = await authorizePortal({ action: 'write', scope: 'chat:write' });
     if (isAuthError(authResult)) return authResult.response;
     const { client } = authResult;
 

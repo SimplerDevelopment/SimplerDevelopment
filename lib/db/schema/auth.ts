@@ -1,6 +1,6 @@
 // Authentication & user identity (users, API keys, OAuth integrations).
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, unique } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, bigint, json, jsonb, unique } from 'drizzle-orm/pg-core';
 import { encryptedText } from './columns';
 import { clientWebsites, clients } from './sites';
 
@@ -44,6 +44,8 @@ export const users = pgTable('users', {
   // as githubConnections.accessToken). Null secret = never enrolled.
   mfaEnabled: boolean('mfa_enabled').default(false).notNull(),
   totpSecret: encryptedText('totp_secret'),
+  // A successful web/mobile login consumes a TOTP time step atomically.
+  mfaLastUsedStep: bigint('mfa_last_used_step', { mode: 'number' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

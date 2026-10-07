@@ -91,7 +91,7 @@ describe('POST /api/portal/billing/modules/verify-session — authorization', ()
     const res = await POST(makeRequest({ sessionId: 'cs_test_123' }));
 
     expect(res.status).toBe(403);
-    expect(authorizePortalMock).toHaveBeenCalledWith({ action: 'admin' });
+    expect(authorizePortalMock).toHaveBeenCalledWith({ action: 'admin', scope: 'billing:write' });
     expect(stripeSessionsRetrieveMock).not.toHaveBeenCalled();
     expect(activateModuleSubscriptionMock).not.toHaveBeenCalled();
   });

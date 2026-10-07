@@ -14,9 +14,9 @@ import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
 import { classifyPortalRequest } from '@/lib/ai/portal-tools/classifier';
 import { toolsForDomains, domainsOfToolCalls } from '@/lib/ai/portal-tools/domains';
 import { withSpan, startSpan } from '@/lib/ai/tracer';
-import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
+import { hasCredits, getBalance } from '@/lib/ai-credits';
+import { anthropicInputTokens, creditTrackedAnthropic, isAiCreditError } from '@/lib/ai/credit-accounting';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
-import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { PORTAL_CHAT_SYSTEM_PROMPT } from '@/lib/ai/portal-chat-prompt';
 import { sanitizeToolResult } from '@/lib/ai/brain-tools/sanitizer';
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
     // Service access check
-    const authResult = await authorizePortal({ action: 'write', requireService: 'ai' });
+    const authResult = await authorizePortal({ action: 'write', requireService: 'ai', scope: 'chat:write' });
     if (isAuthError(authResult)) return authResult.response;
 
     const userId = parseInt(session.user.id, 10);
@@ -79,7 +79,9 @@ export async function POST(req: Request) {
     // Resolve which key to use (BYOK > platform). Cached per request via the
     // 60s in-memory cache inside resolveClientApiKey.
     const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
-    const anthropic = new Anthropic({ apiKey: resolved.key });
+    const anthropic = creditTrackedAnthropic(new Anthropic({ apiKey: resolved.key }), {
+      clientId: client.id, source: resolved.source, category: 'ai',
+    });
 
     // Credit balance check only matters for platform-keyed calls. BYOK clients
     // pay their provider directly so we don't gate on internal credits.
@@ -171,7 +173,7 @@ export async function POST(req: Request) {
         messages: currentMessages,
       });
 
-      totalInputTokens += response.usage.input_tokens;
+      totalInputTokens += anthropicInputTokens(response.usage);
       totalOutputTokens += response.usage.output_tokens;
 
       if (response.stop_reason === 'tool_use') {
@@ -290,12 +292,8 @@ export async function POST(req: Request) {
     const totalTokens = totalInputTokens + totalOutputTokens;
     let creditsRemaining: number | null = null;
     if (resolved.source === 'platform') {
-      const creditResult = await deductCredits(client.id, totalTokens, 'ai', String(convId), `Chat conversation #${convId}`);
-      creditsRemaining = creditResult.newBalance;
+      creditsRemaining = (await getBalance(client.id)).balance;
     }
-
-    // Audit row for the call (best-effort).
-    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
     return NextResponse.json({
       success: true,
@@ -317,6 +315,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
+    if (isAiCreditError(err)) {
+      return NextResponse.json({ success: false, message: err.message, creditsRemaining: err.creditsRemaining }, { status: 402 });
+    }
     console.error('[POST /api/portal/ai/chat]', err);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
   }

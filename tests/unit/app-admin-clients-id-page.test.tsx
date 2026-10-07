@@ -614,7 +614,8 @@ describe('ClientDetailPage', () => {
       await renderPage();
       fireEvent.click(screen.getByRole('button', { name: 'Billing' }));
       await waitFor(() => expect(screen.getByText('Current period totals')).toBeTruthy());
-      await waitFor(() => expect(screen.getAllByText('1,234').length).toBeGreaterThan(0));
+      // Billing totals follow the viewer's locale, including locales without 4-digit grouping.
+      await waitFor(() => expect(screen.getAllByText(new Intl.NumberFormat().format(1234)).length).toBeGreaterThan(0));
       expect(screen.getByText('567')).toBeTruthy();
     });
 
@@ -630,7 +631,7 @@ describe('ClientDetailPage', () => {
       await renderPage();
       fireEvent.click(screen.getByRole('button', { name: 'Billing' }));
       await waitFor(() => expect(screen.getByText('Rollup preview (dry run)')).toBeTruthy());
-      expect(screen.getByText('11,840')).toBeTruthy();
+      expect(screen.getByText(new Intl.NumberFormat().format(11840))).toBeTruthy();
     });
 
     it('shows rollup history', async () => {

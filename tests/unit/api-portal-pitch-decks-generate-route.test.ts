@@ -32,8 +32,12 @@ vi.mock('@/lib/pitch-deck-versions', () => ({
 
 const hasCreditsMock = vi.fn();
 const deductCreditsMock = vi.fn();
+const reserveCreditsMock = vi.fn();
+const settleCreditsMock = vi.fn();
 const getBalanceMock = vi.fn();
 vi.mock('@/lib/ai-credits', () => ({
+  reserveCredits: (...args: unknown[]) => reserveCreditsMock(...args),
+  settleCredits: (...args: unknown[]) => settleCreditsMock(...args),
   hasCredits: (...args: unknown[]) => hasCreditsMock(...args),
   deductCredits: (...args: unknown[]) => deductCreditsMock(...args),
   getBalance: (...args: unknown[]) => getBalanceMock(...args),
@@ -79,10 +83,10 @@ const messagesCreateMock = vi.fn();
 const anthropicCtorSpy = vi.fn();
 vi.mock('@anthropic-ai/sdk', () => {
   class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
+    public messages: { create: typeof messagesCreateMock; countTokens: ReturnType<typeof vi.fn> };
     constructor(opts: { apiKey: string }) {
       anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
+      this.messages = { create: messagesCreateMock, countTokens: vi.fn().mockResolvedValue({ input_tokens: 100 }) };
     }
   }
   return { default: Anthropic };
@@ -332,6 +336,8 @@ beforeEach(() => {
   getPortalClientMock.mockReset();
   saveVersionSnapshotMock.mockReset().mockResolvedValue(undefined);
   hasCreditsMock.mockReset().mockResolvedValue(true);
+  reserveCreditsMock.mockReset().mockResolvedValue({ success: true, newBalance: 1000 });
+  settleCreditsMock.mockReset().mockResolvedValue({ success: true, newBalance: 4242 });
   deductCreditsMock.mockReset().mockResolvedValue(undefined);
   getBalanceMock.mockReset().mockResolvedValue({ balance: 0 });
   getBrandingByClientIdMock.mockReset();
@@ -853,21 +859,21 @@ describe('POST /generate — credits + audit', () => {
     );
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
-    expect(deductCreditsMock).toHaveBeenCalledWith(
+    expect(settleCreditsMock).toHaveBeenCalledWith(
       10,
       8000,
       'pitch-decks',
-      '1',
-      expect.stringContaining('My Pitch Deck'),
+      expect.stringMatching(/^request:/),
     );
   });
 
-  it('does NOT deduct credits when NODE_ENV is not production (skip in dev)', async () => {
+  it('reserves and settles platform credits in development too', async () => {
     process.env.NODE_ENV = 'development';
     state.pitchDecks.push(defaultDeck());
     messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
-    expect(deductCreditsMock).not.toHaveBeenCalled();
+    expect(reserveCreditsMock).toHaveBeenCalledOnce();
+    expect(settleCreditsMock).toHaveBeenCalledOnce();
   });
 
   it('always records AI usage regardless of source', async () => {

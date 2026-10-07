@@ -4,7 +4,7 @@
  * setting published=true + publishedAt=the scheduled time and clearing the
  * schedule so it can't re-fire.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  *
  * NOTE: public-site ISR revalidation is best-effort/follow-up — the post is
  * published in the DB immediately; the public route picks it up on its normal

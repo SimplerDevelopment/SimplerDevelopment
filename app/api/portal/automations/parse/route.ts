@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
-import { hasCredits, deductCredits } from '@/lib/ai-credits';
+import { isAiCreditError } from '@/lib/ai/credit-accounting';
 import { parseAutomationDescription } from '@/lib/automation';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
 
-  const authResult = await authorizePortal({ action: 'write' });
+  const authResult = await authorizePortal({ action: 'write', scope: 'automations:write' });
   if (isAuthError(authResult)) return authResult.response;
 
   const userId = parseInt(session.user.id, 10);
@@ -32,20 +32,12 @@ export async function POST(req: Request) {
     const { parsed, inputTokens, outputTokens, source } = await parseAutomationDescription(description, { clientId: client.id });
 
     const totalTokens = inputTokens + outputTokens;
-    if (source === 'platform') {
-      // Only check / deduct credits for platform-keyed calls.
-      const canUse = await hasCredits(client.id, 500);
-      if (!canUse) {
-        return NextResponse.json({
-          success: false,
-          error: 'Insufficient AI credits. Purchase more, enable pay-as-you-go, or add a BYOK key in Settings → API Keys.',
-        }, { status: 402 });
-      }
-      await deductCredits(client.id, totalTokens, 'automation_parse', 'nlp-parse', `NLP automation parse: "${description.slice(0, 50)}..."`);
-    }
 
     return NextResponse.json({ success: true, parsed, tokensUsed: totalTokens, keySource: source });
   } catch (err) {
+    if (isAiCreditError(err)) {
+      return NextResponse.json({ success: false, error: err.message, creditsRemaining: err.creditsRemaining }, { status: 402 });
+    }
     console.error('[automation/parse] Error:', err);
     return NextResponse.json({
       success: false,

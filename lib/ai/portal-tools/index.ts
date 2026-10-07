@@ -8,7 +8,8 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { logAgentAction, hashParams } from '@/lib/audit/agent-action-log';
 
 import { stageOrApply } from '@/lib/mcp/pending-changes';
-import type { PortalMcpContext } from '@/lib/mcp-auth';
+import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
+import { requiredScopeFor } from './scopes';
 
 export { unattendedRefusal } from './gating';
 import type { PortalTool } from './types';
@@ -136,6 +137,8 @@ function summarizeToolCall(name: string, input: Record<string, unknown>): string
 }
 
 export interface PortalToolCtx {
+  /** Bearer credential scopes must survive the AI hop, independently of approvals. */
+  scopes?: string[];
   source?: 'automation' | 'assistant';
   ruleId?: number;
   /**
@@ -189,6 +192,10 @@ export async function executePortalTool(
   let result: unknown;
 
   try {
+    const requiredScope = requiredScopeFor(name);
+    if (ctx?.scopes && (!requiredScope || !hasScope(ctx.scopes, requiredScope))) {
+      throw new Error(`Insufficient scope: ${requiredScope ?? 'unregistered tool'}`);
+    }
     // UAG-003: stage only HIGH-RISK writes for approval (per the gate matrix),
     // not every write — benign edits always pass through even when gating is on.
     if (ctx?.gate && isApprovalRequired(name)) {

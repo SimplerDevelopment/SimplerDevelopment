@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { orders, orderItems, orderStatusHistory, productDesigns } from '@/lib/db/schema';
+import { orders, orderItems, orderStatusHistory, productDesigns, clientWebsites, automationJobs, internalJobs } from '@/lib/db/schema';
 import { and, eq, asc, sql } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
-import {
-  sendTransactionalEmail, getWebsiteUrls, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
-} from '@/lib/email/send-transactional';
-import { emitEvent } from '@/lib/automation/event-bus';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
-import { resolveSiteStripe, SiteStripeError } from '@/lib/stripe/site-stripe';
+import { applyOrderPaymentAction, StoreOrderActionError } from '@/lib/store/order-payment-actions';
 
 type Params = { params: Promise<{ siteId: string; orderId: string }> };
 
@@ -62,7 +58,7 @@ export async function GET(_req: Request, { params }: Params) {
       designThumbnailUrl: productDesigns.thumbnailUrl,
     })
       .from(orderItems)
-      .leftJoin(productDesigns, sql`${productDesigns.uuid} = ${orderItems.designId}::text`)
+      .leftJoin(productDesigns, and(sql`${productDesigns.uuid} = ${orderItems.designId}::text`, eq(productDesigns.websiteId, order.websiteId)))
       .where(eq(orderItems.orderId, order.id)),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(asc(orderStatusHistory.createdAt)),
   ]);
@@ -116,141 +112,55 @@ export async function GET(_req: Request, { params }: Params) {
 export async function PUT(req: Request, { params }: Params) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-
   const authResult = await authorizePortal({ action: 'write', requireService: 'store' });
   if (isAuthError(authResult)) return authResult.response;
-
   const { siteId, orderId } = await params;
   const order = await resolveOrder(parseInt(session.user.id, 10), siteId, orderId);
   if (!order) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
-
   const body = await req.json();
-
-  // Guard: refund transition must succeed in Stripe before we flip status
-  if (body.status === 'refunded' && body.status !== order.status) {
-    if (!order.stripePaymentIntentId) {
-      return NextResponse.json(
-        { success: false, message: 'This order has no Stripe payment to refund' },
-        { status: 400 },
-      );
-    }
-    try {
-      const { stripe } = await resolveSiteStripe(order.websiteId);
-      await stripe.refunds.create({ payment_intent: order.stripePaymentIntentId });
-    } catch (err) {
-      if (err instanceof SiteStripeError) {
-        return NextResponse.json(
-          { success: false, message: `Stripe not configured: ${err.message}` },
-          { status: 400 },
-        );
+  const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+  if (body.status !== undefined && !statuses.includes(body.status)) {
+    return NextResponse.json({ success: false, message: 'Invalid order status' }, { status: 400 });
+  }
+  try {
+    if (body.status === 'cancelled' || body.status === 'refunded') await applyOrderPaymentAction(order, body.status);
+    const updated = await db.transaction(async tx => {
+      const [locked] = await tx.select().from(orders).where(and(eq(orders.id, order.id), eq(orders.websiteId, order.websiteId))).for('update');
+      if (!locked) throw new Error('Order disappeared');
+      const [site] = await tx.select({ clientId: clientWebsites.clientId }).from(clientWebsites).where(eq(clientWebsites.id, order.websiteId)).limit(1);
+      if (!site) throw new Error('Order owner disappeared');
+      const changed = body.status !== undefined && body.status !== locked.status;
+      if (changed && ['cancelled', 'refunded'].includes(locked.status)) throw new StoreOrderActionError('Terminal orders cannot be reopened');
+      if (changed && ['processing', 'shipped', 'delivered'].includes(body.status) && locked.paymentStatus !== 'paid') {
+        throw new StoreOrderActionError('Payment must be captured before fulfilment');
       }
-      console.error('[orders] refund error:', err);
-      return NextResponse.json(
-        { success: false, message: 'Stripe refund failed — status not updated' },
-        { status: 502 },
-      );
-    }
-  }
-
-  const updateData: Record<string, unknown> = { updatedAt: new Date() };
-
-  if (body.trackingNumber !== undefined) updateData.trackingNumber = body.trackingNumber;
-  if (body.trackingUrl !== undefined) updateData.trackingUrl = body.trackingUrl;
-  if (body.internalNote !== undefined) updateData.internalNote = body.internalNote;
-
-  // Handle status change
-  if (body.status !== undefined && body.status !== order.status) {
-    updateData.status = body.status;
-
-    // Set timestamps based on status
-    if (body.status === 'shipped' && !order.shippedAt) {
-      updateData.shippedAt = new Date();
-    }
-    if (body.status === 'delivered' && !order.deliveredAt) {
-      updateData.deliveredAt = new Date();
-    }
-
-    // Insert status history
-    await db.insert(orderStatusHistory).values({
-      orderId: order.id,
-      status: body.status,
-      note: body.statusNote || null,
-      changedBy: parseInt(session.user.id, 10),
+      const updateData: Record<string, unknown> = { updatedAt: new Date() };
+      if (body.trackingNumber !== undefined) updateData.trackingNumber = body.trackingNumber;
+      if (body.trackingUrl !== undefined) updateData.trackingUrl = body.trackingUrl;
+      if (body.internalNote !== undefined) updateData.internalNote = body.internalNote;
+      if (changed) {
+        updateData.status = body.status;
+        if (body.status === 'shipped' && !locked.shippedAt) updateData.shippedAt = new Date();
+        if (body.status === 'delivered' && !locked.deliveredAt) updateData.deliveredAt = new Date();
+        const [history] = await tx.insert(orderStatusHistory).values({ orderId: order.id, status: body.status,
+          note: body.statusNote || null, changedBy: parseInt(session.user.id, 10) }).returning({ id: orderStatusHistory.id });
+        await tx.insert(automationJobs).values({ clientId: site.clientId, userId: parseInt(session.user.id, 10),
+          event: `order.${body.status}`, status: 'pending', payload: { orderId: order.id, websiteId: order.websiteId,
+            orderNumber: order.orderNumber, customerEmail: order.customerEmail, newStatus: body.status, previousStatus: locked.status } });
+        if (['shipped', 'delivered'].includes(body.status)) {
+          const key = `store.status:${order.id}:${history.id}`;
+          await tx.insert(internalJobs).values({ clientId: site.clientId, type: 'store.payment_notification', dedupeKey: key,
+            payload: { orderId: order.id, websiteId: order.websiteId, clientId: site.clientId,
+              event: `order.${body.status}`, idempotencyKey: key } });
+        }
+      }
+      const [result] = await tx.update(orders).set(updateData).where(eq(orders.id, order.id)).returning();
+      return result;
     });
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    if (error instanceof StoreOrderActionError) return NextResponse.json({ success: false, message: error.message }, { status: error.status });
+    console.error('[orders] transition failed:', error);
+    return NextResponse.json({ success: false, message: 'Order transition failed; retry to reconcile provider confirmation' }, { status: 502 });
   }
-
-  const [updated] = await db
-    .update(orders)
-    .set(updateData)
-    .where(eq(orders.id, order.id))
-    .returning();
-
-  // Send transactional emails for status changes
-  if (body.status !== undefined && body.status !== order.status) {
-    const nameParts = order.customerName.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-    const orderUrls = await getWebsiteUrls(order.websiteId);
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
-
-    const commonVars: Record<string, string> = {
-      firstName,
-      lastName,
-      fullName: order.customerName,
-      email: order.customerEmail,
-      orderNumber: order.orderNumber,
-      orderDate: formatEmailDate(order.createdAt),
-      orderTotal: formatCents(order.total),
-      subtotal: formatCents(order.subtotal),
-      shippingTotal: formatCents(order.shippingTotal),
-      taxTotal: formatCents(order.taxTotal),
-      discountTotal: formatCents(order.discountTotal),
-      itemCount: String(items.length),
-      itemsHtml: buildItemsHtml(items),
-      shippingAddress: formatAddress(order.shippingAddress),
-      billingAddress: formatAddress(order.billingAddress),
-      orderUrl: orderUrls.orderUrl(order.orderNumber),
-    };
-
-    const statusEmailMap: Record<string, { event: string; fromName: string; extraVars?: Record<string, string> }> = {
-      shipped: {
-        event: 'order.shipped',
-        fromName: 'Shipping Update',
-        extraVars: {
-          trackingNumber: updated.trackingNumber || body.trackingNumber || '',
-          trackingUrl: updated.trackingUrl || body.trackingUrl || '',
-          shippingMethod: updated.shippingMethod || '',
-          estimatedDelivery: '',
-        },
-      },
-      delivered: { event: 'order.delivered', fromName: 'Delivery Confirmation' },
-      cancelled: {
-        event: 'order.cancelled',
-        fromName: 'Order Update',
-        extraVars: { cancellationReason: body.statusNote || 'Order cancelled' },
-      },
-    };
-
-    const mapping = statusEmailMap[body.status];
-    if (mapping) {
-      sendTransactionalEmail({
-        websiteId: order.websiteId,
-        event: mapping.event,
-        to: order.customerEmail,
-        fromName: mapping.fromName,
-        variables: { ...commonVars, ...(mapping.extraVars || {}) },
-      }).catch(err => console.error(`[orders] ${mapping.event} email failed:`, err));
-    }
-
-    // Emit automation event
-    emitEvent(`order.${body.status}`, order.websiteId, parseInt(session.user.id, 10), {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      customerEmail: order.customerEmail,
-      newStatus: body.status,
-      previousStatus: order.status,
-    });
-  }
-
-  return NextResponse.json({ success: true, data: updated });
 }

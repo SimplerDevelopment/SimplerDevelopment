@@ -4,11 +4,10 @@ import { clients, clientMembers, users, aiConversations, aiMessages, brainProfil
 import { eq, sql } from 'drizzle-orm';
 import { completeAgentLoop, anthropicToolsToToolSet } from '@/lib/ai/agent-loop';
 import { PORTAL_TOOLS, executePortalTool, isApprovalRequired, unattendedRefusal } from '@/lib/ai/portal-tools';
-import { hasCredits, deductCredits } from '@/lib/ai-credits';
+import { hasCredits } from '@/lib/ai-credits';
 import { resend } from '@/lib/email';
 import { processBrainMeeting } from '@/lib/brain/process-meeting';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
-import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 // Shared secret between CF Worker and this endpoint. Validated per-request
@@ -205,6 +204,7 @@ export async function POST(req: Request) {
     );
     const result = await completeAgentLoop({
       task: 'inboundEmail',
+      credits: { category: 'ai' },
       clientId: client.id,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMessage }],
@@ -214,8 +214,8 @@ export async function POST(req: Request) {
     });
 
     const finalText = result.text;
-    const totalInputTokens = result.usage.inputTokens ?? 0;
-    const totalOutputTokens = result.usage.outputTokens ?? 0;
+    const totalInputTokens = result.totalUsage.inputTokens ?? 0;
+    const totalOutputTokens = result.totalUsage.outputTokens ?? 0;
     const allToolCalls = result.steps.flatMap((step) =>
       step.toolCalls.map((tc) => {
         const tr = step.toolResults.find((r) => r.toolCallId === tc.toolCallId);
@@ -252,12 +252,8 @@ export async function POST(req: Request) {
       updatedAt: new Date(),
     }).where(eq(aiConversations.id, convId));
 
-    // Deduct credits — only for platform-keyed calls. BYOK skips internal credit accounting.
+    // Each model step settled its own hold before returning, including errors.
     const totalTokens = totalInputTokens + totalOutputTokens;
-    if (resolved.source === 'platform') {
-      await deductCredits(client.id, totalTokens, 'ai', String(convId), `Email assistant: "${subject?.slice(0, 40) || 'No subject'}"`);
-    }
-    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
     // Send reply via Resend
     const replyFrom = `${client.company || 'Simpler Development'} AI <${process.env.RESEND_FROM_EMAIL || 'noreply@simplerdevelopment.com'}>`;

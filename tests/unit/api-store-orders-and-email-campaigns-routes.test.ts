@@ -160,8 +160,12 @@ const state: MockState = {
   emailSubscribers: [],
   emailLists: [],
 };
+const statusEffects = { automationJobs: [] as Record<string, unknown>[], internalJobs: [] as Record<string, unknown>[] };
 
 function tableArray(name: string): Array<Record<string, unknown>> {
+  if (name === 'clientWebsites') return [{ id: 55, clientId: 10 }];
+  if (name === 'automationJobs') return statusEffects.automationJobs;
+  if (name === 'internalJobs') return statusEffects.internalJobs;
   return (state as unknown as Record<string, Array<Record<string, unknown>>>)[name] ?? [];
 }
 
@@ -231,6 +235,7 @@ vi.mock('@/lib/db', () => {
         limit = n;
         return runQuery();
       },
+      for() { return chain; },
       leftJoin(table: { __table: string }, on: unknown) {
         joins.push({ table: table.__table, kind: 'left', on: parseJoinOn(on) });
         return chain;
@@ -423,6 +428,7 @@ vi.mock('@/lib/db', () => {
 
   return {
     db: {
+      async transaction(callback: (tx: unknown) => unknown) { return callback(this); },
       select(projection?: Record<string, { __col?: string; __table?: string }>) {
         return {
           from(table: { __table: string }) {
@@ -465,6 +471,8 @@ const campaignsDELETE = campaignRoute.DELETE;
 // ===========================================================================
 
 beforeEach(() => {
+  statusEffects.automationJobs.length = 0;
+  statusEffects.internalJobs.length = 0;
   state.orders.length = 0;
   state.orderItems.length = 0;
   state.orderStatusHistory.length = 0;
@@ -531,6 +539,7 @@ function seedOrder(over: Partial<Record<string, unknown>> = {}): Record<string, 
     websiteId: 55,
     orderNumber: 'ORD-1',
     status: 'pending',
+    paymentStatus: 'paid',
     customerName: 'Jane Doe',
     customerEmail: 'jane@example.com',
     subtotal: 1000,
@@ -638,172 +647,63 @@ describe('GET /api/portal/websites/[siteId]/store/orders/[orderId]', () => {
 // PUT /api/portal/websites/[siteId]/store/orders/[orderId]
 // ===========================================================================
 
+// Provider cancellation/refund, rollback and tenancy are exercised against
+// PostgreSQL in integration/api/storefront/payment-reservations.test.ts.
 describe('PUT /api/portal/websites/[siteId]/store/orders/[orderId]', () => {
-  it('returns 401 when no session', async () => {
+  it('rejects unauthenticated requests', async () => {
     authMock.mockResolvedValueOnce(null);
-    const res = await ordersPUT(makePut({}), orderParams('55', '1'));
-    expect(res.status).toBe(401);
+    expect((await ordersPUT(makePut({}), orderParams('55', '1'))).status).toBe(401);
   });
-
-  it('returns 404 when order not found for this tenant', async () => {
-    const res = await ordersPUT(makePut({ status: 'shipped' }), orderParams('55', '1'));
-    expect(res.status).toBe(404);
+  it('returns not found when the tenant order cannot be resolved', async () => {
+    expect((await ordersPUT(makePut({}), orderParams('55', '1'))).status).toBe(404);
   });
-
-  it('updates trackingNumber / trackingUrl / internalNote without status change', async () => {
+  it('updates metadata without scheduling status side effects', async () => {
     seedOrder();
-    const res = await ordersPUT(
-      makePut({
-        trackingNumber: 'TRK123',
-        trackingUrl: 'https://track.example/TRK123',
-        internalNote: 'staff note',
-      }),
-      orderParams('55', '1'),
-    );
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.data.trackingNumber).toBe('TRK123');
-    expect(body.data.trackingUrl).toBe('https://track.example/TRK123');
-    expect(body.data.internalNote).toBe('staff note');
-    // No status change -> no status-history row, no email, no event
+    const response = await ordersPUT(makePut({ trackingNumber: 'TRACK', internalNote: 'Staff' }), orderParams('55', '1'));
+    expect(response.status).toBe(200);
+    expect(state.orders[0]).toMatchObject({ trackingNumber: 'TRACK', internalNote: 'Staff' });
     expect(state.orderStatusHistory).toHaveLength(0);
-    expect(sendTransactionalEmailMock).not.toHaveBeenCalled();
-    expect(emitEventMock).not.toHaveBeenCalled();
+    expect(statusEffects.automationJobs).toHaveLength(0);
+    expect(statusEffects.internalJobs).toHaveLength(0);
   });
-
-  it('treats body.status === order.status as a no-op (no history, no email)', async () => {
-    seedOrder({ status: 'pending' });
-    const res = await ordersPUT(
-      makePut({ status: 'pending' }),
-      orderParams('55', '1'),
-    );
-    expect(res.status).toBe(200);
-    expect(state.orderStatusHistory).toHaveLength(0);
-    expect(sendTransactionalEmailMock).not.toHaveBeenCalled();
-    expect(emitEventMock).not.toHaveBeenCalled();
-  });
-
-  it('status change to shipped: inserts history, sets shippedAt, sends email, emits event', async () => {
-    seedOrder({ status: 'pending' });
-    state.orderItems.push({ id: 100, orderId: 1, name: 'Widget', quantity: 1 });
-    const res = await ordersPUT(
-      makePut({
-        status: 'shipped',
-        statusNote: 'left warehouse',
-        trackingNumber: 'TRK1',
-        trackingUrl: 'https://t/1',
-      }),
-      orderParams('55', '1'),
-    );
-    expect(res.status).toBe(200);
-    const updated = state.orders[0] as Record<string, unknown>;
-    expect(updated.status).toBe('shipped');
-    expect(updated.shippedAt).toBeInstanceOf(Date);
-
+  it('queues durable shipped effects with the tenant client ID and preserves replay idempotency', async () => {
+    seedOrder();
+    const response = await ordersPUT(makePut({ status: 'shipped', trackingNumber: 'TRACK' }), orderParams('55', '1'));
+    expect(response.status).toBe(200);
+    expect(state.orders[0].shippedAt).toBeInstanceOf(Date);
     expect(state.orderStatusHistory).toHaveLength(1);
-    const hist = state.orderStatusHistory[0] as Record<string, unknown>;
-    expect(hist.status).toBe('shipped');
-    expect(hist.note).toBe('left warehouse');
-    expect(hist.changedBy).toBe(7);
-
-    expect(sendTransactionalEmailMock).toHaveBeenCalledTimes(1);
-    const emailArgs = sendTransactionalEmailMock.mock.calls[0][0] as Record<string, unknown>;
-    expect(emailArgs.event).toBe('order.shipped');
-    expect(emailArgs.to).toBe('jane@example.com');
-    const vars = emailArgs.variables as Record<string, string>;
-    expect(vars.trackingNumber).toBe('TRK1');
-    expect(vars.trackingUrl).toBe('https://t/1');
-    expect(vars.orderNumber).toBe('ORD-1');
-    expect(vars.firstName).toBe('Jane');
-    expect(vars.lastName).toBe('Doe');
-
-    expect(emitEventMock).toHaveBeenCalledWith(
-      'order.shipped',
-      55,
-      7,
-      expect.objectContaining({
-        orderId: 1,
-        orderNumber: 'ORD-1',
-        newStatus: 'shipped',
-        previousStatus: 'pending',
-      }),
-    );
-  });
-
-  it('status change to delivered: sets deliveredAt and dispatches delivered email', async () => {
-    seedOrder({ status: 'shipped', shippedAt: new Date('2026-05-10') });
-    const res = await ordersPUT(
-      makePut({ status: 'delivered' }),
-      orderParams('55', '1'),
-    );
-    expect(res.status).toBe(200);
-    const updated = state.orders[0] as Record<string, unknown>;
-    expect(updated.deliveredAt).toBeInstanceOf(Date);
-
-    expect(sendTransactionalEmailMock).toHaveBeenCalledTimes(1);
-    const args = sendTransactionalEmailMock.mock.calls[0][0] as Record<string, unknown>;
-    expect(args.event).toBe('order.delivered');
-    expect(args.fromName).toBe('Delivery Confirmation');
-  });
-
-  it('status change to cancelled: dispatches cancelled email with cancellationReason from statusNote', async () => {
-    seedOrder({ status: 'pending' });
-    const res = await ordersPUT(
-      makePut({ status: 'cancelled', statusNote: 'fraud' }),
-      orderParams('55', '1'),
-    );
-    expect(res.status).toBe(200);
-    expect(sendTransactionalEmailMock).toHaveBeenCalledTimes(1);
-    const args = sendTransactionalEmailMock.mock.calls[0][0] as Record<string, unknown>;
-    expect(args.event).toBe('order.cancelled');
-    expect((args.variables as Record<string, string>).cancellationReason).toBe('fraud');
-  });
-
-  it('status change to a status not in the email map: no email sent but event still emitted', async () => {
-    seedOrder({ status: 'pending' });
-    const res = await ordersPUT(
-      makePut({ status: 'processing' }),
-      orderParams('55', '1'),
-    );
-    expect(res.status).toBe(200);
+    expect(statusEffects.automationJobs).toHaveLength(1);
+    expect(statusEffects.automationJobs[0]).toMatchObject({ clientId: 10, event: 'order.shipped', userId: 7 });
+    expect(statusEffects.internalJobs).toHaveLength(1);
+    expect(statusEffects.internalJobs[0]).toMatchObject({ clientId: 10, type: 'store.payment_notification',
+      payload: expect.objectContaining({ event: 'order.shipped', clientId: 10, websiteId: 55 }) });
     expect(sendTransactionalEmailMock).not.toHaveBeenCalled();
-    expect(emitEventMock).toHaveBeenCalledWith(
-      'order.processing',
-      55,
-      7,
-      expect.objectContaining({ newStatus: 'processing', previousStatus: 'pending' }),
-    );
+    expect(emitEventMock).not.toHaveBeenCalled();
+    expect((await ordersPUT(makePut({ status: 'shipped' }), orderParams('55', '1'))).status).toBe(200);
+    expect(state.orderStatusHistory).toHaveLength(1);
+    expect(statusEffects.internalJobs).toHaveLength(1);
   });
-
-  it('does not overwrite shippedAt if already set when transitioning back to shipped', async () => {
-    const earlier = new Date('2026-04-01');
-    seedOrder({ status: 'pending', shippedAt: earlier });
-    const res = await ordersPUT(
-      makePut({ status: 'shipped' }),
-      orderParams('55', '1'),
-    );
-    expect(res.status).toBe(200);
-    expect((state.orders[0] as Record<string, unknown>).shippedAt).toBe(earlier);
+  it('rejects an unknown status without mutating the order', async () => {
+    seedOrder();
+    expect((await ordersPUT(makePut({ status: 'invalid' }), orderParams('55', '1'))).status).toBe(400);
+    expect(state.orders[0].status).toBe('pending');
   });
-
-  it('handles single-word customer name (lastName becomes empty string)', async () => {
-    seedOrder({ status: 'pending', customerName: 'Cher' });
-    const res = await ordersPUT(
-      makePut({ status: 'shipped' }),
-      orderParams('55', '1'),
-    );
-    expect(res.status).toBe(200);
-    const args = sendTransactionalEmailMock.mock.calls[0][0] as Record<string, unknown>;
-    const vars = args.variables as Record<string, string>;
-    expect(vars.firstName).toBe('Cher');
-    expect(vars.lastName).toBe('');
+  it('requires captured payment before fulfilment', async () => {
+    seedOrder({ paymentStatus: 'pending' });
+    expect((await ordersPUT(makePut({ status: 'shipped' }), orderParams('55', '1'))).status).toBe(409);
+    expect(state.orderStatusHistory).toHaveLength(0);
+  });
+  it('does not reopen a terminal order', async () => {
+    seedOrder({ status: 'refunded', paymentStatus: 'refunded' });
+    expect((await ordersPUT(makePut({ status: 'pending' }), orderParams('55', '1'))).status).toBe(409);
+    expect(state.orders[0].status).toBe('refunded');
+  });
+  it('requires reconciliation before cancellation if setup has not linked a provider intent', async () => {
+    seedOrder({ paymentStatus: 'pending', stripePaymentIntentId: null });
+    expect((await ordersPUT(makePut({ status: 'cancelled' }), orderParams('55', '1'))).status).toBe(409);
+    expect(state.orders[0].status).toBe('pending');
   });
 });
-
-// ===========================================================================
-// GET /api/portal/email/campaigns/[id]
-// ===========================================================================
-
 describe('GET /api/portal/email/campaigns/[id]', () => {
   it('returns 401 when no session', async () => {
     authMock.mockResolvedValueOnce(null);
@@ -870,7 +770,7 @@ describe('PATCH /api/portal/email/campaigns/[id]', () => {
     const res = await campaignsPATCH(makePatch({ name: 'x' }), campaignParams('1'));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.message).toMatch(/sent campaign/);
+    expect(body.message).toMatch(/dispatch has started/);
   });
 
   it('trims name/subject/fromName/fromEmail and stores them', async () => {

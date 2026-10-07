@@ -107,6 +107,16 @@ vi.mock('@/lib/chat/token', () => ({
 const publishMessageMock = vi.fn();
 vi.mock('@/lib/chat/realtime', () => ({
   publishMessage: (...args: unknown[]) => publishMessageMock(...args),
+  publishConversationUpdate: vi.fn().mockResolvedValue(undefined),
+}));
+
+const persistWebchatInboundMock = vi.fn();
+vi.mock('@/lib/channels/webchat-inbound', () => ({
+  persistWebchatInbound: (...args: unknown[]) => persistWebchatInboundMock(...args),
+}));
+const gatewaySendMock = vi.fn();
+vi.mock('@/lib/channels/webchat-flow', () => ({
+  createWebchatGateway: () => ({ gateway: { send: (...args: unknown[]) => gatewaySendMock(...args) } }),
 }));
 
 // Chat rate-limit
@@ -256,7 +266,10 @@ beforeEach(() => {
   stripePaymentIntentsCreateMock.mockReset();
   verifyVisitorTokenMock.mockReset();
   publishMessageMock.mockReset();
+  publishMessageMock.mockResolvedValue(undefined);
   checkVisitorRateLimitMock.mockReset();
+  persistWebchatInboundMock.mockReset();
+  gatewaySendMock.mockReset();
 
   // Default success behaviors
   sendCancellationEmailMock.mockResolvedValue(undefined);
@@ -863,6 +876,14 @@ describe('POST /api/public/chat/messages', () => {
     expect((await res.json()).message).toBe('Invalid JSON body');
   });
 
+  it.each([null, [], 'hello', 1])('rejects non-object JSON %j before token verification', async (payload) => {
+    const res = await chatMessagesRoute.POST(new Request('http://x/messages', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+    }));
+    expect(res.status).toBe(400);
+    expect(verifyVisitorTokenMock).not.toHaveBeenCalled();
+  });
+
   it('returns 401 when ephemeralToken does not verify', async () => {
     verifyVisitorTokenMock.mockReturnValue(null);
     const res = await chatMessagesRoute.POST(
@@ -981,7 +1002,7 @@ describe('POST /api/public/chat/messages', () => {
     expect(res.headers.get('Retry-After')).toBe('1');
   });
 
-  it('inserts message, updates conversation, publishes, and returns row', async () => {
+  it('persists through the shared channel flow, publishes, and returns row', async () => {
     verifyVisitorTokenMock.mockReturnValue({ conversationId: 1 });
     selectQueue.push([
       { id: 1, clientId: 5, visitorId: 'v1', visitorName: 'Visitor One', status: 'open' },
@@ -997,7 +1018,7 @@ describe('POST /api/public/chat/messages', () => {
       body: 'hello world',
       occurredAt: new Date('2030-01-01T00:00:00Z'),
     };
-    insertReturnQueue.push([insertedRow]);
+    persistWebchatInboundMock.mockResolvedValue({ message: insertedRow, duplicate: false, connectionId: 10, contactId: 20 });
     publishMessageMock.mockResolvedValue(undefined);
 
     const res = await chatMessagesRoute.POST(
@@ -1013,22 +1034,12 @@ describe('POST /api/public/chat/messages', () => {
     expect(body.data.id).toBe(42);
     expect(body.data.body).toBe('hello world');
 
-    // Insert called with trimmed text + visitor authorship
-    expect(insertCalls).toHaveLength(1);
-    expect(insertCalls[0].table).toBe('chatMessages');
-    expect(insertCalls[0].values).toMatchObject({
-      conversationId: 1,
-      clientId: 5,
-      authorKind: 'visitor',
-      authorName: 'Visitor One',
-      body: 'hello world',
-    });
-
-    // Update bumps lastMessageAt
-    expect(updateCalls).toHaveLength(1);
-    expect(updateCalls[0].table).toBe('chatConversations');
-    expect(updateCalls[0].patch.lastMessageAt).toBeInstanceOf(Date);
-    expect(updateCalls[0].patch.updatedAt).toBeInstanceOf(Date);
+    expect(persistWebchatInboundMock).toHaveBeenCalledWith(expect.objectContaining({
+      conversationId: 1, clientId: 5, text: 'hello world',
+      visitorIdentity: { kind: 'webchat', value: 'v1' },
+      messageKey: expect.stringMatching(/^visitor:1:/),
+    }));
+    expect(insertCalls).toHaveLength(0); // The route never adds a fallback insertion.
 
     // Publish
     expect(publishMessageMock).toHaveBeenCalledTimes(1);
@@ -1044,14 +1055,13 @@ describe('POST /api/public/chat/messages', () => {
     });
   });
 
-  it('uses fallback authorName="Visitor" when visitorName is null', async () => {
+  it('returns the visitor author name supplied by shared persistence', async () => {
     verifyVisitorTokenMock.mockReturnValue({ conversationId: 1 });
     selectQueue.push([
       { id: 1, clientId: 5, visitorId: 'v1', visitorName: null, status: 'open' },
     ]);
     checkVisitorRateLimitMock.mockReturnValue({ ok: true });
-    insertReturnQueue.push([
-      {
+    persistWebchatInboundMock.mockResolvedValue({ message: {
         id: 1,
         conversationId: 1,
         clientId: 5,
@@ -1059,8 +1069,7 @@ describe('POST /api/public/chat/messages', () => {
         authorName: 'Visitor',
         body: 'hi',
         occurredAt: new Date(),
-      },
-    ]);
+      }, duplicate: false, connectionId: 10, contactId: 20 });
     publishMessageMock.mockResolvedValue(undefined);
 
     const res = await chatMessagesRoute.POST(
@@ -1071,6 +1080,41 @@ describe('POST /api/public/chat/messages', () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(insertCalls[0].values).toMatchObject({ authorName: 'Visitor' });
+    expect((await res.json()).data.authorName).toBe('Visitor');
+    expect(persistWebchatInboundMock).toHaveBeenCalledTimes(1);
   });
+  it('returns a retryable failure without a second insertion if persistence fails', async () => {
+    verifyVisitorTokenMock.mockReturnValue({ conversationId: 1 });
+    checkVisitorRateLimitMock.mockReturnValue({ ok: true });
+    selectQueue.push([{ id: 1, clientId: 5, visitorId: 'v1', status: 'open' }]);
+    persistWebchatInboundMock.mockRejectedValue(new Error('storage unavailable'));
+    const res = await chatMessagesRoute.POST(makeJsonReq('http://x/messages', 'POST', {
+      conversationId: 1, ephemeralToken: 'tok', body: 'hi', messageId: 'send-123456',
+    }));
+    expect(res.status).toBe(503);
+    expect(persistWebchatInboundMock).toHaveBeenCalledTimes(1);
+    expect(insertCalls).toHaveLength(0);
+    expect(publishMessageMock).not.toHaveBeenCalled();
+  });
+
+  it.each([{ enabled: false, brainEnabled: true }, { enabled: true, brainEnabled: false }])(
+    'honors the current widget AI opt-out %j', async (widget) => {
+      verifyVisitorTokenMock.mockReturnValue({ conversationId: 1 });
+      checkVisitorRateLimitMock.mockReturnValue({ ok: true });
+      selectQueue.push([{ id: 1, clientId: 5, widgetId: 3, visitorId: 'v1', status: 'open', aiMode: 'ai' }]);
+      selectQueue.push([{ company: 'Company' }]);
+      selectQueue.push([widget]);
+      persistWebchatInboundMock.mockResolvedValue({
+        message: { id: 42, authorName: 'Visitor', body: 'hi', occurredAt: new Date() },
+        duplicate: false, connectionId: 10, contactId: 20,
+      });
+      const res = await chatMessagesRoute.POST(makeJsonReq('http://x/messages', 'POST', {
+        conversationId: 1, ephemeralToken: 'tok', body: 'hi',
+      }));
+      expect(res.status).toBe(200);
+      expect((await res.json()).data.autoReplied).toBe(false);
+      expect(gatewaySendMock).not.toHaveBeenCalled();
+    },
+  );
+
 });

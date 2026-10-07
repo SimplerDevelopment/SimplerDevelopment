@@ -1,3 +1,4 @@
+import { authenticateBrowserContext } from './setup/auth-session';
 /**
  * CRM Deals Page — Refactor Baseline (browser-driven)
  *
@@ -23,11 +24,7 @@ const CLIENT_PASSWORD = 'client123';
 const PREFIX = 'CRM-DEAL-';
 
 async function loginAsClient(page: Page) {
-  const csrfRes = await page.request.get('/api/auth/csrf');
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-  await page.request.post('/api/auth/callback/credentials', {
-    form: { email: CLIENT_EMAIL, password: CLIENT_PASSWORD, csrfToken, json: 'true' },
-  });
+  await authenticateBrowserContext(page.context(), CLIENT_EMAIL, CLIENT_PASSWORD);
 }
 
 test.describe('Portal CRM Deals Page — refactor baseline @crm @ui @critical', () => {

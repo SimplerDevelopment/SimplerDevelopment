@@ -152,9 +152,13 @@ export default function ChatBootstrap({ widgetId }: { widgetId: string }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages.length]);
 
+  const pendingSend = useRef<{ body: string; id: string; conversationId: number } | null>(null);
   const send = useCallback(async () => {
     if (!session || !draft.trim() || sending) return;
     const body = draft.trim();
+    if (pendingSend.current?.body !== body || pendingSend.current.conversationId !== session.conversationId) {
+      pendingSend.current = { body, id: crypto.randomUUID(), conversationId: session.conversationId };
+    }
     setSending(true);
     setDraft('');
     try {
@@ -164,14 +168,17 @@ export default function ChatBootstrap({ widgetId }: { widgetId: string }) {
         body: JSON.stringify({
           conversationId: session.conversationId,
           ephemeralToken: session.ephemeralToken,
+          messageId: pendingSend.current.id,
           body,
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Send failed');
       // Optimistically reflect — SSE will dedupe by id.
-      setMessages((prev) => [...prev, json.data as Message]);
+      setMessages((prev) => prev.some(m => m.id === json.data.id) ? prev : [...prev, json.data as Message]);
+      pendingSend.current = null;
     } catch (e) {
+      setDraft(body);
       setError(e instanceof Error ? e.message : 'Send failed');
     } finally {
       setSending(false);

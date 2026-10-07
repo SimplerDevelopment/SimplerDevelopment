@@ -21,7 +21,7 @@ export const runtime = 'nodejs';
  * for now (everything in UTC); per-tenant tz support can layer on later
  * without changing the dedupe key as long as we keep YYYY-MM-DD in tenant tz.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  *
  * Suggested schedule: 6:05 UTC daily (`5 6 * * *`).
  */

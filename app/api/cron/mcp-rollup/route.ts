@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
  * Cron endpoint: roll yesterday's mcp_tool_calls up into
  * mcp_tool_call_daily_rollups.
  *
- * Auth: `Authorization: Bearer ${CRON_SECRET}` or Vercel cron header.
+ * Auth: `Authorization: Bearer ${CRON_SECRET}`.
  * Suggested schedule: 04:00 UTC, BEFORE the cleanup cron at 04:23 UTC.
  *
  * Optional query params (manual / backfill runs only):

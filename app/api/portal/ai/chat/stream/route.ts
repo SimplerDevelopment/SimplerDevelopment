@@ -49,10 +49,11 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { db } from '@/lib/db';
 import { aiConversations, aiMessages } from '@/lib/db/schema';
-import { resolvePortalFromRequest } from '@/lib/mcp-auth';
-import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
+import { resolvePortalFromRequest, hasScope } from '@/lib/mcp-auth';
+import { getPortalRole } from '@/lib/portal-client';
+import { hasCredits, getBalance } from '@/lib/ai-credits';
+import { anthropicInputTokens, creditTrackedAnthropic, creditTrackedStream } from '@/lib/ai/credit-accounting';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
-import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
 import { classifyPortalRequest } from '@/lib/ai/portal-tools/classifier';
@@ -117,6 +118,9 @@ export async function POST(req: Request) {
     return jsonError(401, 'Unauthorized');
   }
   const { userId, client } = ctx;
+  if (!hasScope(ctx.scopes, 'chat:write')) return jsonError(403, 'Insufficient scope: chat:write');
+  const role = await getPortalRole(userId, client.id);
+  if (!role || role === 'viewer') return jsonError(403, 'Permission denied');
 
   // UAG-003: gate the assistant's high-risk writes when the credential requires
   // approval OR the client opted in (clients.ai_chat_requires_approval). When
@@ -213,7 +217,8 @@ export async function POST(req: Request) {
     .set({ updatedAt: new Date() })
     .where(eq(aiConversations.id, convId));
 
-  const anthropic = new Anthropic({ apiKey: resolved.key });
+  const creditContext = { clientId: client.id, source: resolved.source, category: 'ai' };
+  const anthropic = creditTrackedAnthropic(new Anthropic({ apiKey: resolved.key }), creditContext);
 
   // ── 7. Build SSE stream.
   const encoder = new TextEncoder();
@@ -256,19 +261,12 @@ export async function POST(req: Request) {
           console.error('[ai/chat/stream] persist error', persistErr);
         }
 
-        // Credits + audit (best-effort, platform-key only).
+        // Provider calls settle their reservations before completing each turn.
         let creditsRemaining: number | null = null;
         const totalTokens = inputTokens + outputTokens;
         if (resolved.source === 'platform' && totalTokens > 0) {
           try {
-            const r = await deductCredits(
-              client.id,
-              totalTokens,
-              'ai',
-              String(convId),
-              `Chat (stream) #${convId}`,
-            );
-            creditsRemaining = r.newBalance;
+            creditsRemaining = (await getBalance(client.id)).balance;
           } catch (creditErr) {
             console.error('[ai/chat/stream] deduct error', creditErr);
             try {
@@ -279,11 +277,6 @@ export async function POST(req: Request) {
             }
           }
         }
-        void recordAiUsage({
-          clientId: client.id,
-          source: resolved.source,
-          tokens: totalTokens,
-        });
 
         try {
           if (errMessage) {
@@ -350,13 +343,13 @@ export async function POST(req: Request) {
         while (loopCount < MAX_LOOPS) {
           loopCount++;
 
-          const sdkStream = anthropic.messages.stream({
+          const sdkStream = await creditTrackedStream(anthropic, {
             model: MODEL,
             max_tokens: MAX_TOKENS,
             system: sysParam,
             messages: currentMessages,
             ...(STREAM_TOOLS_ENABLED ? { tools: loopTools } : {}),
-          });
+          }, creditContext);
 
           // Relay this turn's text deltas live. Only the FINAL turn's text is
           // persisted as the reply (reset per turn) so a tool-use turn's
@@ -375,7 +368,7 @@ export async function POST(req: Request) {
                 encoder.encode(sseFrame({ type: 'token', text: event.delta.text })),
               );
             } else if (event.type === 'message_start') {
-              turnInput = event.message.usage.input_tokens ?? 0;
+              turnInput = anthropicInputTokens(event.message.usage);
               turnOutput = event.message.usage.output_tokens ?? 0;
             } else if (event.type === 'message_delta') {
               // output_tokens is cumulative-for-this-message by spec.
@@ -434,7 +427,7 @@ export async function POST(req: Request) {
                 input,
                 client.id,
                 userId,
-                { source: 'assistant', gate: gateCtx },
+                { source: 'assistant', gate: gateCtx, scopes: ctx.scopes },
               );
             } catch (toolErr) {
               // Serialize the failure into the tool_result so the model can

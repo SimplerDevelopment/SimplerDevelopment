@@ -283,10 +283,11 @@ describe('GET /api/cron/usage-rollup', () => {
   });
 
   it('allows the request through with the Vercel cron header', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     currentPeriodUtcMock.mockReturnValue('2026-05');
     listClientsWithActiveMeteredItemsMock.mockResolvedValue([]);
     const res = await usageRollupRoute.GET(
-      makeReq('http://x/api/cron/usage-rollup', { headers: { 'x-vercel-cron': '1' } }),
+      makeReq('http://x/api/cron/usage-rollup', { headers: { authorization: 'Bearer security-test-secret' } }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -295,9 +296,10 @@ describe('GET /api/cron/usage-rollup', () => {
   });
 
   it('rejects an invalid period format', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     const res = await usageRollupRoute.GET(
       makeReq('http://x/api/cron/usage-rollup?period=not-a-month', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(400);
@@ -305,6 +307,7 @@ describe('GET /api/cron/usage-rollup', () => {
   });
 
   it('rolls up each client and counts ok/err appropriately', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     listClientsWithActiveMeteredItemsMock.mockResolvedValue([1, 2, 3]);
     // client 1: clean
     rollupClientPeriodMock.mockResolvedValueOnce([{ resource: 'a', total: 10 }]);
@@ -314,7 +317,7 @@ describe('GET /api/cron/usage-rollup', () => {
     rollupClientPeriodMock.mockRejectedValueOnce(new Error('boom'));
     const res = await usageRollupRoute.GET(
       makeReq('http://x/api/cron/usage-rollup?period=2026-04', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -328,11 +331,12 @@ describe('GET /api/cron/usage-rollup', () => {
   });
 
   it('treats dryRun=1 stripe-error rows as ok (no push attempted)', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     listClientsWithActiveMeteredItemsMock.mockResolvedValue([1]);
     rollupClientPeriodMock.mockResolvedValueOnce([{ resource: 'b', error: 'would' }]);
     const res = await usageRollupRoute.GET(
       makeReq('http://x/api/cron/usage-rollup?period=2026-04&dryRun=1', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -343,13 +347,25 @@ describe('GET /api/cron/usage-rollup', () => {
     expect(rollupClientPeriodMock).toHaveBeenCalledWith(1, '2026-04', { dryRun: true });
   });
 
-  it('passes through with x-vercel-cron header even when CRON_SECRET is set', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'expected';
     listClientsWithActiveMeteredItemsMock.mockResolvedValue([]);
     currentPeriodUtcMock.mockReturnValue('2026-05');
     const res = await usageRollupRoute.GET(
       makeReq('http://x/api/cron/usage-rollup', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    listClientsWithActiveMeteredItemsMock.mockResolvedValue([]);
+    currentPeriodUtcMock.mockReturnValue('2026-05');
+    const res = await usageRollupRoute.GET(
+      makeReq('http://x/api/cron/usage-rollup', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);

@@ -18,23 +18,15 @@
  * psql so we control the rescheduleToken and a startTime far in the future.
  * Both rows are torn down in afterAll.
  */
-
-import { execSync } from 'child_process';
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
-
-// ── DB seed helpers ───────────────────────────────────────────────────────────
-
-const DB_URL =
-  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 function psql(sql: string): string {
   // Collapse newlines — JSON.stringify of multi-line SQL emits literal "\n"
   // which psql -c receives as backslash-n and rejects. SQL is whitespace-
   // insensitive so a single line is equivalent.
   const oneLine = sql.replace(/\s*\n\s*/g, ' ');
-  return execSync(`psql "${DB_URL}" -t -A -c ${JSON.stringify(oneLine)}`, {
-    encoding: 'utf-8',
-  }).trim();
+  return e2eSql(oneLine).trim();
 }
 
 // Client ID 1 is the seed owner in simplerdev_test (client@example.com).

@@ -454,7 +454,8 @@ describe('ServiceRequestForm', () => {
       });
     });
 
-    it('slider change updates displayed value', async () => {
+    it('slider change formats the dollar value consistently and submits its numeric answer', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) });
       const fields = [
         makeField({ id: 'f1', type: 'slider', label: 'Budget', min: 0, max: 10000, step: 500 }),
       ];
@@ -467,6 +468,11 @@ describe('ServiceRequestForm', () => {
       await waitFor(() => {
         expect(screen.getByText('$5,000')).toBeInTheDocument();
       });
+      expect(slider).toHaveValue('5000');
+      fireEvent.click(screen.getByRole('button', { name: /Submit Request/i }));
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+      const submitted = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+      expect(submitted.answers).toEqual({ Budget: 5000 });
     });
   });
 

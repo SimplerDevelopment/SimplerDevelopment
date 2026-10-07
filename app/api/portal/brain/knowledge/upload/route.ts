@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
   let uploadResult;
   try {
-    uploadResult = await uploadToS3(buffer, file.name, file.type || 'application/octet-stream');
+    uploadResult = await uploadToS3(buffer, file.name, file.type || 'application/octet-stream', { privateClientId: result.client.id });
   } catch (err) {
     return NextResponse.json({
       success: false,

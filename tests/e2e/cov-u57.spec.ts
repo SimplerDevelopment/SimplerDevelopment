@@ -12,19 +12,11 @@
  * findActivePluginBySlug filters to status='active'; a draft/disabled slug
  * triggers notFound(). We seed the DB row via psql, verify, then clean up.
  */
-
-import { execSync } from 'child_process';
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const DB_URL =
-  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
-
 function psql(sql: string) {
-  execSync(`psql "${DB_URL}" -c "${sql.replace(/"/g, '\\"')}"`, {
-    stdio: 'pipe',
-  });
+  e2eSql(sql);
 }
 
 // ── Card 3: draft/disabled plugin → 404 at /portal/apps/<slug> ───────────────

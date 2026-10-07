@@ -46,12 +46,23 @@ describe('GET /api/cron/failing-automations-notify — auth + envelope', () => {
     expect(json.success).toBe(false);
   });
 
-  it('accepts the Vercel cron header without bearer token', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     const res = await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
         headers: { 'x-vercel-cron': '1' },
+      })
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
+    const res = await GET(
+      new Request('http://x/api/cron/failing-automations-notify', {
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
     expect(res.status).toBe(200);
@@ -76,7 +87,7 @@ describe('GET /api/cron/failing-automations-notify — auth + envelope', () => {
   });
 
   it('skips de-duped rules and broadcasts to client members for fresh ones', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     executeMock.mockResolvedValueOnce({
       rows: [
         // Fresh failure → should notify
@@ -105,7 +116,7 @@ describe('GET /api/cron/failing-automations-notify — auth + envelope', () => {
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     const res = await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
     expect(res.status).toBe(200);

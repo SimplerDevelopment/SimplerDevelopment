@@ -29,7 +29,7 @@ export const dynamic = 'force-dynamic';
  *   - AND (drive_channel_id is null  ← never subscribed
  *          OR drive_channel_expiration is within 12 hours)
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 
 const RENEWAL_HORIZON_MS = 12 * 60 * 60 * 1000; // 12h

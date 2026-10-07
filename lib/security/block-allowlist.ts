@@ -47,14 +47,33 @@ function findRestrictedType(value: unknown): string | null {
   return null;
 }
 
+/** The persisted CMS representation is text; policy must inspect its JSON tree. */
+function normalizeContent(content: unknown): unknown {
+  if (typeof content !== 'string') return content;
+  const text = content.trim();
+  if (!text) return null;
+  if (text.startsWith('{') || text.startsWith('[')) {
+    try { return JSON.parse(text); } catch { throw new BlockGateError('invalid-content'); }
+  }
+  // Legacy freeform HTML renders in the page origin and needs staff authorship.
+  return text.includes('<') ? { type: 'html-render' } : null;
+}
+
+export function assertCustomCodeAllowedForRole(code: unknown, role: string | undefined | null): void {
+  if (code == null || code === '') return;
+  if (typeof code !== 'string') throw new BlockGateError('invalid-script');
+  if (!role || !PRIVILEGED_ROLES.has(role)) throw new BlockGateError('custom-js');
+}
+
 /**
  * Throws `BlockGateError` if `content` contains a restricted block type and
  * `role` is not in `PRIVILEGED_ROLES`. No-op for staff. No-op for content
  * without restricted types.
  */
 export function assertBlocksAllowedForRole(content: unknown, role: string | undefined | null): void {
+  const normalized = normalizeContent(content);
   if (role && PRIVILEGED_ROLES.has(role)) return;
-  const hit = findRestrictedType(content);
+  const hit = findRestrictedType(normalized);
   if (hit) throw new BlockGateError(hit);
 }
 
@@ -69,7 +88,7 @@ export function assertBlocksAllowedForRole(content: unknown, role: string | unde
 export async function assertBlocksAllowedForUserId(content: unknown, userId: number): Promise<void> {
   // Fast-path: skip the DB lookup when the content can't contain a restricted
   // block at all. Saves a query on every non-block MCP write.
-  const hit = findRestrictedType(content);
+  const hit = findRestrictedType(normalizeContent(content));
   if (!hit) return;
   const { db } = await import('@/lib/db');
   const { users } = await import('@/lib/db/schema');

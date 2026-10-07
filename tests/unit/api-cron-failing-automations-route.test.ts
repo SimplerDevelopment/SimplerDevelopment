@@ -55,12 +55,23 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
     process.env.CRON_SECRET = ORIGINAL_ENV;
   });
 
-  it('allows the request through with Vercel cron header when CRON_SECRET is unset', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     delete process.env.CRON_SECRET;
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     const res = await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
+    const res = await GET(
+      new Request('http://x/api/cron/failing-automations-notify', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -87,7 +98,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
   });
 
   it('handles db.execute returning a bare array (neon shape)', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     executeMock.mockResolvedValueOnce([
       {
         clientId: 5,
@@ -103,7 +114,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     const res = await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
     expect(res.status).toBe(200);
@@ -117,14 +128,14 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
   });
 
   it('handles { rows: undefined } gracefully (defensive ?? [])', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     // Force the wrapped-but-missing-rows branch.
     executeMock.mockResolvedValueOnce({} as unknown as { rows: never[] });
 
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     const res = await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
     expect(res.status).toBe(200);
@@ -134,7 +145,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
   });
 
   it('truncates long error messages to 160 chars with an ellipsis', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     const longErr =
       'X'.repeat(250) +
       '  ignored padding   that should also be collapsed by whitespace normalization';
@@ -155,7 +166,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     const res = await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
     expect(res.status).toBe(200);
@@ -170,7 +181,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
   });
 
   it('collapses internal whitespace in the error before truncation', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     executeMock.mockResolvedValueOnce({
       rows: [
         {
@@ -188,7 +199,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
     const call = notifyAllClientUsersMock.mock.calls[0]![0] as { body: string };
@@ -196,7 +207,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
   });
 
   it('emits the "(no error message recorded)" fallback when error is null', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     executeMock.mockResolvedValueOnce({
       rows: [
         {
@@ -214,7 +225,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
 
@@ -226,7 +237,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
   });
 
   it('counts matched + notified + skippedDup correctly across a mixed batch', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     executeMock.mockResolvedValueOnce({
       rows: [
         {
@@ -271,7 +282,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     const res = await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
 
@@ -288,11 +299,11 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
   });
 
   it('reports a non-negative numeric durationMs in the envelope', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     const res = await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
     const json = (await res.json()) as { data: { durationMs: number } };
@@ -301,7 +312,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
   });
 
   it('always sets entityType="automation_rule" and type="automation_failing" on each notification', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     executeMock.mockResolvedValueOnce({
       rows: [
         {
@@ -328,7 +339,7 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     await GET(
       new Request('http://x/api/cron/failing-automations-notify', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       })
     );
 
@@ -344,14 +355,14 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
   });
 
   it('propagates errors thrown by db.execute (no swallow)', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     executeMock.mockRejectedValueOnce(new Error('connection lost'));
 
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
     await expect(
       GET(
         new Request('http://x/api/cron/failing-automations-notify', {
-          headers: { 'x-vercel-cron': '1' },
+          headers: { authorization: 'Bearer security-test-secret' },
         })
       )
     ).rejects.toThrow('connection lost');

@@ -78,21 +78,26 @@ export function generateTOTP(secretBase32: string, stepOffset = 0, atMs = Date.n
  * candidate so a wrong code leaks no timing signal.
  */
 export function verifyTOTP(secretBase32: string, code: string, drift = 1, atMs = Date.now()): boolean {
+  return verifiedTOTPStep(secretBase32, code, drift, atMs) !== null;
+}
+
+/** The matched counter is persisted atomically by the login guard to stop replay. */
+export function verifiedTOTPStep(secretBase32: string, code: string, drift = 1, atMs = Date.now()): number | null {
   const trimmed = (code ?? '').trim();
-  if (!/^\d{6}$/.test(trimmed)) return false;
+  if (!/^\d{6}$/.test(trimmed)) return null;
   const supplied = Buffer.from(trimmed);
   for (let i = -drift; i <= drift; i++) {
     let expected: Buffer;
     try {
       expected = Buffer.from(generateTOTP(secretBase32, i, atMs));
     } catch {
-      return false; // malformed secret
+      return null; // malformed secret
     }
     if (expected.length === supplied.length && timingSafeEqual(expected, supplied)) {
-      return true;
+      return Math.floor(atMs / 1000 / PERIOD_SECONDS) + i;
     }
   }
-  return false;
+  return null;
 }
 
 /** otpauth:// URI for the QR code an authenticator app scans during enrollment. */

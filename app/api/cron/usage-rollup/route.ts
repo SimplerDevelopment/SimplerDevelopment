@@ -14,7 +14,7 @@ export const runtime = 'nodejs';
  * Cron: roll up the current period's metered usage for every client with
  * active `metered_subscription_items`, push to Stripe, persist audit rows.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  * Mirrors the pattern in app/api/cron/resend-usage-sync/route.ts.
  *
  * Idempotent: re-running on the same period overwrites the per-client

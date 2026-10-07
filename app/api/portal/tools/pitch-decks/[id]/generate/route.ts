@@ -7,13 +7,13 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { hasServiceAccess } from '@/lib/portal-auth';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
-import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
+import { hasCredits, getBalance } from '@/lib/ai-credits';
+import { anthropicInputTokens, creditTrackedAnthropic, isAiCreditError } from '@/lib/ai/credit-accounting';
 import { getBrandingByClientId, getBrandingByProfileId, brandingToPitchDeckTheme } from '@/lib/branding';
 import { assertSafeUrl } from '@/lib/ssrf-guard';
 import { brandingMessaging } from '@/lib/db/schema';
 import Anthropic from '@anthropic-ai/sdk';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
-import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { generateDeckSlidesRaw, unfenceJson } from '@/lib/ai/pitch-deck-generate';
 
@@ -66,10 +66,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
     }
     const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
-    const anthropic = new Anthropic({ apiKey: resolved.key });
+    const creditContext = { clientId: client.id, source: resolved.source, category: 'pitch-decks' };
+    const anthropic = creditTrackedAnthropic(new Anthropic({ apiKey: resolved.key }), creditContext);
 
     // Check AI credits (skip in development; skip when BYOK — client pays directly)
-    if (process.env.NODE_ENV === 'production' && resolved.source === 'platform') {
+    if (resolved.source === 'platform') {
       const canProceed = await hasCredits(client.id, 5000);
       if (!canProceed) {
         const bal = await getBalance(client.id);
@@ -138,7 +139,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           messages: [{ role: 'user', content: `Extract brand identity from this website HTML:\n\n${truncatedHtml}` }],
         });
 
-        totalInput += brandResponse.usage.input_tokens;
+        totalInput += anthropicInputTokens(brandResponse.usage);
         totalOutput += brandResponse.usage.output_tokens;
 
         let brandText = brandResponse.content
@@ -213,7 +214,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Use extended token limit for full deck generation (8-12 slides); the core
     // handles the max_tokens continuation. Parsing stays here so the route keeps
     // its specific invalid-JSON response.
-    const { rawText, inputTokens: genInput, outputTokens: genOutput } = await generateDeckSlidesRaw(userPrompt, resolved.key);
+    const { rawText, inputTokens: genInput, outputTokens: genOutput } = await generateDeckSlidesRaw(userPrompt, resolved.key, undefined, creditContext);
     totalInput += genInput;
     totalOutput += genOutput;
 
@@ -253,16 +254,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       outputTokens: totalOutput,
     });
 
-    // Deduct AI credits — only for platform-keyed calls. BYOK clients pay
-    // their provider directly so internal credit deduction is skipped.
-    const totalTokens = totalInput + totalOutput;
-    if (process.env.NODE_ENV === 'production' && resolved.source === 'platform') {
-      await deductCredits(client.id, totalTokens, 'pitch-decks', String(deckId), `Pitch deck: ${deck.title}`);
-    }
-    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
-
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {
+    if (isAiCreditError(err)) {
+      return NextResponse.json({ success: false, message: err.message, creditsRemaining: err.creditsRemaining }, { status: 402 });
+    }
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error('[POST /api/portal/tools/pitch-decks/[id]/generate]', errMsg, err);
     return NextResponse.json({ success: false, message: `Generation failed: ${errMsg}` }, { status: 500 });

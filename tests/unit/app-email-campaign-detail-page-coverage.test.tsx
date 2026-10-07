@@ -647,6 +647,27 @@ describe('PortalCampaignDetailPage — send campaign', () => {
     await renderPage({ status: 'scheduled' });
     expect(screen.getByText('Send Now')).toBeTruthy();
   });
+
+  it.each(['partial', 'failed'])('can resume a %s campaign without enabling content edits', async status => {
+    confirmMock.mockReturnValue(true);
+    const { container } = await renderPage({ status });
+    expect(screen.queryByText('Edit Campaign')).toBeNull();
+    fireEvent.click(screen.getByText('Resume delivery'));
+    await waitFor(() => expect(container.textContent).toContain('Queued'));
+    expect(confirmMock).toHaveBeenCalledWith(expect.stringContaining('undelivered recipients'));
+  });
+
+  it('network failures release the send control for a retry', async () => {
+    confirmMock.mockReturnValue(true);
+    fetchMock.mockImplementation(async (url, init) => {
+      if (/\/send$/.test(url) && init?.method === 'POST') throw new Error('Network unavailable');
+      return defaultFetch(url, init);
+    });
+    await renderPage();
+    fireEvent.click(screen.getByText('Send Now'));
+    await waitFor(() => expect(alertMock).toHaveBeenCalledWith('Network unavailable'));
+    expect((screen.getByText('Send Now') as HTMLButtonElement).disabled).toBe(false);
+  });
 });
 
 // ─── Send test email ──────────────────────────────────────────────────────────

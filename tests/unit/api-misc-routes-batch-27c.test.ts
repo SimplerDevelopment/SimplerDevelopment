@@ -331,12 +331,23 @@ describe('/api/cron/brain-daily-notes', () => {
     expect(res.status).toBe(401);
   });
 
-  it('accepts the Vercel cron header without bearer token', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     selectQueue.push([]); // no templates
     const res = await brainDailyNotesRoute.GET(
       makeReq('http://x/api/cron/brain-daily-notes', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    selectQueue.push([]); // no templates
+    const res = await brainDailyNotesRoute.GET(
+      makeReq('http://x/api/cron/brain-daily-notes', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -362,7 +373,7 @@ describe('/api/cron/brain-daily-notes', () => {
   });
 
   it('skips a template when a note already exists for the day', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 1,
@@ -378,7 +389,7 @@ describe('/api/cron/brain-daily-notes', () => {
     getNoteBySourceUrl.mockResolvedValue({ id: 555 });
     const res = await brainDailyNotesRoute.GET(
       makeReq('http://x/api/cron/brain-daily-notes', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -390,7 +401,7 @@ describe('/api/cron/brain-daily-notes', () => {
   });
 
   it('creates a note with formatted title for "Today" templates and adds the daily tag', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 1,
@@ -409,7 +420,7 @@ describe('/api/cron/brain-daily-notes', () => {
 
     const res = await brainDailyNotesRoute.GET(
       makeReq('http://x/api/cron/brain-daily-notes', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -437,7 +448,7 @@ describe('/api/cron/brain-daily-notes', () => {
   });
 
   it('uses non-"Today" template name in title and handles null defaultTags', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 7,
@@ -456,7 +467,7 @@ describe('/api/cron/brain-daily-notes', () => {
 
     const res = await brainDailyNotesRoute.GET(
       makeReq('http://x/api/cron/brain-daily-notes', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -468,7 +479,7 @@ describe('/api/cron/brain-daily-notes', () => {
   });
 
   it('captures per-template failures without crashing the run', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 1,
@@ -502,7 +513,7 @@ describe('/api/cron/brain-daily-notes', () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const res = await brainDailyNotesRoute.GET(
       makeReq('http://x/api/cron/brain-daily-notes', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     errSpy.mockRestore();
@@ -520,7 +531,7 @@ describe('/api/cron/brain-daily-notes', () => {
   });
 
   it('caps `failures` array at 20 entries when many templates fail', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     const templates = Array.from({ length: 25 }, (_, i) => ({
       id: i + 1,
       clientId: 99,
@@ -538,7 +549,7 @@ describe('/api/cron/brain-daily-notes', () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const res = await brainDailyNotesRoute.GET(
       makeReq('http://x/api/cron/brain-daily-notes', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     errSpy.mockRestore();
@@ -581,22 +592,33 @@ describe('/api/cron/resend-usage-sync', () => {
   });
 
   it('passes auth gate with Vercel cron header when CRON_SECRET is not configured', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([]); // no rows
     const res = await resendUsageSyncRoute.GET(
       makeReq('http://x/api/cron/resend-usage-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
   });
 
-  it('accepts the Vercel cron header without bearer', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     selectQueue.push([]); // grouped query returns empty
     const res = await resendUsageSyncRoute.GET(
       makeReq('http://x/api/cron/resend-usage-sync', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    selectQueue.push([]); // grouped query returns empty
+    const res = await resendUsageSyncRoute.GET(
+      makeReq('http://x/api/cron/resend-usage-sync', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -621,7 +643,7 @@ describe('/api/cron/resend-usage-sync', () => {
   });
 
   it('inserts a new usage_meter_events row when none exists for the period', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     // Grouped select: one client with 42 sends
     selectQueue.push([{ clientId: 5, sendCount: 42 }]);
     // Existing lookup → empty (no row yet)
@@ -631,7 +653,7 @@ describe('/api/cron/resend-usage-sync', () => {
 
     const res = await resendUsageSyncRoute.GET(
       makeReq('http://x/api/cron/resend-usage-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -649,14 +671,14 @@ describe('/api/cron/resend-usage-sync', () => {
   });
 
   it('updates the existing row when one already exists for the period', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([{ clientId: 8, sendCount: 100 }]);
     selectQueue.push([{ id: 777 }]); // existing usage_meter_events row
     updateQueue.push([{ id: 777 }]);
 
     const res = await resendUsageSyncRoute.GET(
       makeReq('http://x/api/cron/resend-usage-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -668,7 +690,7 @@ describe('/api/cron/resend-usage-sync', () => {
   });
 
   it('skips rows where clientId is null', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       { clientId: null, sendCount: 50 },
       { clientId: 9, sendCount: 25 },
@@ -679,7 +701,7 @@ describe('/api/cron/resend-usage-sync', () => {
 
     const res = await resendUsageSyncRoute.GET(
       makeReq('http://x/api/cron/resend-usage-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -691,7 +713,7 @@ describe('/api/cron/resend-usage-sync', () => {
   });
 
   it('handles multiple non-null clients (mixed insert + update)', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       { clientId: 1, sendCount: 10 },
       { clientId: 2, sendCount: 20 },
@@ -703,7 +725,7 @@ describe('/api/cron/resend-usage-sync', () => {
 
     const res = await resendUsageSyncRoute.GET(
       makeReq('http://x/api/cron/resend-usage-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);

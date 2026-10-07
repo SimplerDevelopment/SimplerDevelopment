@@ -22,7 +22,7 @@ import {
 import { countBillableSeats } from '@/lib/billing/seats';
 
 export async function GET() {
-  const auth = await authorizePortal({ action: 'read' });
+  const auth = await authorizePortal({ action: 'read', scope: 'billing:read' });
   if (isAuthError(auth)) return auth.response;
 
   const { client } = auth;

@@ -70,6 +70,7 @@ function makeTableProxy(name: string) {
 }
 
 vi.mock('@/lib/db/schema', () => ({
+  users: makeTableProxy('users'),
   orders: makeTableProxy('orders'),
   orderItems: makeTableProxy('orderItems'),
   products: makeTableProxy('products'),
@@ -142,8 +143,9 @@ function allowStoreAccess() {
 
 vi.mock('@/lib/db', () => {
   function makeSelectChain() {
+    let liveUser = false;
     const chain: Record<string, unknown> = {
-      from: () => chain,
+      from: (table: { __table?: string }) => { liveUser = table.__table === 'users'; return chain; },
       innerJoin: () => chain,
       leftJoin: () => chain,
       where: () => chain,
@@ -151,7 +153,7 @@ vi.mock('@/lib/db', () => {
       orderBy: () => chain,
       limit: () => chain,
       then(resolve: (v: Row[]) => unknown, reject?: (e: unknown) => unknown) {
-        return Promise.resolve(selectQueue.shift() ?? []).then(resolve, reject);
+        return Promise.resolve(liveUser ? [{ active: true, role: 'client' }] : selectQueue.shift() ?? []).then(resolve, reject);
       },
     };
     return chain;
@@ -764,13 +766,25 @@ describe('GET /api/cron/surveys-zero-responses (complementary)', () => {
     process.env.CRON_SECRET = ORIGINAL_ENV;
   });
 
-  it('accepts the Vercel cron header when CRON_SECRET is not configured', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     delete process.env.CRON_SECRET;
     selectQueue.push([]); // candidate query
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
     const res = await GET(
       new Request('http://x/api/cron/surveys-zero-responses', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    selectQueue.push([]); // candidate query
+    const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
+    const res = await GET(
+      new Request('http://x/api/cron/surveys-zero-responses', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -793,7 +807,7 @@ describe('GET /api/cron/surveys-zero-responses (complementary)', () => {
   });
 
   it('processes a mix of skip-dup, skip-no-owner, and notify candidates', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       { id: 1, title: 'Alpha', clientId: 100, createdBy: 11, createdAt: new Date() },
       { id: 2, title: 'Beta', clientId: 100, createdBy: null, createdAt: new Date() },
@@ -808,7 +822,7 @@ describe('GET /api/cron/surveys-zero-responses (complementary)', () => {
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
     const res = await GET(
       new Request('http://x/api/cron/surveys-zero-responses', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -833,12 +847,12 @@ describe('GET /api/cron/surveys-zero-responses (complementary)', () => {
   });
 
   it('returns a numeric durationMs field on success', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([]);
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
     const res = await GET(
       new Request('http://x/api/cron/surveys-zero-responses', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const body = await res.json();

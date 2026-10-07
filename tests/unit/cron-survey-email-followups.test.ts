@@ -150,13 +150,25 @@ describe('GET /api/cron/process-survey-email-followups', { timeout: TEST_TIMEOUT
     expect(json.success).toBe(false);
   });
 
-  it('accepts the Vercel cron header without bearer token', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     selectQueue.push([]); // sequences: empty queue
     const { GET } = await import('@/app/api/cron/process-survey-email-followups/route');
     const res = await GET(
       new Request('http://x/api/cron/process-survey-email-followups', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    selectQueue.push([]); // sequences: empty queue
+    const { GET } = await import('@/app/api/cron/process-survey-email-followups/route');
+    const res = await GET(
+      new Request('http://x/api/cron/process-survey-email-followups', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -195,7 +207,7 @@ describe('GET /api/cron/process-survey-email-followups', { timeout: TEST_TIMEOUT
   });
 
   it('sends email + records audit row for an eligible candidate', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     // Queue order matches the route's select() call order:
     //   1) enabled sequences
     //   2) survey by id   (for the one sequence)
@@ -229,7 +241,7 @@ describe('GET /api/cron/process-survey-email-followups', { timeout: TEST_TIMEOUT
     const { GET } = await import('@/app/api/cron/process-survey-email-followups/route');
     const res = await GET(
       new Request('http://x/api/cron/process-survey-email-followups', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -273,7 +285,7 @@ describe('GET /api/cron/process-survey-email-followups', { timeout: TEST_TIMEOUT
   });
 
   it('records a skipped audit row for ineligible candidates and bumps the right counter', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 1,
@@ -304,7 +316,7 @@ describe('GET /api/cron/process-survey-email-followups', { timeout: TEST_TIMEOUT
     const { GET } = await import('@/app/api/cron/process-survey-email-followups/route');
     const res = await GET(
       new Request('http://x/api/cron/process-survey-email-followups', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -332,7 +344,7 @@ describe('GET /api/cron/process-survey-email-followups', { timeout: TEST_TIMEOUT
   });
 
   it('catches a Resend failure, increments errors, still records the audit row', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 2,
@@ -362,7 +374,7 @@ describe('GET /api/cron/process-survey-email-followups', { timeout: TEST_TIMEOUT
     const { GET } = await import('@/app/api/cron/process-survey-email-followups/route');
     const res = await GET(
       new Request('http://x/api/cron/process-survey-email-followups', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -383,7 +395,7 @@ describe('GET /api/cron/process-survey-email-followups', { timeout: TEST_TIMEOUT
   });
 
   it('caps work at MAX_SENDS_PER_TICK = 100 and stops scanning further rows', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     // Single sequence whose eligible-responses query returns 100 rows already
     // (matching the route's `limit(remaining)` value on the first iteration).
     // After 100 sends the outer loop should break and the counters reflect
@@ -414,7 +426,7 @@ describe('GET /api/cron/process-survey-email-followups', { timeout: TEST_TIMEOUT
     const { GET } = await import('@/app/api/cron/process-survey-email-followups/route');
     const res = await GET(
       new Request('http://x/api/cron/process-survey-email-followups', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);

@@ -1,3 +1,4 @@
+import { authenticateBrowserContext } from './setup/auth-session';
 /**
  * Portal route smoke — A2 deliverable for staging QA (.planning/qa-staging-2026-05-08.md).
  *
@@ -9,7 +10,7 @@
  *   • Page hydrates — a root selector becomes visible within 3s.
  *
  * Tagged @critical so `bun test:critical` picks it up. The whole spec runs
- * serial in a single logged-in browser context to avoid re-login overhead and
+ * sequentially in a logged-in browser context to avoid re-login overhead and
  * to make per-test failure output pinpoint the failing route.
  *
  * Dynamic params (`[siteId]`, `[id]`, `[postId]`, etc.) are resolved at spec
@@ -25,7 +26,7 @@ import { test, expect } from './setup/fixtures';
 import { runCleanups } from './setup/helpers';
 import type { ApiClient } from './setup/api-client';
 
-test.describe.configure({ mode: 'serial' });
+test.describe.configure({ mode: 'default' }); // Sequential GETs; failures do not skip later routes.
 
 const CLIENT_EMAIL = 'client@example.com';
 const CLIENT_PASSWORD = 'client123';
@@ -33,32 +34,10 @@ const CLIENT_PASSWORD = 'client123';
 // ─── Helpers (kept inline per A2 prompt) ───────────────────────────────────
 
 /** Login the browser context via NextAuth credentials. The session cookie
- *  is shared across every test in this file because we run serial and reuse
+ *  is shared across every test in this file because we run sequentially and reuse
  *  the same Playwright `page`. */
 async function loginAsClientInBrowser(page: Page) {
-  // Retry up to 3 times — on a cold dev server the auth endpoints can return
-  // 5xx transiently during the first parallel request batch, which would
-  // throw from beforeAll and fail every smoke test in 0ms.
-  let lastStatus = 0;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const csrfRes = await page.request.get('/api/auth/csrf');
-    if (csrfRes.status() >= 400) {
-      lastStatus = csrfRes.status();
-      continue;
-    }
-    const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-    const signInRes = await page.request.post('/api/auth/callback/credentials', {
-      form: {
-        email: CLIENT_EMAIL,
-        password: CLIENT_PASSWORD,
-        csrfToken,
-        json: 'true',
-      },
-    });
-    lastStatus = signInRes.status();
-    if (lastStatus < 400) return;
-  }
-  throw new Error(`Browser login failed after 3 attempts: last status ${lastStatus}`);
+  await authenticateBrowserContext(page.context(), CLIENT_EMAIL, CLIENT_PASSWORD);
 }
 
 /** Filter out deprecation / dev-only noise that doesn't actually indicate a

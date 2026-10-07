@@ -13,7 +13,7 @@
  * A per-campaign error is caught and recorded without aborting the batch —
  * one bad campaign must not block the rest.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  * Schedule: every minute — granularity matches scheduledAt
  * precision.
  */

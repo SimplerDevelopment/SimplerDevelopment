@@ -239,10 +239,10 @@ describe('roleDenial', () => {
     expect(roleDenial('posts_create', BETA, 7)).toContain('viewer');
   });
 
-  it('logs but allows during the log-only rollout', () => {
+  it('logs and denies when the obsolete enforcement flag is unset', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      expect(roleDenial('posts_create', BETA, 7)).toBeNull();
+      expect(roleDenial('posts_create', BETA, 7)).toContain('viewer');
       expect(warn).toHaveBeenCalledOnce();
       expect(String(warn.mock.calls[0][0])).toContain('mcp.role.insufficient');
     } finally {
@@ -251,8 +251,8 @@ describe('roleDenial', () => {
     }
   });
 
-  it('skips enforcement when no role was resolved', () => {
+  it('denies when no role was resolved', () => {
     process.env.AUTH_ROLE_ENFORCE = '1';
-    expect(roleDenial('posts_create', { client: client(12, 'Acme'), role: null }, 7)).toBeNull();
+    expect(roleDenial('posts_create', { client: client(12, 'Acme'), role: null }, 7)).toContain('no current company role');
   });
 });

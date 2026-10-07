@@ -51,7 +51,7 @@ vi.mock('bcryptjs', () => ({
 // lib/totp.verifyTOTP — programmable for the MFA-enforcement cases.
 const verifyTotpMock = vi.fn();
 vi.mock('@/lib/totp', () => ({
-  verifyTOTP: (...args: unknown[]) => verifyTotpMock(...args),
+  verifiedTOTPStep: (...args: unknown[]) => verifyTotpMock(...args) ? 123 : null,
 }));
 
 // Rate-limit module pulls in @upstash (not always installed) — stub it so the
@@ -59,11 +59,14 @@ vi.mock('@/lib/totp', () => ({
 vi.mock('@/lib/security/rate-limit', () => ({
   checkRateLimit: () => Promise.resolve(true),
   getClientIp: () => '127.0.0.1',
+  isAuthRateLimitDisabled: () => true,
 }));
 
 // Drizzle eq — return a tagged marker so we can sanity-check it's used.
 vi.mock('drizzle-orm', () => ({
   eq: (col: unknown, val: unknown) => ({ __eq: true, col, val }),
+  and: (...args: unknown[]) => ({ and: args }),
+  lt: (col: unknown, val: unknown) => ({ lt: [col, val] }),
   isNull: (a: unknown) => ({ op: 'isNull', a }),
   or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
   inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
@@ -79,6 +82,7 @@ let nextDbUser: any = null;
 let dbCallChain: any[] = [];
 vi.mock('@/lib/db', () => ({
   db: {
+    update: () => ({ set: () => ({ where: () => ({ returning: async () => [{ id: nextDbUser?.id }] }) }) }),
     select: () => {
       dbCallChain.push('select');
       return {

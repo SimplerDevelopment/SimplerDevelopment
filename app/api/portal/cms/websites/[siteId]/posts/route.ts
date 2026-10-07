@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { posts, postCategories, postTags } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
+import { authorizePortalSite, isAuthError } from '@/lib/portal-auth';
 import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
 import { parseSiteIdParam } from '@/lib/api/parse-params';
 
@@ -37,6 +38,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
 
   const site = await resolveClientSite(parseInt(session.user.id, 10), parsed.value);
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  const authorization = await authorizePortalSite({ siteId: site.id, action: 'write' });
+  if (isAuthError(authorization)) return authorization.response;
 
   const body = await req.json();
   const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl } = body;

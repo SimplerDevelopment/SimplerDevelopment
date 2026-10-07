@@ -510,9 +510,6 @@ describe('process-workflow-runs — failure and retry', () => {
       durationMs: 2,
     });
 
-    // Re-set to pending so the main pass picks it up (simulates retry scenario)
-    state.workflowRunSteps[0].status = 'pending';
-
     const before = Date.now();
     const { body } = await callHandler();
     const after = Date.now();

@@ -213,7 +213,9 @@ vi.mock('@/lib/db', () => {
 const resolvePortalMock = vi.fn();
 vi.mock('@/lib/mcp-auth', () => ({
   resolvePortalFromRequest: (...args: unknown[]) => resolvePortalMock(...args),
+  hasScope: (scopes: string[], scope: string) => scopes.includes(scope),
 }));
+vi.mock('@/lib/portal-client', () => ({ getPortalRole: vi.fn().mockResolvedValue('owner') }));
 
 // ===========================================================================
 // AI credits mocks
@@ -221,9 +223,13 @@ vi.mock('@/lib/mcp-auth', () => ({
 
 const hasCreditsM = vi.fn();
 const deductCreditsM = vi.fn();
+const reserveCreditsM = vi.fn();
+const settleCreditsM = vi.fn();
 const getBalanceM = vi.fn();
 
 vi.mock('@/lib/ai-credits', () => ({
+  reserveCredits: (...args: unknown[]) => reserveCreditsM(...args),
+  settleCredits: (...args: unknown[]) => settleCreditsM(...args),
   hasCredits: (...args: unknown[]) => hasCreditsM(...args),
   deductCredits: (...args: unknown[]) => deductCreditsM(...args),
   getBalance: (...args: unknown[]) => getBalanceM(...args),
@@ -264,6 +270,7 @@ vi.mock('@/lib/ai/plan-gate', () => ({
 
 function makeSdkStream(events: unknown[]) {
   return {
+    abort: vi.fn(),
     [Symbol.asyncIterator]() {
       let idx = 0;
       return {
@@ -285,6 +292,7 @@ vi.mock('@anthropic-ai/sdk', () => {
       messages: any;
       constructor() {
         this.messages = {
+          countTokens: vi.fn().mockResolvedValue({ input_tokens: 100 }),
           stream: (...args: unknown[]) => anthropicStreamM(...args),
         };
       }
@@ -322,6 +330,7 @@ function defaultCtx() {
   return {
     userId: 7,
     client: { id: 42 },
+    scopes: ['chat:write'],
   };
 }
 
@@ -343,6 +352,7 @@ function happyStreamEvents() {
       type: 'message_delta',
       usage: { output_tokens: 5 },
     },
+    { type: 'message_stop' },
   ];
 }
 
@@ -380,6 +390,8 @@ beforeEach(() => {
   resolvePortalMock.mockReset();
   hasCreditsM.mockReset();
   deductCreditsM.mockReset();
+  reserveCreditsM.mockReset().mockResolvedValue({ success: true, newBalance: 900 });
+  settleCreditsM.mockReset().mockResolvedValue({ success: true, newBalance: 900 });
   getBalanceM.mockReset();
   resolveKeyM.mockReset();
   planGateMock.mockReset();
@@ -579,8 +591,8 @@ describe('POST /api/portal/ai/chat/stream — happy path', () => {
   it('deducts credits after stream completes (platform key)', async () => {
     const res = await POST(makeReq({ messages: [{ role: 'user', content: 'hello' }] }));
     await drainStream(res);
-    expect(deductCreditsM).toHaveBeenCalledTimes(1);
-    const [clientId] = deductCreditsM.mock.calls[0] as [number];
+    expect(settleCreditsM).toHaveBeenCalledTimes(1);
+    const [clientId] = settleCreditsM.mock.calls[0] as [number];
     expect(clientId).toBe(42);
   });
 
@@ -612,9 +624,10 @@ describe('POST /api/portal/ai/chat/stream — happy path', () => {
       createdAt: new Date(),
     });
 
-    await POST(
+    const response = await POST(
       makeReq({ conversationId: 60, messages: [{ role: 'user', content: 'new turn' }] }),
     );
+    await drainStream(response);
 
     expect(anthropicStreamM).toHaveBeenCalledTimes(1);
     const callArg = anthropicStreamM.mock.calls[0]![0] as {
@@ -634,6 +647,7 @@ describe('POST /api/portal/ai/chat/stream — happy path', () => {
 describe('POST /api/portal/ai/chat/stream — stream error', () => {
   it('emits an error frame then a done frame when the SDK stream throws', async () => {
     anthropicStreamM.mockReturnValue({
+      abort: vi.fn(),
       [Symbol.asyncIterator]() {
         return {
           async next() {
@@ -657,12 +671,12 @@ describe('POST /api/portal/ai/chat/stream — stream error', () => {
     expect(doneFrame).toBeDefined();
   });
 
-  it('falls back to getBalance when deductCredits throws', async () => {
-    deductCreditsM.mockRejectedValueOnce(new Error('billing_unavailable'));
+  it('surfaces a billing error when reservation settlement throws', async () => {
+    settleCreditsM.mockRejectedValueOnce(new Error('billing_unavailable'));
     getBalanceM.mockResolvedValueOnce({ balance: 500 });
 
     const res = await POST(makeReq({ messages: [{ role: 'user', content: 'hello' }] }));
-    await drainStream(res);
-    expect(getBalanceM).toHaveBeenCalledTimes(1);
+    const frames = parseSseFrames(await drainStream(res)) as Array<{ type: string; message?: string }>;
+    expect(frames.find(frame => frame.type === 'error')?.message).toBe('billing_unavailable');
   });
 });

@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
   await db
     .update(users)
-    .set({ mfaEnabled: false, totpSecret: null, updatedAt: new Date() })
+    .set({ mfaEnabled: false, totpSecret: null, mfaLastUsedStep: null, updatedAt: new Date() })
     .where(eq(users.id, userId));
 
   return NextResponse.json({ success: true, data: { mfaEnabled: false } });

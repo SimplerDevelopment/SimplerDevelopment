@@ -7,13 +7,11 @@
  * seeded via psql (the write paths — Gmail ingest + send-email — are exercised
  * elsewhere; this proves the read surface + tenancy).
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups, createTestContact } from './setup/helpers';
-import { execSync } from 'child_process';
-
-const DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 function sql(q: string): string {
-  return execSync(`psql "${DB}" -At -c "${q.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+  return e2eSql(q).trim();
 }
 function seedMsg(clientId: number, contactId: number, direction: string, providerId: string, minutesAgo: number): number {
   return parseInt(

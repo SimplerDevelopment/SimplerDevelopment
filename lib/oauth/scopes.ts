@@ -52,6 +52,7 @@ export const SUPPORTED_SCOPES = [
   'esign:read',
   'esign:write',
   'billing:read',
+  'billing:write',
   'hosting:read',
   'ai:read',
   // Branding profile (brand colors / fonts / messaging tools use these)

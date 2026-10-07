@@ -600,6 +600,16 @@ describe('EmailAbConfig — promoteWinner', () => {
     );
   });
 
+  it('reports queued winner promotion as sending rather than delivered', async () => {
+    fetchMock
+      .mockResolvedValueOnce({ json: () => Promise.resolve({ success: true, data: abStatus }) } as Response)
+      .mockResolvedValueOnce({ json: () => Promise.resolve({ success: true, data: { winnerSubject: 'B wins', queued: true, sent: 0, failed: 0 } }) } as Response);
+    const { onChange } = renderAb(makeCampaign({ abEnabled: true, status: 'ab_testing' }));
+    await waitFor(() => screen.getByText('Promote winner'));
+    fireEvent.click(screen.getByText('Promote winner'));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'sending', abWinnerSubject: 'B wins' })));
+  });
+
   it('does NOT POST when user cancels confirm', async () => {
     confirmMock.mockReturnValueOnce(false);
     fetchMock.mockResolvedValueOnce({

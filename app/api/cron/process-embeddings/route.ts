@@ -16,7 +16,7 @@ export const runtime = 'nodejs';
  * concurrent ticks won't double-pick the same job thanks to FOR UPDATE
  * SKIP LOCKED in drainQueue.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  *
  * Tunable per request via ?batch=N (caps at 100 to keep a single tick
  * bounded — a deep queue gets drained over multiple cron firings).

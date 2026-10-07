@@ -1,3 +1,4 @@
+import { isAuthorizedCron } from '@/lib/cron-auth';
 import { NextResponse } from 'next/server';
 import { drainQueue } from '@/lib/ai/evals/worker';
 
@@ -20,11 +21,7 @@ export const runtime = 'nodejs';
  *   ?mock=1        — score against case mockOutputs (no model calls); for smoke tests
  */
 export async function GET(req: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.get('authorization');
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  const bearerOk = cronSecret && auth === `Bearer ${cronSecret}`;
-  if (!isVercelCron && !bearerOk) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 

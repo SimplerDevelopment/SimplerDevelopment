@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { issueVisitorToken, verifyVisitorToken } from '@/lib/chat/token';
 
 describe('chat visitor token', () => {
+  afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
     process.env.CHAT_TOKEN_SECRET = 'unit-test-secret-1234';
   });
@@ -12,6 +13,25 @@ describe('chat visitor token', () => {
     expect(verified).not.toBeNull();
     expect(verified?.conversationId).toBe(42);
     expect(verified?.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it('production rejects issuance and verification when no secret is configured', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('CHAT_TOKEN_SECRET', '');
+    vi.stubEnv('AUTH_SECRET', '');
+    vi.stubEnv('NEXTAUTH_SECRET', '');
+    const developmentToken = issueVisitorToken(42);
+    vi.stubEnv('NODE_ENV', 'production');
+    expect(() => issueVisitorToken(42)).toThrow(/required in production/);
+    expect(verifyVisitorToken(developmentToken)).toBeNull();
+  });
+
+  it('supports AUTH_SECRET in production without a dev fallback', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('CHAT_TOKEN_SECRET', '');
+    vi.stubEnv('NEXTAUTH_SECRET', '');
+    vi.stubEnv('AUTH_SECRET', 'test-production-auth-secret');
+    expect(verifyVisitorToken(issueVisitorToken(42))?.conversationId).toBe(42);
   });
 
   it('rejects null / empty / malformed tokens', () => {

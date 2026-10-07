@@ -2,6 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import React from 'react';
+import { renderToString } from 'react-dom/server';
+import { hydrateRoot } from 'react-dom/client';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -85,6 +87,35 @@ import ContentList from '@/app/portal/websites/[siteId]/ContentList';
 // ---------------------------------------------------------------------------
 
 describe('ContentList', () => {
+  it('hydrates updated dates across locale/timezone changes without recovery', async () => {
+    const props = { siteId: 1, posts: [makePost({ updatedAt: new Date('2026-06-01T00:30:00Z') })], contentTypes: [], activeType: null };
+    const format = vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(function (this: Date) {
+      return new Intl.DateTimeFormat('es-ES', { timeZone: 'UTC' }).format(this);
+    });
+    const html = renderToString(<ContentList {...props} />);
+    expect(html).toContain('2026-06-01</time>');
+    expect(format).not.toHaveBeenCalled();
+    format.mockImplementation(function (this: Date) {
+      return new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles' }).format(this);
+    });
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    document.body.appendChild(container);
+    const onRecoverableError = vi.fn();
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    try {
+      await act(async () => {
+        root = hydrateRoot(container, <ContentList {...props} />, { onRecoverableError });
+      });
+      expect(container.querySelector('time')?.textContent).toBe('5/31/2026');
+      expect(onRecoverableError).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => root?.unmount());
+      container.remove();
+      format.mockRestore();
+    }
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockConfirm.mockReturnValue(false); // safe default: deny delete

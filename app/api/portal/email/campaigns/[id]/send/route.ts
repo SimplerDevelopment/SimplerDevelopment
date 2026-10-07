@@ -33,7 +33,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     .limit(1);
 
   if (!campaign) return NextResponse.json({ success: false, message: 'Campaign not found' }, { status: 404 });
-  if (campaign.status === 'sent' || campaign.status === 'sending') {
+  if (!['draft', 'scheduled', 'partial', 'failed'].includes(campaign.status)) {
     return NextResponse.json({ success: false, message: `Campaign is already ${campaign.status}` }, { status: 400 });
   }
 
@@ -59,9 +59,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   // A/B cohort. Sort by id ascending — stable across reads.
   subscribers.sort((a, b) => a.id - b.id);
 
-  const targets = subscribers.filter(s => !sentIds.has(s.id));
+  const frozenIds = campaign.dispatchPlan ? new Set(campaign.dispatchPlan.map(row => row.id)) : null;
+  const targets = subscribers.filter(s => !sentIds.has(s.id) && (!frozenIds || frozenIds.has(s.id)));
 
-  if (targets.length === 0) {
+  if (targets.length === 0 && !campaign.dispatchPlan?.length) {
     return NextResponse.json({ success: false, message: 'No active subscribers to send to' }, { status: 400 });
   }
 

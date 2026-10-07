@@ -13,7 +13,6 @@
 import { AUTOMATION_EVENTS } from './event-bus';
 import { PORTAL_TOOLS } from '@/lib/ai/portal-tools';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
-import { recordAiUsage } from '@/lib/ai/audit';
 import { complete } from '@/lib/ai/llm';
 
 export interface ParsedAutomation {
@@ -153,6 +152,7 @@ export async function parseAutomationDescription(
 
   const response = await complete({
     task: 'nlpParse',
+    credits: { category: 'automation_parse' },
     clientId,
     maxTokens: 1024,
     system: SYSTEM_PROMPT,
@@ -160,12 +160,6 @@ export async function parseAutomationDescription(
   });
 
   const parsed = JSON.parse(response.text) as ParsedAutomation;
-
-  void recordAiUsage({
-    clientId,
-    source,
-    tokens: (response.usage?.inputTokens ?? 0) + (response.usage?.outputTokens ?? 0),
-  });
 
   return {
     parsed,

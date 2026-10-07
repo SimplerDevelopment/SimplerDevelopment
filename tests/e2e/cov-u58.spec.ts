@@ -16,23 +16,26 @@
  *     used when PORTAL_KMS_KEY is not set in non-production — see lib/plugins/kms.ts).
  *   - We mint JWTs using jsonwebtoken (same library the server uses) with the
  *     known plaintext secret.
- *   - Cards 5 and 6 hit the cron endpoints with the Vercel-cron platform header
- *     (x-vercel-cron: 1) — the isAuthorizedCron gate accepts that unconditionally.
+ *   - Cards 5 and 6 hit the cron endpoints with a Bearer token matching
+ *     CRON_SECRET, provided in both the test and server environments.
  *   - The PLUGINS_CALLBACK_ORIGIN_BYPASS=1 env var must be set on the dev server
  *     to skip the Origin check; otherwise card 4 and 7 tests are skipped.
  */
-
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { sign as jwtSign } from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
-import { execSync } from 'node:child_process';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-// Seed DB: the server's actual local DB (not the Playwright test DB in DATABASE_URL).
-// The dev server uses simplerdev_realprod_dryrun; seed rows must land there.
-const SEED_DB_URL = process.env.SEED_DB_URL || 'postgresql://127.0.0.1/simplerdev_realprod_dryrun';
+
+function cronHeaders(): { Authorization: string } {
+  const secret = process.env.CRON_SECRET;
+  if (!secret?.trim()) throw new Error('Cron E2E requires CRON_SECRET in the test and server environment');
+  return { Authorization: `Bearer ${secret}` };
+}
+
 
 // Test app slug — unique suffix so it never collides with a real app.
 const TEST_APP_SLUG = `cov-u58-test-${Date.now()}`;
@@ -82,10 +85,7 @@ function sql(statement: string): string {
   // Collapse newlines and extra whitespace to a single line so psql -c is happy.
   const oneLine = statement.replace(/\s+/g, ' ').trim();
   try {
-    return execSync(`psql "${SEED_DB_URL}" -t -c ${JSON.stringify(oneLine)}`, {
-      encoding: 'utf8',
-      timeout: 10_000,
-    }).trim();
+    return e2eSql(oneLine).trim();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`sql() failed: ${msg}\nStatement: ${oneLine}`);
@@ -230,10 +230,10 @@ test.describe('Plugin callback — JTI replay rejection @plugins', () => {
 // ─── Card 5: plugin-runs-drain cron ──────────────────────────────────────────
 
 test.describe('Cron plugin-runs-drain @plugins @cron', () => {
-  test('GET /api/cron/plugin-runs-drain with x-vercel-cron returns success envelope', async () => {
+  test('GET /api/cron/plugin-runs-drain with configured Bearer secret returns success envelope', async () => {
     const res = await apiFetch('/api/cron/plugin-runs-drain', {
       method: 'GET',
-      headers: { 'x-vercel-cron': '1' },
+      headers: cronHeaders(),
     });
     expect(res.status).toBe(200);
     const body = res.data as {
@@ -254,6 +254,13 @@ test.describe('Cron plugin-runs-drain @plugins @cron', () => {
 
   test('GET /api/cron/plugin-runs-drain without auth returns 401', async () => {
     const res = await apiFetch('/api/cron/plugin-runs-drain', { method: 'GET' });
+    expect(res.status).toBe(401);
+  });
+
+  test('GET /api/cron/plugin-runs-drain with a forged platform header returns 401', async () => {
+    const res = await apiFetch('/api/cron/plugin-runs-drain', {
+      method: 'GET', headers: { 'x-vercel-cron': '1' },
+    });
     expect(res.status).toBe(401);
   });
 });
@@ -302,14 +309,14 @@ test.describe('Cron plugin-jobs-tick @plugins @cron', () => {
   });
 
   test('GET /api/cron/plugin-jobs-tick fires due job and bumps nextRunAt', async () => {
+    const headers = cronHeaders();
     if (tickAppId === null || seededJobId === null) {
-      test.skip(true, 'Seed failed — skipping jobs-tick test');
-      return;
+      throw new Error('Cron jobs-tick fixture failed to seed its app and job');
     }
 
     const res = await apiFetch('/api/cron/plugin-jobs-tick', {
       method: 'GET',
-      headers: { 'x-vercel-cron': '1' },
+      headers,
     });
     expect(res.status).toBe(200);
     const body = res.data as { success: boolean; fired: Array<{ jobId: number; runId: number }> };
@@ -337,6 +344,13 @@ test.describe('Cron plugin-jobs-tick @plugins @cron', () => {
 
   test('GET /api/cron/plugin-jobs-tick without auth returns 401', async () => {
     const res = await apiFetch('/api/cron/plugin-jobs-tick', { method: 'GET' });
+    expect(res.status).toBe(401);
+  });
+
+  test('GET /api/cron/plugin-jobs-tick with a forged platform header returns 401', async () => {
+    const res = await apiFetch('/api/cron/plugin-jobs-tick', {
+      method: 'GET', headers: { 'x-vercel-cron': '1' },
+    });
     expect(res.status).toBe(401);
   });
 });

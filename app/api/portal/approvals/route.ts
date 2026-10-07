@@ -33,7 +33,7 @@ async function getApprovalCount(clientId: number, status: string): Promise<numbe
 
 export async function GET(req: Request) {
   // Bearer-aware (mobile) + NextAuth (web). Read access = any member.
-  const authResult = await authorizePortal({ action: 'read' });
+  const authResult = await authorizePortal({ action: 'read', scope: 'approvals:read' });
   if (isAuthError(authResult)) return authResult.response;
   const { client, role } = authResult;
 

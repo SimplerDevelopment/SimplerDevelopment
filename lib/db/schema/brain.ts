@@ -5,6 +5,7 @@ import { users } from './auth';
 import { clients } from './sites';
 import { crmCompanies, crmContacts, crmDeals } from './crm';
 import { kanbanCards } from './pm';
+import { brainNoteIndexes } from './brain-note-indexes';
 
 export interface AutomationTrigger {
   event: string; // e.g. 'booking.created', 'crm.deal.updated', 'form.submitted'
@@ -601,13 +602,7 @@ export const brainNotes = pgTable('brain_notes', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
-}, (t) => [
-  index('brain_notes_client_updated_idx').on(t.clientId, t.updatedAt),
-  index('brain_notes_client_company_idx').on(t.clientId, t.companyId),
-  index('brain_notes_client_deal_idx').on(t.clientId, t.dealId),
-  index('brain_notes_client_pinned_idx').on(t.clientId, t.pinned),
-  index('brain_notes_status_idx').on(t.status),
-]);
+}, brainNoteIndexes);
 
 // Brain note templates — reusable note bodies a tenant can apply manually, via
 // slash command, on a daily cron, or auto-attached to a new meeting. Bodies

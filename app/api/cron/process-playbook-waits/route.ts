@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
  * deeply-backed-up queue, repeat ticks drain steadily; this avoids starving
  * other cron work behind one huge batch.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  *
  * Suggested schedule: every 5 minutes (`*\/5 * * * *`).
  */

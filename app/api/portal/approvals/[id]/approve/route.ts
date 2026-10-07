@@ -9,7 +9,7 @@ import { applyPendingChange } from '@/lib/mcp/approvals';
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   // Bearer-aware (mobile) + NextAuth (web). action:'admin' enforces the
   // owner/admin gate that previously lived in an explicit role check.
-  const authResult = await authorizePortal({ action: 'admin' });
+  const authResult = await authorizePortal({ action: 'admin', scope: 'approvals:manage' });
   if (isAuthError(authResult)) return authResult.response;
   const { client, userId } = authResult;
 

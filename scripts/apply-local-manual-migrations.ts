@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import postgres from 'postgres';
+import { backfillPrivateMediaKeys } from './backfill-private-media';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -18,13 +19,14 @@ if (!databaseUrl) {
 // Zero-padded 4-digit prefixes sort correctly under a plain lexicographic
 // .sort(), so ordering still holds as the series grows.
 const drizzleDir = join(process.cwd(), 'drizzle');
+const journal = JSON.parse(readFileSync(join(drizzleDir, 'meta/_journal.json'), 'utf8'));
+const registered = new Set(journal.entries.map((entry: { tag: string }) => `${entry.tag}.sql`));
 const files = readdirSync(drizzleDir)
-  .filter((file) => /^9\d{3}.*\.sql$/.test(file))
+  .filter((file) => /^9\d{3}.*\.sql$/.test(file) && !registered.has(file))
   .sort();
 
 if (files.length === 0) {
   console.log('[manual-migrations] no unjournaled manual migrations found.');
-  process.exit(0);
 }
 
 const sql = postgres(databaseUrl, {
@@ -42,6 +44,8 @@ try {
     await sql.unsafe(readFileSync(path, 'utf8'));
   }
   console.log(`[manual-migrations] applied ${files.length} file(s).`);
+  const privateKeys = await backfillPrivateMediaKeys();
+  console.log(`[manual-migrations] private attachment keys registered: ${privateKeys}`);
 } finally {
   await sql.end();
 }

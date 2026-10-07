@@ -21,6 +21,12 @@ afterEach(() => {
 });
 
 describe('checkRateLimit — in-memory fallback (Upstash unconfigured)', () => {
+  it('never honors an inherited auth rate-limit bypass in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('DISABLE_AUTH_RATE_LIMIT', '1');
+    const { isAuthRateLimitDisabled } = await import('@/lib/security/rate-limit');
+    expect(isAuthRateLimitDisabled()).toBe(false);
+  });
   it('allows up to the limit, then blocks within the window', async () => {
     vi.stubEnv('UPSTASH_REDIS_REST_URL', '');
     vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '');

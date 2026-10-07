@@ -10,10 +10,10 @@ import {
 import { eq } from 'drizzle-orm';
 import { setMeetingAiSummary, updateMeetingStatus } from '@/lib/brain/meetings';
 import { logAudit } from '@/lib/brain/audit';
-import { hasCredits, deductCredits } from '@/lib/ai-credits';
+import { hasCredits } from '@/lib/ai-credits';
+import { anthropicInputTokens, creditTrackedAnthropic } from '@/lib/ai/credit-accounting';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { resolvePrompt } from '@/lib/ai/prompt-registry';
-import { recordAiUsage } from '@/lib/ai/audit';
 
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TRANSCRIPT_CHARS = 60_000; // hard cap to keep costs bounded
@@ -122,7 +122,7 @@ export async function extractMeetingTranscript(
     messages: [{ role: 'user', content: userPrompt }],
   });
 
-  const inputTokens = response.usage?.input_tokens ?? 0;
+  const inputTokens = response.usage ? anthropicInputTokens(response.usage) : 0;
   const outputTokens = response.usage?.output_tokens ?? 0;
   onUsage?.({ inputTokens, outputTokens });
 
@@ -158,7 +158,10 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
 
   // Resolve BYOK vs platform key for this client.
   const resolved = await resolveClientApiKey({ clientId: args.clientId, provider: 'anthropic' });
-  const anthropic = new Anthropic({ apiKey: resolved.key });
+  const anthropic = creditTrackedAnthropic(new Anthropic({ apiKey: resolved.key }), {
+    clientId: args.clientId, source: resolved.source, category: 'brain_meeting_processing',
+    price: (input, output) => Math.max(1, Math.round(input / 1000) + Math.round(output / 250)),
+  });
 
   // Credit pre-flight. If insufficient, mark the freshly-created job as
   // failed and bubble up — same shape as any other AI failure. BYOK skips
@@ -272,10 +275,8 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
   // 1k input tokens + 4 credits per 1k output tokens (output is more expensive).
   // Skip when using BYOK — the client already paid their provider.
   const credits = Math.max(1, Math.round(inputTokens / 1000) + Math.round(outputTokens / 250));
-  if (resolved.source === 'platform') {
-    await deductCredits(args.clientId, credits, 'brain_meeting_processing', `meeting:${args.meetingId}`, `Processed meeting ${args.meetingId}`);
-  }
-  void recordAiUsage({ clientId: args.clientId, source: resolved.source, tokens: inputTokens + outputTokens });
+  // Provider usage was charged before parsing/persistence, so failures cannot
+  // silently make inference free and successful persistence cannot double bill.
 
   // Mark job complete.
   await db.update(brainAiJobs).set({

@@ -49,10 +49,10 @@ describe('pluginTenantCookieOptions', () => {
     expect(pluginTenantCookieOptions(true).domain).toBe('.example.com');
   });
 
-  it('e2e: AUTH_INSECURE_COOKIES=1 forces insecure even in production NODE_ENV', () => {
+  it('production ignores an inherited AUTH_INSECURE_COOKIES test flag', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('AUTH_INSECURE_COOKIES', '1');
-    expect(pluginTenantCookieOptions(true).secure).toBe(false);
+    expect(pluginTenantCookieOptions(true).secure).toBe(true);
   });
 
   it('slug cookie is readable client-side (httpOnly=false) but shares the scope', () => {

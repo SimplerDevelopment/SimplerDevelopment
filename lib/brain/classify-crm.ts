@@ -35,9 +35,8 @@ import { upsertContactByEmail } from '@/lib/crm/contacts';
 import { findCompanyByDomain } from '@/lib/crm/companies';
 import { domainFromEmail, parseDisplayName, isPersonalDomain, capitalize } from '@/lib/crm/parse';
 import { logAudit } from '@/lib/brain/audit';
-import { hasCredits, deductCredits } from '@/lib/ai-credits';
+import { hasCredits } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
-import { recordAiUsage } from '@/lib/ai/audit';
 import { complete } from '@/lib/ai/llm';
 import type { MeetingExtraction } from '@/lib/ai/meeting-processor';
 
@@ -279,6 +278,7 @@ export async function classifyAndLinkCrm(args: ClassifyAndLinkCrmArgs): Promise<
 
     const result = await complete({
       task: 'classifyCrm',
+      credits: { category: 'brain_crm_classify', price: (input, output) => Math.max(1, Math.round(input / 1000) + Math.round(output / 250)) },
       clientId: args.clientId,
       maxTokens: MAX_TOKENS,
       system: SYSTEM_PROMPT,
@@ -404,10 +404,6 @@ export async function classifyAndLinkCrm(args: ClassifyAndLinkCrmArgs): Promise<
 
   // Charge credits — same heuristic as transcript pipeline. BYOK skips this.
   const credits = Math.max(1, Math.round(inputTokens / 1000) + Math.round(outputTokens / 250));
-  if (resolved.source === 'platform') {
-    await deductCredits(args.clientId, credits, 'brain_crm_classify', `meeting:${args.meetingId}`, `Classified CRM links for meeting ${args.meetingId}`);
-  }
-  void recordAiUsage({ clientId: args.clientId, source: resolved.source, tokens: inputTokens + outputTokens });
 
   await db.update(brainAiJobs).set({
     status: 'completed' as BrainAiJobStatus,

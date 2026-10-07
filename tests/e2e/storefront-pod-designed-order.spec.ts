@@ -40,9 +40,9 @@
  * Those overrides matter: .env.local points S3 at REAL remote storage, and a
  * test run must not write artifacts there.
  */
+import { e2eSql } from './setup/sql';
 import { request as pwRequest } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
 import { test, expect } from './setup/fixtures';
 import type { ApiClient } from './setup/api-client';
 import { runCleanups, createTestWebsite } from './setup/helpers';
@@ -50,12 +50,6 @@ import { runCleanups, createTestWebsite } from './setup/helpers';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const STRIPE_KEY = process.env.STRIPE_SECRET_KEY ?? '';
 const HAS_STRIPE_TEST_KEY = STRIPE_KEY.startsWith('sk_test_');
-
-// scripts/test.sh pins DATABASE_URL to a vetted local target before any child
-// can re-resolve .env (which holds a REMOTE url). Falling back to the local
-// default keeps a direct `npx playwright test` honest rather than silently
-// reaching for whatever .env has.
-const DB_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev';
 
 // A mockup the render hop can actually read. `readMockupSize` accepts an
 // absolute http URL, so this is served straight out of minio's public bucket
@@ -81,7 +75,7 @@ const MOCKUP_URL =
  * `auth-qa-sweep-79.spec.ts` carries the same guard.
  */
 function psql(sql: string): string {
-  return execFileSync('psql', [DB_URL, '-At', '-c', sql], { encoding: 'utf8' })
+  return e2eSql(sql)
     .split('\n')
     .filter((l) => l.trim() && !/^(INSERT|UPDATE|DELETE|SELECT)\s+\d/.test(l.trim()))
     .join('\n')

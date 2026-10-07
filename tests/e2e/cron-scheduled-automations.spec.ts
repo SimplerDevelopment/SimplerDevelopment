@@ -7,7 +7,7 @@
  * What is tested:
  *  1. Seed an `automation_rules` row with `next_run_at` = 1 minute in the past
  *     (UTC literal) so it is due regardless of Postgres session timezone.
- *  2. Hit GET /api/cron/process-scheduled-automations with x-vercel-cron: 1.
+ *  2. Hit GET /api/cron/process-scheduled-automations with a configured Bearer secret.
  *  3. Assert { success:true, fired >= 1 } and that the seeded rule's
  *     `next_run_at` advanced into the future (CAS worked).
  *  4. Hit a second time — same rule must NOT fire again (idempotency).
@@ -22,28 +22,28 @@
  *  SELECT and CAS predicates — this test validates that the row IS claimed even
  *  when the seed uses an explicit UTC literal.
  *
- * Auth: the endpoint accepts `x-vercel-cron: 1` without CRON_SECRET.
+ * Auth: the endpoint requires a Bearer token matching CRON_SECRET.
  */
-
+import { e2eSql } from './setup/sql';
 import { test, expect } from '@playwright/test';
-import { execSync } from 'node:child_process';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const DATABASE_URL =
-  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
+
+function cronHeaders(): { Authorization: string } {
+  const secret = process.env.CRON_SECRET;
+  if (!secret?.trim()) throw new Error('Cron E2E requires CRON_SECRET in the test and server environment');
+  return { Authorization: `Bearer ${secret}` };
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Minimal DB helpers via psql child_process — avoids importing the Drizzle
+// Minimal DB helpers via Bun/Postgres — avoids importing the Drizzle
 // stack into the Playwright worker and keeps the test zero-dependency on app
 // internals beyond the HTTP surface.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function psql(sql: string): string {
-  return execSync(`psql "${DATABASE_URL}" --no-psqlrc -t`, {
-    input: sql,
-    encoding: 'utf8',
-    timeout: 15_000,
-  }).trim();
+  return e2eSql(sql).trim();
 }
 
 /**
@@ -149,7 +149,7 @@ test.describe('Cron: process-scheduled-automations @cron @automations', () => {
     // ── First tick: should claim our due rule ─────────────────────────────
     const res = await request.get(
       `${BASE_URL}/api/cron/process-scheduled-automations`,
-      { headers: { 'x-vercel-cron': '1' } },
+      { headers: cronHeaders() },
     );
     expect(res.status()).toBe(200);
 
@@ -192,7 +192,7 @@ test.describe('Cron: process-scheduled-automations @cron @automations', () => {
     // ── Second tick: same rule must NOT fire again (CAS idempotency) ──────
     const res2 = await request.get(
       `${BASE_URL}/api/cron/process-scheduled-automations`,
-      { headers: { 'x-vercel-cron': '1' } },
+      { headers: cronHeaders() },
     );
     expect(res2.status()).toBe(200);
 
@@ -219,17 +219,20 @@ test.describe('Cron: process-scheduled-automations @cron @automations', () => {
 
   test('auth: rejects request with no credentials', async ({ request }) => {
     const res = await request.get(`${BASE_URL}/api/cron/process-scheduled-automations`);
-    // Without CRON_SECRET set AND without x-vercel-cron, should 401.
-    // If CRON_SECRET is unset and env is lenient, the body still has a
-    // boolean success field — assert shape either way.
-    const body = await res.json() as { success: boolean };
-    expect(typeof body.success).toBe('boolean');
+    expect(res.status()).toBe(401);
   });
 
-  test('auth: accepts x-vercel-cron header and returns the { success, scanned, fired, skipped, errors } shape', async ({ request }) => {
+  test('auth: rejects a forged platform header without the Bearer secret', async ({ request }) => {
+    const res = await request.get(`${BASE_URL}/api/cron/process-scheduled-automations`, {
+      headers: { 'x-vercel-cron': '1' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('auth: accepts configured Bearer secret and returns the { success, scanned, fired, skipped, errors } shape', async ({ request }) => {
     const res = await request.get(
       `${BASE_URL}/api/cron/process-scheduled-automations`,
-      { headers: { 'x-vercel-cron': '1' } },
+      { headers: cronHeaders() },
     );
     expect(res.status()).toBe(200);
 

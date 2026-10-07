@@ -20,7 +20,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { resolvePortalFromRequest, type PortalMcpContext } from '@/lib/mcp-auth';
+import { resolvePortalFromRequest, hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
+import { getPortalRole } from '@/lib/portal-client';
+import { extensionRequirements } from '@/lib/security/extension-scopes';
 
 export type ExtensionHandler = (
   req: Request,
@@ -66,6 +68,15 @@ export function withExtensionAuth(handler: ExtensionHandler) {
         { success: false, message: 'Invalid or missing API key' },
         { status: 401 },
       );
+    }
+
+    const required = extensionRequirements(new URL(req.url).pathname, req.method);
+    if (!required || required.scopes.some((scope) => !hasScope(ctx!.scopes, scope))) {
+      return corsJson({ success: false, error: 'insufficient_scope', required_scopes: required?.scopes ?? [] }, { status: 403 });
+    }
+    const role = await getPortalRole(ctx.userId, ctx.client.id);
+    if (!role || (required.write && role === 'viewer')) {
+      return corsJson({ success: false, message: 'Permission denied' }, { status: 403 });
     }
 
     try {

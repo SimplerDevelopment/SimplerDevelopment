@@ -61,9 +61,9 @@ export async function buildMcpServerForTest(
     } as PortalMcpContext['client'],
     ...(allowedClientIds?.length ? { allowedClientIds } : {}),
   };
-  if (!allowedClientIds?.length) return buildMcpServer(base);
-
-  // Mirror the route: hydrate the roster, then resolve + apply the target before
+  // Mirror the route for single-company credentials too: resolve their live
+  // membership instead of constructing a synthetic context with a null role.
+  // Hydrate the roster, then resolve + apply the target before
   // the registry is built. Resolution deliberately does NOT live in the tool
   // wrapper — see the note at the top of lib/mcp/client-scope.ts.
   const roster = await hydrateReachable(base);

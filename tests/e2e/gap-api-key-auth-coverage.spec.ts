@@ -4,14 +4,12 @@
  * The v1 headless content API now REQUIRES a valid key (was open on missing
  * key), and keys are stored HASHED at rest (was plaintext).
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { resolveClientSiteId } from './setup/helpers';
-import { execSync } from 'child_process';
 import crypto from 'crypto';
-
-const DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 function sql(q: string): string {
-  return execSync(`psql "${DB}" -At -c "${q.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+  return e2eSql(q).trim();
 }
 
 test.describe.configure({ mode: 'serial' });

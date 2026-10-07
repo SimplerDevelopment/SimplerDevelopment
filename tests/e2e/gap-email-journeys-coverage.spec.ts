@@ -10,27 +10,20 @@
  *  5. Cron without auth → 401
  *  6. Cross-tenant enroll: subscriber in a different client's list → 403
  *
- * DB seeding is done via psql (child_process) to avoid importing Drizzle into
+ * DB seeding is done via Bun/Postgres to avoid importing Drizzle into
  * the Playwright worker. The unique(journey_id, subscriber_id) index means
  * duplicate enrollments are silently ignored.
  */
-
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
-import { execSync } from 'node:child_process';
 import { runCleanups, resolveClientSiteId } from './setup/helpers';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const DATABASE_URL =
-  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
 function psql(sql: string): string {
-  return execSync(`psql "${DATABASE_URL}" --no-psqlrc -t`, {
-    input: sql,
-    encoding: 'utf8',
-    timeout: 15_000,
-  }).trim();
+  return e2eSql(sql).trim();
 }
 
 function psqlRow(sql: string): string[] {

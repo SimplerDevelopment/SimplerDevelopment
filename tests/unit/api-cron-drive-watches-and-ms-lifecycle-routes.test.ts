@@ -259,12 +259,23 @@ describe('GET /api/cron/renew-drive-watches', () => {
     expect(res.status).toBe(401);
   });
 
-  it('accepts the Vercel cron header without bearer token', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     process.env.CRON_SECRET = 'shh';
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
+    const res = await GET(
+      new Request('http://x/api/cron/renew-drive-watches', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -298,12 +309,12 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('uses GOOGLE_DRIVE_WEBHOOK_URL when set, trimming trailing slash', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     process.env.GOOGLE_DRIVE_WEBHOOK_URL = 'https://wh.example.com/';
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as { webhookAddress: string };
@@ -313,13 +324,13 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('falls back to NEXT_PUBLIC_SITE_URL when GOOGLE_DRIVE_WEBHOOK_URL is unset', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     delete process.env.GOOGLE_DRIVE_WEBHOOK_URL;
     process.env.NEXT_PUBLIC_SITE_URL = 'https://site.example.com';
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as { webhookAddress: string };
@@ -329,13 +340,13 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('falls back to req.url origin when no env vars are set', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     delete process.env.GOOGLE_DRIVE_WEBHOOK_URL;
     delete process.env.NEXT_PUBLIC_SITE_URL;
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://host.example.com/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as { webhookAddress: string };
@@ -345,7 +356,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('filters out connections without drive scope', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [
       baseDriveRow({ id: 1, scopes: ['https://www.googleapis.com/auth/gmail.readonly'] }),
       baseDriveRow({ id: 2, scopes: ['https://www.googleapis.com/auth/calendar'] }),
@@ -353,7 +364,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as {
@@ -368,7 +379,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('selects connections beyond the 12h renewal horizon as NOT candidates', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [
       baseDriveRow({
         id: 99,
@@ -380,7 +391,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as { candidates: number; renewed: number };
@@ -389,12 +400,12 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('bootstraps a new watch when driveChannelId is null', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [baseDriveRow({ id: 11, driveStartPageToken: 'spt-existing' })];
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -416,7 +427,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('refreshes tokens and persists them when access token is expired', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [baseDriveRow({ id: 12 })];
     refreshIfExpiredMock.mockResolvedValueOnce({
       refreshed: true,
@@ -427,7 +438,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     // First update should be the token persistence.
@@ -438,7 +449,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('keeps the existing refresh token when the refresher omits a new one', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [baseDriveRow({ id: 13, refreshToken: 'old-rt' })];
     refreshIfExpiredMock.mockResolvedValueOnce({
       refreshed: true,
@@ -449,7 +460,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(updateCalls[0].set).toMatchObject({
@@ -459,12 +470,12 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('bootstraps driveStartPageToken when missing', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [baseDriveRow({ id: 14, driveStartPageToken: null })];
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(getDriveStartPageTokenMock).toHaveBeenCalledTimes(1);
@@ -473,7 +484,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('stops the previous channel before opening a new one when both ids are present', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [
       baseDriveRow({
         id: 15,
@@ -485,7 +496,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(stopDriveChangesMock).toHaveBeenCalledTimes(1);
@@ -495,7 +506,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('swallows errors from stopDriveChanges (best-effort)', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [
       baseDriveRow({
         id: 16,
@@ -510,7 +521,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -522,7 +533,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('skips connections whose tenant is revoked', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [baseDriveRow({ id: 17 })];
     getTenantWorkspaceCredentialsByClientIdMock.mockResolvedValueOnce({
       status: 'revoked',
@@ -531,7 +542,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as {
@@ -546,13 +557,13 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('skips connections when no tenant credentials are found', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [baseDriveRow({ id: 18 })];
     getTenantWorkspaceCredentialsByClientIdMock.mockResolvedValueOnce(null);
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as { skipped: number; renewed: number };
@@ -561,14 +572,14 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('reports a failure entry when subscribeDriveChanges throws', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [baseDriveRow({ id: 19 })];
     subscribeDriveChangesMock.mockRejectedValueOnce(new Error('boom'));
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as {
@@ -584,7 +595,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
   });
 
   it('processes multiple candidates and isolates per-row failures', async () => {
-    process.env.CRON_SECRET = 'shh';
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     driveState.rows = [
       baseDriveRow({ id: 20 }),
       baseDriveRow({ id: 21 }),
@@ -608,7 +619,7 @@ describe('GET /api/cron/renew-drive-watches', () => {
     const { GET } = await import('@/app/api/cron/renew-drive-watches/route');
     const res = await GET(
       new Request('http://x/api/cron/renew-drive-watches', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const json = (await res.json()) as {

@@ -98,7 +98,7 @@ vi.mock('@/lib/db/schema', () => {
     'bulkPricingRules', 'shippingRates', 'shippingZones', 'discountCodes',
     'orders', 'orderItems', 'orderStatusHistory',
     'giftCertificates', 'giftCertificateRedemptions',
-    'clientWebsites',
+    'clientWebsites', 'automationJobs', 'productDesigns',
   ];
   const exports: Record<string, unknown> = {};
   for (const t of tables) exports[t] = tableProxy(t);
@@ -125,6 +125,9 @@ vi.mock('@/lib/admin/dashboard-cache', () => ({
   ADMIN_DASHBOARD_TAG: 'admin-dashboard',
 }));
 
+const reserveCheckoutMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock('@/lib/store/checkout-reservations', () => ({ reserveCheckout: reserveCheckoutMock, releaseCheckout: vi.fn().mockResolvedValue(undefined), CheckoutReservationError: class extends Error {} }));
+
 vi.mock('@/lib/automation/event-bus', () => ({
   emitEvent: vi.fn(),
   onEvent: vi.fn(),
@@ -132,13 +135,15 @@ vi.mock('@/lib/automation/event-bus', () => ({
 
 vi.mock('@/lib/db', () => {
   function makeSelectChain() {
-    const rows = dbState.selectQueue.shift() ?? [];
+    let rows: unknown[] = [];
     const chain: Record<string, unknown> = {};
     const passthrough = [
       'from', 'where', 'innerJoin', 'leftJoin', 'rightJoin',
       'orderBy', 'limit', 'groupBy', 'offset',
     ];
     for (const m of passthrough) chain[m] = () => chain;
+    chain.from = (table: { _name: string }) => { rows = table._name === 'clientWebsites' ? [{ id: 1, clientId: 10 }] : (dbState.selectQueue.shift() ?? []); return chain; };
+    chain.for = () => chain;
     chain.then = (resolve: (v: unknown) => unknown) =>
       Promise.resolve(rows).then(resolve);
     return chain;
@@ -189,13 +194,13 @@ vi.mock('@/lib/db', () => {
     return 'unknown';
   }
 
-  return {
-    db: {
-      select: () => makeSelectChain(),
-      insert: (t: unknown) => makeInsertChain(tableName(t)),
-      update: (t: unknown) => makeUpdateChain(tableName(t)),
-    },
+  const mockedDb = {
+    select: () => makeSelectChain(),
+    insert: (t: unknown) => makeInsertChain(tableName(t)),
+    update: (t: unknown) => makeUpdateChain(tableName(t)),
+    transaction: async (work: (tx: unknown) => Promise<unknown>) => work(mockedDb),
   };
+  return { db: mockedDb };
 });
 
 // ---------------------------------------------------------------------------
@@ -275,6 +280,7 @@ const DEFAULT_BODY = {
 
 beforeEach(() => {
   vi.resetModules();
+  reserveCheckoutMock.mockClear();
   dbState.selectQueue = [];
   dbState.insertReturningQueue = [];
   dbState.inserts = [];
@@ -409,6 +415,30 @@ describe('POST /api/storefront/[siteId]/checkout — cart resolution', () => {
     expect(json.message).toMatch(/no longer available/i);
   });
 
+  it('rejects a design absent from the store-scoped design query before creating a payment', async () => {
+    queueSelectRows([[DEFAULT_STORE], [DEFAULT_CART],
+      [{ id: 1, productId: 7, variantId: null, designId: 'foreign-design', quantity: 1, unitPrice: 1000 }],
+      [{ id: 7, name: 'Widget', status: 'active', price: 1000, trackInventory: false }], []]);
+    const { POST } = await import('@/app/api/storefront/[siteId]/checkout/route');
+    const response = await POST(makeRequest(DEFAULT_BODY), makeParams());
+    expect(response.status).toBe(400);
+    expect((await response.json()).message).toMatch(/design is unavailable/);
+    expect(dbState.inserts).toHaveLength(0);
+    expect(stripeState.paymentIntentsCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects a variant belonging to another cart product even if inventory tracking is disabled', async () => {
+    queueSelectRows([[DEFAULT_STORE], [DEFAULT_CART],
+      [{ id: 1, productId: 7, variantId: 17, quantity: 1, unitPrice: 1000 }],
+      [{ id: 7, name: 'Widget', status: 'active', price: 1000, trackInventory: false }],
+      [{ id: 17, productId: 8, name: 'Foreign variant', price: 100, quantity: 10 }]]);
+    const { POST } = await import('@/app/api/storefront/[siteId]/checkout/route');
+    const response = await POST(makeRequest(DEFAULT_BODY), makeParams());
+    expect(response.status).toBe(400);
+    expect((await response.json()).message).toMatch(/variant is unavailable/);
+    expect(stripeState.paymentIntentsCreate).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when a product on the cart is missing from the products table', async () => {
     queueSelectRows([
       [DEFAULT_STORE],
@@ -444,7 +474,7 @@ describe('POST /api/storefront/[siteId]/checkout — cart resolution', () => {
       [DEFAULT_CART],
       [{ id: 1, productId: 7, variantId: 17, quantity: 5, unitPrice: 800 }],
       [{ id: 7, name: 'Sized Widget', status: 'active', price: 1000, trackInventory: true, quantity: 99, sku: 'WID-7' }],
-      [{ id: 17, name: 'Large', price: 800, quantity: 2, sku: 'WID-7-L' }],
+      [{ id: 17, productId: 7, name: 'Large', price: 800, quantity: 2, sku: 'WID-7-L' }],
     ]);
     const { POST } = await import('@/app/api/storefront/[siteId]/checkout/route');
     const res = await POST(makeRequest(DEFAULT_BODY), makeParams());
@@ -490,10 +520,9 @@ describe('POST /api/storefront/[siteId]/checkout — happy path', () => {
     });
 
     // PaymentIntent metadata was updated with the orderId
-    expect(stripeState.paymentIntentsUpdate).toHaveBeenCalledTimes(1);
-    const updArgs = stripeState.paymentIntentsUpdate.mock.calls[0];
-    expect(updArgs[0]).toBe('pi_test_abc');
-    expect(updArgs[1].metadata.orderId).toBe('500');
+    expect(stripeState.paymentIntentsUpdate).not.toHaveBeenCalled();
+    expect(piArgs.metadata.orderId).toBe('500');
+    expect(stripeState.paymentIntentsCreate.mock.calls[0][1]).toEqual({ idempotencyKey: 'store-checkout:500' });
 
     // Inserts: orders + orderItems + orderStatusHistory
     const insertTables = dbState.inserts.map((i) => i.table);
@@ -863,7 +892,7 @@ describe('POST /api/storefront/[siteId]/checkout — discount codes', () => {
 });
 
 describe('POST /api/storefront/[siteId]/checkout — gift certificates', () => {
-  it('applies a partially-redeemable gift certificate and inserts a redemption row', async () => {
+  it('applies a gift certificate amount and reserves it without a redemption ledger row', async () => {
     queueSelectRows([
       [DEFAULT_STORE],
       [DEFAULT_CART],
@@ -889,14 +918,13 @@ describe('POST /api/storefront/[siteId]/checkout — gift certificates', () => {
     // subtotal 5000 - 2000 cert = 3000
     expect(json.data?.total).toBe(3000);
 
-    // gift_certificate_redemptions insert occurred
+    // Redemption is committed only when Stripe confirms payment.
     const insertTables = dbState.inserts.map((i) => i.table);
-    expect(insertTables).toContain('giftCertificateRedemptions');
-    // remaining updated
-    expect(dbState.updates.some((u) => u.table === 'giftCertificates')).toBe(true);
+    expect(insertTables).not.toContain('giftCertificateRedemptions');
+    expect(reserveCheckoutMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ giftCertificateId: 88, giftCertificateAmount: 2000 }));
   });
 
-  it('flips a gift cert to fully_redeemed when the remaining hits zero', async () => {
+  it('reserves a fully covered gift amount without prematurely marking it redeemed', async () => {
     queueSelectRows([
       [DEFAULT_STORE],
       [DEFAULT_CART],
@@ -918,11 +946,8 @@ describe('POST /api/storefront/[siteId]/checkout — gift certificates', () => {
       makeParams(),
     );
     expect(res.status).toBe(200);
-    const update = dbState.updates.find((u) => u.table === 'giftCertificates');
-    expect(update).toBeDefined();
-    const setValues = update!.values as { status: string; remainingAmount: number };
-    expect(setValues.status).toBe('fully_redeemed');
-    expect(setValues.remainingAmount).toBe(0);
+    expect(dbState.updates.some(u => u.table === 'giftCertificates')).toBe(false);
+    expect(reserveCheckoutMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ giftCertificateAmount: 500 }));
   });
 
   it('silently ignores a gift certificate code that does not match (no failure)', async () => {

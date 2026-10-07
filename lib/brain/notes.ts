@@ -1,3 +1,4 @@
+import { rememberPrivateAttachment, rememberNoteAttachments } from '@/lib/security/private-media-registry';
 import { db } from '@/lib/db';
 import {
   brainNotes,
@@ -396,6 +397,7 @@ export async function deleteNote(
     return true;
   }
 
+  if (before.attachmentStoredKey) await rememberPrivateAttachment(before.attachmentStoredKey, clientId);
   await db.delete(brainNotes).where(and(eq(brainNotes.id, noteId), eq(brainNotes.clientId, clientId)));
 
   if (before.attachmentStoredKey) {
@@ -499,9 +501,7 @@ export async function bulkUpdateNotes(
       break;
     }
     case 'hard_delete': {
-      const keysToDelete = owned
-        .filter((r) => validIds.includes(r.id) && r.attachmentStoredKey)
-        .map((r) => r.attachmentStoredKey!) as string[];
+      const keysToDelete = await rememberNoteAttachments(owned, clientId, validIds);
       const res = await db.delete(brainNotes)
         .where(and(eq(brainNotes.clientId, clientId), inArray(brainNotes.id, validIds)))
         .returning({ id: brainNotes.id });
@@ -601,6 +601,7 @@ export async function clearAttachment(
   if (!before) return false;
   if (!before.attachmentStoredKey) return true; // already cleared
 
+  await rememberPrivateAttachment(before.attachmentStoredKey, clientId);
   await db.update(brainNotes).set({
     attachmentUrl: null,
     attachmentFilename: null,
@@ -732,9 +733,7 @@ export async function emptyTrash(
   if (trashed.length === 0) return { deleted: 0 };
 
   const ids = trashed.map((r) => r.id);
-  const keysToDelete = trashed
-    .map((r) => r.attachmentStoredKey)
-    .filter((k): k is string => typeof k === 'string' && k.length > 0);
+  const keysToDelete = await rememberNoteAttachments(trashed, clientId);
 
   // Incoming backlinks — FK is ON DELETE SET NULL, so without this they would
   // linger as orphans pointing at a vanished target.
@@ -815,9 +814,7 @@ export async function purgeOldTrash(
   if (stale.length === 0) return { purged: 0, attachmentsDeleted: 0 };
 
   const ids = stale.map((r) => r.id);
-  const keysToDelete = stale
-    .map((r) => r.attachmentStoredKey)
-    .filter((k): k is string => typeof k === 'string' && k.length > 0);
+  const keysToDelete = await rememberNoteAttachments(stale, clientId);
 
   // Capture deletedAt per id for audit metadata before we drop the rows.
   const deletedAtById = new Map<number, Date | null>(

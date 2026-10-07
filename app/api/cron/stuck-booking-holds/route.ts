@@ -37,7 +37,7 @@ export const runtime = 'nodejs';
  * De-dupe: skip if a `booking_hold_stuck` notification already exists for
  * the same booking entityId within the last 24h.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  *
  * Run frequency: every 30 minutes (configured in vercel.json — not modified
  * by this PR; the schedule entry is added separately).

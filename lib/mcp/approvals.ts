@@ -19,6 +19,7 @@ import { revalidatePath } from 'next/cache';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
+import { editDraftCampaign } from '@/lib/email/campaign-edit';
 import {
   mcpPendingChanges,
   posts,
@@ -977,8 +978,7 @@ export async function applyPendingChange(change: typeof mcpPendingChanges.$infer
         patch.blockContent = { blocks };
         patch.htmlContent = renderBlocksToEmailHtml(blocks as Parameters<typeof renderBlocksToEmailHtml>[0]);
       }
-      const [row] = await db.update(emailCampaigns).set(patch).where(eq(emailCampaigns.id, id)).returning();
-      return row;
+      return editDraftCampaign(id, clientId, patch);
     }
     case 'email_campaign:send': {
       const id = change.entityId!;

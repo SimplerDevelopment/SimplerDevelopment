@@ -34,7 +34,7 @@ export const runtime = 'nodejs';
  * column — the dev DB has known schema drift, so all breach state derives
  * from the existing due-at / response-at / status columns at read time.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}` (matches
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}` (matches
  * the other crons in this directory).
  */
 async function _GET(req: Request) {

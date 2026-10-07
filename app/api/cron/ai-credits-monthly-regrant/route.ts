@@ -1,3 +1,4 @@
+import { isAuthorizedCron } from '@/lib/cron-auth';
 /**
  * Cron: monthly AI-credit re-grant for all active subscriptions.
  *
@@ -20,7 +21,7 @@
  * are naturally skipped by `grantMonthlyCredits` itself (it returns
  * `{ granted: 0 }` early).
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  * Schedule: 0 6 2 * * — 06:00 UTC on the 2nd of every month.
  */
 
@@ -35,10 +36,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 async function _GET(req: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.get('authorization');
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 

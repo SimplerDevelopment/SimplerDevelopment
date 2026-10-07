@@ -5,7 +5,7 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, and } from 'drizzle-orm';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authz = await authorizePortal({ action: 'write' });
+  const authz = await authorizePortal({ action: 'write', scope: 'media:write' });
   if (isAuthError(authz)) return authz.response;
   const { client } = authz;
 
@@ -29,7 +29,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authz = await authorizePortal({ action: 'write' });
+  const authz = await authorizePortal({ action: 'write', scope: 'media:write' });
   if (isAuthError(authz)) return authz.response;
   const { client } = authz;
 

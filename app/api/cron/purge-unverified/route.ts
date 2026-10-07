@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
  * within UNVERIFIED_PURGE_DAYS. Scoped to role='client' rows that still carry
  * a pending verification token — invited/legacy users are untouchable.
  *
- * Auth: `Authorization: Bearer ${CRON_SECRET}` or Vercel cron header.
+ * Auth: `Authorization: Bearer ${CRON_SECRET}`.
  * Schedule: 05:30 UTC daily.
  */
 export async function GET(req: Request) {

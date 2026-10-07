@@ -78,6 +78,7 @@ function makeCtx(): PortalMcpContext {
     userId: 7,
     keyId: 3,
     scopes: ['*'],
+    target: { client: { id: 42, company: 'Guard Test Co' } as PortalMcpContext['client'], role: 'owner' },
     client: { id: 42, company: 'Guard Test Co' } as PortalMcpContext['client'],
   };
 }

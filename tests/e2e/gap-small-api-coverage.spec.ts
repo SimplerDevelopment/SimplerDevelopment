@@ -13,26 +13,16 @@
  *
  * @gap @small-api
  */
-
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups } from './setup/helpers';
-import { execSync } from 'child_process';
-
-// ── DB helpers ────────────────────────────────────────────────────────────────
-
-const DB_URL =
-  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 /**
  * Feed SQL via stdin so multiline statements and special chars don't need
  * shell escaping. -t = tuples-only (no headers/footers). --no-psqlrc = clean.
  */
 function psql(sql: string): string {
-  return execSync(`psql "${DB_URL}" --no-psqlrc -t`, {
-    input: sql,
-    encoding: 'utf8',
-    timeout: 15_000,
-  }).trim();
+  return e2eSql(sql).trim();
 }
 
 /**

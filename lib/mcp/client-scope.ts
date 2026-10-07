@@ -212,19 +212,18 @@ export function isReadOnlyTool(name: string): boolean {
  * survivable while a token covered one company; spanning companies multiplies it
  * by the size of the roster.
  *
- * Rolled out log-only exactly like `roleGate` did — set `AUTH_ROLE_ENFORCE=1` to
- * deny — so real multi-member traffic can be observed first. Returns a denial
+ * Missing and insufficient company roles are always denied. Returns a denial
  * message when the call should be refused, else null.
  */
 export function roleDenial(toolName: string, target: ReachableClient, userId: number): string | null {
   const { role } = target;
-  // No role resolved (synthetic contexts in tests/scripts) — nothing to enforce.
-  if (!role) return null;
+  // A credential without current membership cannot act on company resources.
+  if (!role) return 'Permission denied: no current company role was resolved.';
 
   const action = isReadOnlyTool(toolName) ? 'read' : 'write';
   if (ROLE_LEVELS[role] >= ACTION_REQUIRED_LEVEL[action]) return null;
 
-  const enforced = process.env.AUTH_ROLE_ENFORCE === '1';
+  const enforced = true;
   console.warn(
     JSON.stringify({
       level: 'warn',
@@ -237,7 +236,6 @@ export function roleDenial(toolName: string, target: ReachableClient, userId: nu
       enforced,
     }),
   );
-  if (!enforced) return null;
 
   return `Permission denied: your role (${role}) on ${target.client.company ?? `client #${target.client.id}`} cannot ${action === 'read' ? 'view this resource' : 'create or edit content'}.`;
 }

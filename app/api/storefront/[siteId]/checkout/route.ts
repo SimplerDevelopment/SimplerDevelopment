@@ -5,13 +5,14 @@ import {
   carts, cartItems, products, productVariants,
   bulkPricingRules, shippingRates, shippingZones, discountCodes,
   orders, orderItems, orderStatusHistory,
-  giftCertificates, giftCertificateRedemptions,
+  giftCertificates,
   clientWebsites, productDesigns,
 } from '@/lib/db/schema';
 import { eq, and, asc, desc, sql, inArray, isNull } from 'drizzle-orm';
 import { resolveSiteStripe, SiteStripeError, type SiteStripeContext } from '@/lib/stripe/site-stripe';
 import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
-import { emitEvent } from '@/lib/automation/event-bus';
+import { reserveCheckout, releaseCheckout, CheckoutReservationError } from '@/lib/store/checkout-reservations';
+import { automationJobs } from '@/lib/db/schema';
 
 function generateOrderNumber(prefix: string, lastNumber: string | null): string {
   if (!lastNumber) {
@@ -161,7 +162,16 @@ export async function POST(
     }[] = [];
 
     for (const item of items) {
+      if (!Number.isSafeInteger(item.quantity) || item.quantity <= 0) {
+        return NextResponse.json({ success: false, message: 'Invalid cart item quantity' }, { status: 400 });
+      }
       const product = productMap[item.productId];
+      if (item.variantId && variantMap[item.variantId]?.productId !== item.productId) {
+        return NextResponse.json({ success: false, message: 'Cart variant is unavailable for this product' }, { status: 400 });
+      }
+      if (item.designId && !Object.hasOwn(printFileMap, item.designId)) {
+        return NextResponse.json({ success: false, message: 'Cart design is unavailable for this store' }, { status: 400 });
+      }
       if (!product || product.status !== 'active') {
         return NextResponse.json({
           success: false,
@@ -315,7 +325,6 @@ export async function POST(
 
     // 4b. Apply gift certificate
     let giftCertAmount = 0;
-    let appliedGiftCertCode: string | null = null;
     let appliedGiftCertId: number | null = null;
 
     if (giftCertificateCode) {
@@ -331,7 +340,6 @@ export async function POST(
       if (cert && cert.remainingAmount > 0) {
         const afterDiscount = subtotal - discountTotal;
         giftCertAmount = Math.min(cert.remainingAmount, afterDiscount);
-        appliedGiftCertCode = cert.code;
         appliedGiftCertId = cert.id;
       }
     }
@@ -375,11 +383,15 @@ export async function POST(
       paymentIntentParams.transfer_data = { destination: ctx.stripeAccountId! };
     }
 
-    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
+    const [website] = await db.select({ clientId: clientWebsites.clientId }).from(clientWebsites)
+      .where(eq(clientWebsites.id, websiteId)).limit(1);
+    if (!website) throw new Error('Store owner not found');
+    const { order, orderNumber } = await db.transaction(async tx => {
+      await tx.select({ id: clientWebsites.id }).from(clientWebsites).where(eq(clientWebsites.id, websiteId)).for('update');
     // 8. Generate order number
     const prefix = store.orderPrefix || 'ORD';
-    const [lastOrder] = await db.select({ orderNumber: orders.orderNumber })
+    const [lastOrder] = await tx.select({ orderNumber: orders.orderNumber })
       .from(orders)
       .where(eq(orders.websiteId, websiteId))
       .orderBy(desc(orders.id))
@@ -388,7 +400,7 @@ export async function POST(
     const orderNumber = generateOrderNumber(prefix, lastOrder?.orderNumber || null);
 
     // 9. Create order
-    const [order] = await db.insert(orders).values({
+    const [order] = await tx.insert(orders).values({
       websiteId,
       orderNumber,
       customerEmail,
@@ -401,7 +413,7 @@ export async function POST(
       taxTotal,
       discountTotal,
       total,
-      stripePaymentIntentId: paymentIntent.id,
+      stripePaymentIntentId: null,
       paymentStatus: 'pending',
       status: 'pending',
       shippingMethod: shippingMethodName,
@@ -410,11 +422,8 @@ export async function POST(
       discountCode: appliedDiscountCode,
     }).returning();
 
-    // E2 — new order shows up in the dashboard recent-orders panel.
-    revalidateAdminDashboard();
-
     // 10. Create order items
-    await db.insert(orderItems).values(
+    await tx.insert(orderItems).values(
       orderItemsData.map(item => ({
         orderId: order.id,
         productId: item.productId,
@@ -436,64 +445,51 @@ export async function POST(
     );
 
     // Insert initial status history
-    await db.insert(orderStatusHistory).values({
+    await tx.insert(orderStatusHistory).values({
       orderId: order.id,
       status: 'pending',
       note: 'Order created, awaiting payment',
     });
 
-    // Emit order.placed at order-row creation (before payment confirmation).
-    // Resolving clientId from clientWebsites so automation rules can filter
-    // by tenant. Fire-and-forget — the response is not blocked.
-    db.select({ clientId: clientWebsites.clientId })
-      .from(clientWebsites)
-      .where(eq(clientWebsites.id, websiteId))
-      .limit(1)
-      .then(([website]) => {
-        emitEvent('order.placed', website?.clientId ?? 0, 0, {
-          orderId: order.id,
-          orderNumber,
-          customerEmail,
-          customerName,
-          total,
-          websiteId,
-        });
-      })
-      .catch((err) => console.error('[checkout] order.placed emit failed:', err));
-
-    // Redeem gift certificate if used
-    if (appliedGiftCertId && appliedGiftCertCode && giftCertAmount > 0) {
-      const [cert] = await db.select().from(giftCertificates)
-        .where(eq(giftCertificates.id, appliedGiftCertId)).limit(1);
-      if (cert) {
-        const newRemaining = cert.remainingAmount - giftCertAmount;
-        await db.update(giftCertificates)
-          .set({
-            remainingAmount: newRemaining,
-            status: newRemaining <= 0 ? 'fully_redeemed' : 'active',
-            updatedAt: new Date(),
-          })
-          .where(eq(giftCertificates.id, cert.id));
-
-        await db.insert(giftCertificateRedemptions).values({
-          giftCertificateId: cert.id,
-          amount: giftCertAmount,
-          context: 'store',
-          referenceId: order.id,
-          referenceType: 'order',
-        });
-      }
-    }
-
-    // Update PaymentIntent metadata with orderId
-    await stripe.paymentIntents.update(paymentIntent.id, {
-      metadata: {
-        websiteId: String(websiteId),
-        storeId: String(store.id),
-        orderId: String(order.id),
-        orderNumber,
-      },
+      await reserveCheckout(tx, {
+        orderId: order.id, websiteId, clientId: website.clientId,
+        items: orderItemsData.filter(item => productMap[item.productId].trackInventory)
+          .map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
+        giftCertificateId: appliedGiftCertId, giftCertificateAmount: giftCertAmount,
+        discountCode: appliedDiscountCode,
+      });
+      await tx.insert(automationJobs).values({ clientId: website.clientId, userId: 0, event: 'order.placed',
+        payload: { orderId: order.id, orderNumber, customerEmail, customerName, total, websiteId }, status: 'pending' });
+      return { order, orderNumber };
     });
+    revalidateAdminDashboard();
+    // Only hand a payable client secret to the browser after the stock and gift
+    // balance are safely reserved. Stripe creation is idempotent for this order.
+    let paymentIntent: Stripe.PaymentIntent | undefined;
+    try {
+      paymentIntent = await stripe.paymentIntents.create({ ...paymentIntentParams,
+        metadata: { ...paymentIntentParams.metadata, orderId: String(order.id), orderNumber },
+      }, { idempotencyKey: `store-checkout:${order.id}` });
+      await db.update(orders).set({ stripePaymentIntentId: paymentIntent.id }).where(eq(orders.id, order.id));
+    } catch (error) {
+      // No client secret has been returned. Cancel a known intent before
+      // returning its balances; an uncertain cancellation retains the hold
+      // for the expiration worker instead of exposing stock to a payable PI.
+      let canRelease = !paymentIntent;
+      if (paymentIntent) {
+        try {
+          await stripe.paymentIntents.cancel(paymentIntent.id, {}, { idempotencyKey: `store-setup-abort:${order.id}` });
+          canRelease = true;
+        } catch { /* Keep the durable expiration job as recovery. */ }
+      }
+      await db.transaction(async tx => {
+        const [locked] = await tx.select().from(orders).where(eq(orders.id, order.id)).for('update');
+        if (locked?.paymentStatus === 'paid') return;
+        if (canRelease) await releaseCheckout(tx, order.id);
+        await tx.update(orders).set({ internalNote: 'Checkout payment setup requires reconciliation', updatedAt: new Date() }).where(eq(orders.id, order.id));
+      });
+      throw error;
+    }
 
     // Provide the publishable key so the client can initialise Stripe.js
     // without hard-coding a key in the browser bundle.
@@ -519,6 +515,7 @@ export async function POST(
       },
     });
   } catch (err) {
+    if (err instanceof CheckoutReservationError) return NextResponse.json({ success: false, message: err.message }, { status: 409 });
     console.error('Storefront checkout error:', err);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
   }

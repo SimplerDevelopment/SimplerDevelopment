@@ -121,7 +121,17 @@ vi.mock('@/lib/email', () => ({
   // Transport abstraction (Mailpit locally, Resend hosted). Tests exercise the
   // hosted path: not-mailpit → createEmailTransport({resendApiKey}) → send.
   isMailpitEmailTransport: () => false,
-  createEmailTransport: () => ({ send: (args: unknown) => resendSendMock(args) }),
+  createEmailTransport: () => ({
+    send: (args: unknown) => resendSendMock(args),
+    sendBatch: async (payloads: unknown[]) => {
+      const out = [];
+      for (const p of payloads) {
+        const r = await resendSendMock(p);
+        out.push({ data: r?.data ?? null, error: r?.error ?? null });
+      }
+      return out;
+    },
+  }),
   resend: {
     emails: {
       send: (args: unknown) => resendSendMock(args),
@@ -724,7 +734,7 @@ describe('POST /api/portal/email/campaigns', () => {
     expect(body.message).toMatch(/list not found/i);
   });
 
-  it('creates a campaign with raw htmlContent and emits event', async () => {
+  it('creates a draft without falsely emitting a delivered event', async () => {
     selectQueue.push([{ id: 77 }]); // list owned
     insertReturningQueue.push([
       { id: 91, name: 'Camp', subject: 'subj', listId: 77 },
@@ -736,12 +746,7 @@ describe('POST /api/portal/email/campaigns', () => {
     expect(body.data.id).toBe(91);
 
     expect(renderBlocksToEmailHtmlMock).not.toHaveBeenCalled();
-    expect(emitEventMock).toHaveBeenCalledTimes(1);
-    expect(emitEventMock.mock.calls[0][0]).toBe('email.campaign.sent');
-    expect(emitEventMock.mock.calls[0][1]).toBe(10);
-    expect(emitEventMock.mock.calls[0][3]).toEqual(
-      expect.objectContaining({ campaignId: 91, name: 'Camp' }),
-    );
+    expect(emitEventMock).not.toHaveBeenCalled();
 
     const insert = insertValuesCalls.find((c) => c.table === 'emailCampaigns');
     expect(insert).toBeTruthy();

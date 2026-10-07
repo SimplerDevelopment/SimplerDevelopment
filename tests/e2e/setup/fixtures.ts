@@ -1,5 +1,6 @@
 import { test as base, type Page } from '@playwright/test';
 import { ApiClient } from './api-client';
+import { authenticateBrowserContext } from './auth-session';
 
 // Seed credentials (from scripts/seed-admin.ts and seed-portal-client.ts)
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
@@ -15,19 +16,11 @@ const CLIENT_PASSWORD = 'client123';
 const CONTENT_PLUGIN_EMAIL = process.env.CONTENT_PLUGIN_EMAIL || '';
 const CONTENT_PASSWORD = process.env.CONTENT_USER_PASSWORD || '';
 
-/** Page-scoped login helper. Authenticates the given Playwright `Page`'s
- *  request context via NextAuth credentials. Mirrors the inline pattern used
- *  by other browser-based @critical specs (e.g. ab-experiment-post-lifecycle).
+/** Page-scoped auth helper. Clones the prepared seed session into this test's
+ *  cookie jar; optional plugin credentials still use real sign-in.
  */
 async function loginPage(page: Page, email: string, password: string) {
-  const csrfRes = await page.request.get('/api/auth/csrf');
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-  const res = await page.request.post('/api/auth/callback/credentials', {
-    form: { email, password, csrfToken, json: 'true' },
-  });
-  if (res.status() >= 400) {
-    throw new Error(`Login failed for ${email}: ${res.status()}`);
-  }
+  await authenticateBrowserContext(page.context(), email, password);
 }
 
 type Fixtures = {

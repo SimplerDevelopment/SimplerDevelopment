@@ -11,6 +11,7 @@ import { and, count, desc, eq, ilike, inArray, isNull, or, sql, sum, gte, lte } 
 import crypto from 'crypto';
 import { hash as hashPassword } from 'bcryptjs';
 import { db } from '@/lib/db';
+import { editDraftCampaign } from '@/lib/email/campaign-edit';
 import {
   projects,
   kanbanCards,
@@ -752,9 +753,7 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
             patch.blockContent = { blocks };
             patch.htmlContent = renderBlocksToEmailHtml(blocks as Parameters<typeof renderBlocksToEmailHtml>[0]);
           }
-          const [row] = await db.update(emailCampaigns).set(patch)
-            .where(eq(emailCampaigns.id, id)).returning();
-          return row;
+          return editDraftCampaign(id, clientId, patch);
         },
       });
       const approval = approvalEnvelope(

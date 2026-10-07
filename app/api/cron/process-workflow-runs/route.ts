@@ -105,7 +105,7 @@ async function _GET(req: Request) {
   }
 
   // ── PASS 2: MAIN CLAIM ────────────────────────────────────────────────────
-  // Select up to 100 steps that are pending and due (nextRetryAt is null or
+  // Select up to 100 fresh/retry steps that are pending/failed and due (nextRetryAt is null or
   // in the past). Order nulls first so fresh steps are executed before delayed
   // retries.
   const due = await db
@@ -113,7 +113,7 @@ async function _GET(req: Request) {
     .from(workflowRunSteps)
     .where(
       and(
-        eq(workflowRunSteps.status, 'pending'),
+        or(eq(workflowRunSteps.status, 'pending'), eq(workflowRunSteps.status, 'failed')),
         or(isNull(workflowRunSteps.nextRetryAt), lte(workflowRunSteps.nextRetryAt, now)),
       ),
     )
@@ -126,7 +126,7 @@ async function _GET(req: Request) {
   const errors: { stepId: number; message: string }[] = [];
 
   for (const step of due) {
-    // CAS claim: atomically transition status pending → running.
+    // CAS claim: atomically transition the selected pending/failed state → running.
     // Zero rows returned means another worker already claimed this step.
     const claimed = await db
       .update(workflowRunSteps)
@@ -134,7 +134,7 @@ async function _GET(req: Request) {
       .where(
         and(
           eq(workflowRunSteps.id, step.id),
-          eq(workflowRunSteps.status, 'pending'),
+          eq(workflowRunSteps.status, step.status),
           or(isNull(workflowRunSteps.nextRetryAt), lte(workflowRunSteps.nextRetryAt, now)),
         ),
       )

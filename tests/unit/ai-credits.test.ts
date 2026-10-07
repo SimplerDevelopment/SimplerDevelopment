@@ -161,6 +161,7 @@ vi.mock('@/lib/db', () => {
         limit = n;
         return chain;
       },
+      for(_lock: string) { return chain; },
       offset(_n: number) {
         return chain;
       },
@@ -221,6 +222,7 @@ vi.mock('@/lib/db', () => {
           );
           if (!existing) {
             tableArray(table.__table).push({
+              balance: 0, monthlyGrant: 0, payAsYouGo: false,
               ...v,
               id: nextId(),
               createdAt: new Date(),
@@ -288,7 +290,10 @@ vi.mock('@/lib/db', () => {
                 r[k] = resolveSetValue(r, k, val);
               }
             }
-            return Promise.resolve(rows.map((r) => ({ ...r })));
+            const copies = rows.map((r) => ({ ...r }));
+            return Object.assign(Promise.resolve(copies), {
+              returning: (projection: Record<string, unknown>) => Promise.resolve(copies.map(row => projectRow(row, projection))),
+            });
           },
         };
       },
@@ -323,8 +328,7 @@ vi.mock('@/lib/db', () => {
     return val;
   }
 
-  return {
-    db: {
+  const mockDb = {
       select(projection?: Record<string, unknown>) {
         return {
           from(table: { __table: string }) {
@@ -338,8 +342,9 @@ vi.mock('@/lib/db', () => {
       update(table: { __table: string }) {
         return buildUpdate(table);
       },
-    },
+      async transaction(fn: (tx: unknown) => Promise<unknown>) { return fn(mockDb); },
   };
+  return { db: mockDb };
 });
 
 // ---------------------------------------------------------------------------

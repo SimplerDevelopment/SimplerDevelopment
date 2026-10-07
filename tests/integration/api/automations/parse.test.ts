@@ -1,3 +1,4 @@
+import { AiCreditError } from '@/lib/ai/credit-accounting';
 /**
  * Integration tests for /api/portal/automations/parse — NLP rule parser.
  *
@@ -85,7 +86,7 @@ describe('POST /api/portal/automations/parse @automations @ai-mocked', () => {
   });
 
   it('returns 402 when client has insufficient AI credits', async () => {
-    mockedHasCredits.mockResolvedValueOnce(false);
+    mockedParse.mockRejectedValueOnce(new AiCreditError('Insufficient AI credits'));
     await asTenant(A);
     const route = await import('@/app/api/portal/automations/parse/route');
     const res = await callHandler<{ success: boolean; error: string }>(
@@ -95,7 +96,7 @@ describe('POST /api/portal/automations/parse @automations @ai-mocked', () => {
     expect(res.status).toBe(402);
     expect(res.data?.success).toBe(false);
     expect(res.data?.error).toMatch(/credits/i);
-    expect(mockedParse).not.toHaveBeenCalled();
+    expect(mockedParse).toHaveBeenCalledOnce();
     expect(mockedDeduct).not.toHaveBeenCalled();
   });
 
@@ -129,12 +130,9 @@ describe('POST /api/portal/automations/parse @automations @ai-mocked', () => {
     expect(res.data?.parsed.trigger.event).toBe('booking.created');
     expect(res.data?.tokensUsed).toBe(200);
 
-    // Credits deducted with the right tenant + total tokens.
-    expect(mockedDeduct).toHaveBeenCalledTimes(1);
-    const [deductClientId, deductTokens, category] = mockedDeduct.mock.calls[0];
-    expect(deductClientId).toBe(A.client.id);
-    expect(deductTokens).toBe(200);
-    expect(category).toBe('automation_parse');
+    // The parser reserves/settles at its provider seam; the route never double bills.
+    expect(mockedParse).toHaveBeenCalledWith(expect.any(String), { clientId: A.client.id });
+    expect(mockedDeduct).not.toHaveBeenCalled();
   });
 
   it('returns 500 when the parser throws (without leaking detail)', async () => {

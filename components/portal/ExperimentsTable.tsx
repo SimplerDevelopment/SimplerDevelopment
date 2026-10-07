@@ -7,7 +7,7 @@
 // roundtrip; the list size is bounded per tenant so client-side filtering
 // stays cheap.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 
 const STATUS_ICONS: Record<string, string> = {
@@ -56,7 +56,13 @@ const TARGET_OPTIONS: ReadonlyArray<{ key: TargetFilter; label: string }> = [
   { key: 'deck', label: 'Pitch decks' },
 ];
 
+const subscribeToHydration = () => () => undefined;
+const browserSnapshot = () => true;
+const serverSnapshot = () => false;
+
 export default function ExperimentsTable({ experiments }: { experiments: ExperimentRow[] }) {
+  // Use the same UTC date during SSR and hydration, then the browser's locale/timezone.
+  const browserReady = useSyncExternalStore(subscribeToHydration, browserSnapshot, serverSnapshot);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [targetFilter, setTargetFilter] = useState<TargetFilter>('all');
 
@@ -198,7 +204,7 @@ export default function ExperimentsTable({ experiments }: { experiments: Experim
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {exp.startedAt ? new Date(exp.startedAt).toLocaleDateString() : '—'}
+                      {exp.startedAt ? <time dateTime={exp.startedAt}>{browserReady ? new Date(exp.startedAt).toLocaleDateString() : exp.startedAt.slice(0, 10)}</time> : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link

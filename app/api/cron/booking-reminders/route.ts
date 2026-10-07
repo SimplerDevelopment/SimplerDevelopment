@@ -28,7 +28,7 @@ export const runtime = 'nodejs';
  * up to and including the booking start time. The 24h-window cap means we
  * won't keep retrying for days on a permanently-broken send.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  *
  * Schedule: every 60 minutes. (Vercel cron config lives outside this PR —
  * add `/api/cron/booking-reminders` with `0 * * * *` once this lands.)

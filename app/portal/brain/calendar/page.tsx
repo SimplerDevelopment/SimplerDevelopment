@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary, pBtnGhost, pInput } from '@/components/portal/portal-ui';
+import { dayKey, startOfMonth, startOfCalendarGrid, addDays, isSameDay } from './calendar-dates';
 
 interface AgendaItem {
   kind: 'event' | 'task_due' | 'meeting' | 'relationship_review';
@@ -56,55 +57,36 @@ const KIND_STYLE: Record<AgendaItem['kind'], { dot: string; pill: string; icon: 
   },
 };
 
-/** Local-date YYYY-MM-DD key for grouping. */
-function dayKey(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function startOfMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-function endOfMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 1);
-}
-function startOfCalendarGrid(monthStart: Date): Date {
-  // Calendar grid begins on Sunday of the week containing day 1.
-  const d = new Date(monthStart);
-  d.setDate(d.getDate() - d.getDay());
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-function addDays(d: Date, n: number): Date {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
 function safeParse(text: string): { success?: boolean; data?: unknown; message?: string } | null {
   try { return JSON.parse(text); } catch { return null; }
 }
 
 export default function BrainCalendarPage() {
-  const [cursor, setCursor] = useState<Date>(() => new Date());
+  // Locale, timezone, and the current day can differ between SSR and hydration.
+  // Render a stable shell first, then initialize the calendar in the browser.
+  const [cursor, setCursor] = useState<Date>(() => new Date(0));
+  const [browserReady, setBrowserReady] = useState(false);
   const [items, setItems] = useState<AgendaItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState<{ date: Date } | null>(null);
   const [eventDetail, setEventDetail] = useState<BrainCalendarEvent | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  useEffect(() => {
+    setCursor(new Date());
+    setBrowserReady(true);
+  }, []);
+
   const monthStart = useMemo(() => startOfMonth(cursor), [cursor]);
-  const monthEnd = useMemo(() => endOfMonth(cursor), [cursor]);
   const gridStart = useMemo(() => startOfCalendarGrid(monthStart), [monthStart]);
   const gridDays = useMemo(() => {
+    if (!browserReady) return [];
     // 6 rows × 7 days = 42 cells (covers any month layout).
     return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
-  }, [gridStart]);
+  }, [browserReady, gridStart]);
 
   const load = useCallback(async () => {
+    if (!browserReady) return;
     const from = gridStart.toISOString();
     const to = addDays(gridStart, 42).toISOString();
     try {
@@ -124,7 +106,7 @@ export default function BrainCalendarPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error');
     }
-  }, [gridStart]);
+  }, [browserReady, gridStart]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -221,7 +203,7 @@ export default function BrainCalendarPage() {
               <span className="material-icons text-base">arrow_back</span>
               Brain
             </Link>
-            <button onClick={() => setShowCreate({ date: today })} className={pBtnPrimary}>
+            <button disabled={!browserReady} onClick={() => setShowCreate({ date: today })} className={pBtnPrimary}>
               <span className="material-icons text-base">add</span>
               New event
             </button>
@@ -239,25 +221,28 @@ export default function BrainCalendarPage() {
       <div className="bg-card border border-border rounded-xl p-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
+            disabled={!browserReady}
             onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
           >
             <span className="material-icons text-base">chevron_left</span>
           </button>
           <button
+            disabled={!browserReady}
             onClick={() => setCursor(new Date())}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground transition hover:border-foreground/25 hover:shadow-sm"
           >
             Today
           </button>
           <button
+            disabled={!browserReady}
             onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
           >
             <span className="material-icons text-base">chevron_right</span>
           </button>
           <h2 className="ml-3 font-semibold">
-            {cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+            {browserReady ? cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : 'Loading calendar…'}
           </h2>
         </div>
         <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">

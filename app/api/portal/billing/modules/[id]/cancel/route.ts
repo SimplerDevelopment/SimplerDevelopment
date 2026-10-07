@@ -18,7 +18,7 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorizePortal({ action: 'admin' });
+  const auth = await authorizePortal({ action: 'admin', scope: 'billing:write' });
   if (isAuthError(auth)) return auth.response;
 
   const { client } = auth;

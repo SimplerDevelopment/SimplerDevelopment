@@ -10,7 +10,7 @@ const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB
 const ALLOWED_TYPES = process.env.ALLOWED_FILE_TYPES?.split(',') || [];
 
 export async function POST(req: Request) {
-  const authz = await authorizePortal({ action: 'write' });
+  const authz = await authorizePortal({ action: 'write', scope: 'media:write' });
   if (isAuthError(authz)) return authz.response;
   const { client, userId } = authz;
 

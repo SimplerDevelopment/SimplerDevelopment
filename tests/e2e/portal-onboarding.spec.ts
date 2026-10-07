@@ -19,6 +19,10 @@ import { test, expect } from './setup/fixtures';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
+// These cases reset the same seeded user's row. Concurrent beforeEach resets
+// can overwrite a sibling's PATCH between its write and round-trip assertion.
+test.describe.configure({ mode: 'default' });
+
 test.describe('Onboarding API @onboarding @critical', () => {
   test.beforeEach(async ({ clientApi }) => {
     // Reset to a clean wizard for every test.

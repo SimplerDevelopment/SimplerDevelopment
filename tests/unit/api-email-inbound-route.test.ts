@@ -44,7 +44,7 @@ interface AgentLoopStep {
 
 interface AgentLoopResponse {
   text: string;
-  usage: { inputTokens: number; outputTokens: number };
+  totalUsage: { inputTokens: number; outputTokens: number };
   steps: Array<AgentLoopStep>;
 }
 
@@ -920,7 +920,7 @@ describe('POST /api/email/inbound — chat path', () => {
     state.hasCreditsResult = false; // would block if check ran
     agentLoopMock.mockResolvedValueOnce({
       text: 'BYOK reply',
-      usage: { inputTokens: 5, outputTokens: 3 },
+      totalUsage: { inputTokens: 5, outputTokens: 3 },
       steps: [],
     });
     const POST = await importHandler();
@@ -946,7 +946,7 @@ describe('POST /api/email/inbound — chat path', () => {
     // agent-loop returns one step with a tool call, then a final text reply.
     agentLoopMock.mockResolvedValueOnce({
       text: 'Hello from AI',
-      usage: { inputTokens: 10 + 7, outputTokens: 4 + 2 }, // 17 input + 6 output = 23 total
+      totalUsage: { inputTokens: 10 + 7, outputTokens: 4 + 2 }, // 17 input + 6 output = 23 total
       steps: [
         {
           toolCalls: [{ toolCallId: 'tu-1', toolName: 'mock_tool', input: { q: 'hi' } }],
@@ -991,14 +991,15 @@ describe('POST /api/email/inbound — chat path', () => {
     expect((state.resendCalls[0].from as string)).toContain('Acme AI');
 
     // Credits deducted exactly once for platform-source.
-    expect(state.deductCreditsCalls).toHaveLength(1);
+    expect(state.deductCreditsCalls).toHaveLength(0);
+    expect(agentLoopMock.mock.calls[0][0].credits).toEqual({ category: 'ai' });
   });
 
   it('falls back to "(no subject)" labels when subject is empty', async () => {
     seedChatBaseline();
     agentLoopMock.mockResolvedValueOnce({
       text: 'ok',
-      usage: { inputTokens: 1, outputTokens: 1 },
+      totalUsage: { inputTokens: 1, outputTokens: 1 },
       steps: [],
     });
     const POST = await importHandler();
@@ -1019,7 +1020,7 @@ describe('POST /api/email/inbound — chat path', () => {
     seedChatBaseline();
     agentLoopMock.mockResolvedValueOnce({
       text: 'ok',
-      usage: { inputTokens: 1, outputTokens: 1 },
+      totalUsage: { inputTokens: 1, outputTokens: 1 },
       steps: [],
     });
     const POST = await importHandler();
@@ -1081,7 +1082,7 @@ describe('POST /api/email/inbound — chat path', () => {
     state.clientMembers.push({ clientId: 1, userId: 11 });
     agentLoopMock.mockResolvedValueOnce({
       text: 'ok',
-      usage: { inputTokens: 1, outputTokens: 1 },
+      totalUsage: { inputTokens: 1, outputTokens: 1 },
       steps: [],
     });
     const POST = await importHandler();

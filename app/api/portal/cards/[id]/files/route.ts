@@ -42,7 +42,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (file.size > MAX_SIZE) return NextResponse.json({ success: false, message: 'File exceeds 20MB limit' }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await uploadToS3(buffer, file.name, file.type);
+    const [project] = await db.select({ clientId: projects.clientId }).from(projects)
+      .where(eq(projects.id, card.projectId)).limit(1);
+    if (!project) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    const result = await uploadToS3(buffer, file.name, file.type, { privateClientId: project.clientId });
 
     const [record] = await db.insert(kanbanCardFiles).values({
       cardId,

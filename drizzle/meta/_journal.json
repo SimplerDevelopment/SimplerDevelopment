@@ -8,6 +8,230 @@
       "when": 1782409384204,
       "tag": "0000_baseline_2026_06_25",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782409384205,
+      "tag": "9001_brain_embedding_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782409384206,
+      "tag": "9002_brain_embedding_trigger_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782409384207,
+      "tag": "9003_brain_trigram_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782409384208,
+      "tag": "9004_activation_deltas_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782409384209,
+      "tag": "9005_crm_deal_comments_parent_id_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782409384210,
+      "tag": "9005_qad045_automation_logs_ruleid_setnull_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782409384211,
+      "tag": "9006_oauth_require_cms_approval_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782409384212,
+      "tag": "9007_password_history_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782409384213,
+      "tag": "9008_ai_chat_requires_approval_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782409384214,
+      "tag": "9009_automation_requires_approval_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782409384215,
+      "tag": "9010_type_align_timestamptz_bigint_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782409384216,
+      "tag": "9011_brain_notes_needs_review_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782409384217,
+      "tag": "9012_agent_action_captures_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782409384218,
+      "tag": "9013_pathviz_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1782409384219,
+      "tag": "9014_agent_flows_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1782409384220,
+      "tag": "9015_agent_flow_runs_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782409384221,
+      "tag": "9016_product_designs_print_files_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782409384222,
+      "tag": "9017_order_items_print_files_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782409384223,
+      "tag": "9018_drop_legacy_designer_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782409384224,
+      "tag": "9019_products_drop_is_designable_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1782409384225,
+      "tag": "9020_credential_kind_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1782409384226,
+      "tag": "9021_product_styles_printful_variant_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1782409384227,
+      "tag": "9022_crm_contacts_attribution_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782409384228,
+      "tag": "9022_internal_jobs_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1782409384229,
+      "tag": "9022_mcp_user_scoped_clients_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1782409384230,
+      "tag": "9023_site_cdn_cache_enabled_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1782409384231,
+      "tag": "9024_seo_module_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1782409384232,
+      "tag": "9024_survey_notify_recipients_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1782409384233,
+      "tag": "9025_site_redirects_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1782409384234,
+      "tag": "9026_channels_omnichannel_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1782409384235,
+      "tag": "9999_linkedin_posting_manual",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791279585811,
+      "tag": "0032_current_schema_reconciliation",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,7 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { getClientEntitlements } from '@/lib/billing/entitlements';
 
 export async function GET() {
-  const auth = await authorizePortal({ action: 'read' });
+  const auth = await authorizePortal({ action: 'read', scope: 'billing:read' });
   if (isAuthError(auth)) return auth.response;
 
   const ent = await getClientEntitlements(auth.client.id, {

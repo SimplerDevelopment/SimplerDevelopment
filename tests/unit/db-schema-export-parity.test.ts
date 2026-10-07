@@ -67,7 +67,32 @@ function collectSchemaExportNames(): string[] {
 // + manually appended agent_flows 2026-08-02 (Workflow Designer / APWD-003, lib/db/schema/agentFlows.ts).
 // + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
 // + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit + GSC history, lib/db/schema/seo.ts).
+// + reconciled 2026-10-06: channels/chat modes, private media ownership,
+//   durable checkout/payment claims and email delivery intents.
 const EXPECTED_EXPORTS: readonly string[] = [
+  'CHANNEL_CONNECTION_STATUSES',
+  'CHANNEL_OUTBOX_STATUSES',
+  'CHANNEL_PROVIDERS',
+  'CHAT_AI_MODES',
+  'CONTACT_IDENTITY_KINDS',
+  'ChannelConnection',
+  'ChannelConnectionStatus',
+  'ChannelConsent',
+  'ChannelOutbox',
+  'ChannelOutboxStatus',
+  'ChannelProvider',
+  'ChatAiMode',
+  'ContactIdentity',
+  'ContactIdentityKind',
+  'NewChannelConnection',
+  'NewContactIdentity',
+  'channelConnections',
+  'channelConsent',
+  'channelOutbox',
+  'contactIdentities',
+  'emailCampaignDeliveryIntents',
+  'privateMediaKeys',
+  'suggestedMerges',
   'AB_TARGET_TYPES',
   'AbAssignment',
   'AbEvent',
@@ -545,10 +570,12 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'sprintRetros',
   'sprintScopeHistory',
   'sprints',
+  'storeCheckoutReservations',
   'storeCustomerMessageReplies',
   'storeCustomerMessages',
   'storeCustomerSessions',
   'storeCustomers',
+  'storePaymentEvents',
   'storeProductReviews',
   'storeSettings',
   'storeWishlistItems',
@@ -601,6 +628,13 @@ const EXPECTED_EXPORTS: readonly string[] = [
 // + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
 // + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit + GSC history, lib/db/schema/seo.ts).
 const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
+  channelConnections: 'channel_connections',
+  channelConsent: 'channel_consent',
+  channelOutbox: 'channel_outbox',
+  contactIdentities: 'contact_identities',
+  emailCampaignDeliveryIntents: 'email_campaign_delivery_intents',
+  privateMediaKeys: 'private_media_keys',
+  suggestedMerges: 'suggested_merges',
   abAssignments: 'ab_assignments',
   abEvents: 'ab_events',
   abExperiments: 'ab_experiments',
@@ -868,10 +902,12 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   sprintRetros: 'sprint_retros',
   sprintScopeHistory: 'sprint_scope_history',
   sprints: 'sprints',
+  storeCheckoutReservations: 'store_checkout_reservations',
   storeCustomerMessageReplies: 'store_customer_message_replies',
   storeCustomerMessages: 'store_customer_messages',
   storeCustomerSessions: 'store_customer_sessions',
   storeCustomers: 'store_customers',
+  storePaymentEvents: 'store_payment_events',
   storeProductReviews: 'store_product_reviews',
   storeSettings: 'store_settings',
   storeWishlistItems: 'store_wishlist_items',
@@ -949,13 +985,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (312)', () => {
+  it('reports the recorded number of tables (321)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(312);
+    expect(count).toBe(321);
   });
 });

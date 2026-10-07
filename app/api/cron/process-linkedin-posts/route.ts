@@ -1,3 +1,4 @@
+import { isAuthorizedCron } from '@/lib/cron-auth';
 /**
  * LinkedIn scheduled-post publish cron. Picks up `linkedin_posts` rows where
  * `status='scheduled' AND scheduled_at <= now()`, publishes them via the
@@ -11,7 +12,7 @@
  * media-not-implemented) is caught, written to `error`, and the row is marked
  * `failed`. It never aborts the rest of the batch.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
@@ -28,13 +29,8 @@ const MAX_PER_TICK = 10;
 const MAX_ERROR_LEN = 1000;
 
 async function _GET(req: Request): Promise<Response> {
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron) {
-    const cronSecret = process.env.CRON_SECRET;
-    const authz = req.headers.get('authorization');
-    if (!cronSecret || authz !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   const now = new Date();

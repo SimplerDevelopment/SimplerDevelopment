@@ -14,13 +14,10 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 const TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 function getSecret(): string {
-  return (
-    process.env.CHAT_TOKEN_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    // Dev-only fallback — emits the same value across reloads so tokens
-    // stay valid in `bun dev`. NEVER rely on this in production.
-    'dev-chat-token-secret'
-  );
+  const secret = process.env.CHAT_TOKEN_SECRET || process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production') throw new Error('CHAT_TOKEN_SECRET or AUTH_SECRET is required in production');
+  return 'dev-chat-token-secret';
 }
 
 function sign(payload: string): string {
@@ -28,6 +25,7 @@ function sign(payload: string): string {
 }
 
 export function issueVisitorToken(conversationId: number, ttlMs: number = TTL_MS): string {
+  if (!Number.isSafeInteger(conversationId) || conversationId <= 0) throw new Error('Invalid conversation id');
   const expiresAt = Date.now() + ttlMs;
   const payload = `${conversationId}.${expiresAt}`;
   const sig = sign(payload);
@@ -44,12 +42,14 @@ export function verifyVisitorToken(token: string | null | undefined): VerifiedVi
   const parts = token.split('.');
   if (parts.length !== 3) return null;
   const [convStr, expStr, sig] = parts;
+  if (!/^\d+$/.test(convStr) || !/^\d+$/.test(expStr) || !/^[0-9a-f]{64}$/.test(sig)) return null;
   const conversationId = Number.parseInt(convStr, 10);
   const expiresAt = Number.parseInt(expStr, 10);
   if (!Number.isInteger(conversationId) || conversationId <= 0) return null;
   if (!Number.isInteger(expiresAt) || expiresAt <= 0) return null;
 
-  const expected = sign(`${convStr}.${expStr}`);
+  let expected: string;
+  try { expected = sign(`${convStr}.${expStr}`); } catch { return null; }
   // Both buffers must be the same length for timingSafeEqual.
   if (sig.length !== expected.length) return null;
   let ok = false;

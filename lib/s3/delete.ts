@@ -5,7 +5,8 @@ export async function deleteFromS3(storedFilename: string): Promise<void> {
   const s3Client = getS3Client();
   const bucketName = getBucketName();
 
-  const key = `media/${storedFilename}`;
+  const key = storedFilename.startsWith('private/') || storedFilename.startsWith('media/')
+    ? storedFilename : `media/${storedFilename}`;
 
   const command = new DeleteObjectCommand({
     Bucket: bucketName,

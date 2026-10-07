@@ -12,7 +12,7 @@
  *     store_customer_messages_reply
  *   - Status transition to 'replied' asserted after the reply.
  */
-import { execSync } from 'child_process';
+import { e2eSql } from './setup/sql';
 import { request as pwRequest } from '@playwright/test';
 import { test, expect } from './setup/fixtures';
 import {
@@ -23,15 +23,12 @@ import {
 } from './setup/helpers';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const TEST_DB = process.env.DATABASE_URL || 'postgresql://localhost:5432/simplerdev_test';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 /** Run a SQL command against the test DB using psql (setup/teardown only). */
 function sql(query: string): string {
-  return execSync(`psql "${TEST_DB}" -c "${query.replace(/"/g, '\\"')}"`, {
-    encoding: 'utf-8',
-  });
+  return e2eSql(query);
 }
 
 /** Create a product in a site via portal REST, return id + cleanup fn. */
@@ -83,18 +80,12 @@ test.describe('Storefront — Product review moderation @gap @store @reviews', (
 
     // 4. Insert a pending review directly — there is no public submission endpoint
     const ts = Date.now();
-    const output = execSync(
-      `psql "${TEST_DB}" -t -c "INSERT INTO store_product_reviews (website_id, product_id, rating, title, body, status) VALUES (${siteId}, ${productId}, 4, 'Great product ${ts}', 'Really enjoyed it', 'pending') RETURNING id;"`,
-      { encoding: 'utf-8' },
-    );
+    const output = e2eSql(`INSERT INTO store_product_reviews (website_id, product_id, rating, title, body, status) VALUES (${siteId}, ${productId}, 4, 'Great product ${ts}', 'Really enjoyed it', 'pending') RETURNING id;`);
     reviewId = parseInt(output.trim(), 10);
     if (!reviewId) throw new Error(`Could not parse review ID from psql output: "${output}"`);
 
     cleanups.push(async () => {
-      execSync(
-        `psql "${TEST_DB}" -c "DELETE FROM store_product_reviews WHERE id = ${reviewId};"`,
-        { encoding: 'utf-8', stdio: 'pipe' },
-      );
+      e2eSql(`DELETE FROM store_product_reviews WHERE id = ${reviewId};`);
     });
   });
 
@@ -178,10 +169,7 @@ test.describe('Storefront — Product review moderation @gap @store @reviews', (
     cleanups.push(() => mcp.dispose());
 
     // Reset the review to pending so we can test rejection
-    execSync(
-      `psql "${TEST_DB}" -c "UPDATE store_product_reviews SET status = 'pending' WHERE id = ${reviewId};"`,
-      { encoding: 'utf-8', stdio: 'pipe' },
-    );
+    e2eSql(`UPDATE store_product_reviews SET status = 'pending' WHERE id = ${reviewId};`);
 
     const res = await mcp.callTool('store_reviews_moderate', { id: reviewId, action: 'reject' });
     expect(res.status).toBe(200);
@@ -269,10 +257,7 @@ test.describe('Storefront — Customer messages @gap @store @customer-messages',
       // Customer cleanup: delete via direct SQL (no portal endpoint)
       const custId = regBody.data.customer?.id;
       if (custId) {
-        execSync(
-          `psql "${TEST_DB}" -c "DELETE FROM store_customers WHERE id = ${custId};"`,
-          { encoding: 'utf-8', stdio: 'pipe' },
-        );
+        e2eSql(`DELETE FROM store_customers WHERE id = ${custId};`);
       }
     });
 
@@ -292,10 +277,7 @@ test.describe('Storefront — Customer messages @gap @store @customer-messages',
     messageId = msgBody.data.id as number;
 
     cleanups.push(async () => {
-      execSync(
-        `psql "${TEST_DB}" -c "DELETE FROM store_customer_messages WHERE id = ${messageId};"`,
-        { encoding: 'utf-8', stdio: 'pipe' },
-      );
+      e2eSql(`DELETE FROM store_customer_messages WHERE id = ${messageId};`);
     });
   });
 

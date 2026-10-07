@@ -21,7 +21,7 @@
  * Test strategy:
  *   1. Seed a minimal registered_apps row + a registered_app_jobs row whose
  *      next_run_at is 30 minutes in the past (clearly due).
- *   2. Hit GET /api/cron/plugin-jobs-tick with the x-vercel-cron header.
+ *   2. Hit GET /api/cron/plugin-jobs-tick with a configured Bearer secret.
  *   3. Assert { success: true, fired: [{ jobId: <our id>, runId: <n> }] }
  *      — the job must appear in the fired list (was claimed) and a run was
  *      queued in registered_app_runs.
@@ -30,28 +30,30 @@
  *      (idempotency / CAS concurrent-tick safety).
  *   6. Clean up all seeded rows.
  *
- * Auth: the endpoint accepts `x-vercel-cron: 1` without CRON_SECRET.
+ * Auth: the endpoint requires a Bearer token matching CRON_SECRET.
  */
-
+import { e2eSql } from './setup/sql';
 import { test, expect } from '@playwright/test';
-import { execSync } from 'node:child_process';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
+
+function cronHeaders(): { Authorization: string } {
+  const secret = process.env.CRON_SECRET;
+  if (!secret?.trim()) throw new Error('Cron E2E requires CRON_SECRET in the test and server environment');
+  return { Authorization: `Bearer ${secret}` };
+}
+
 
 // ────────────────────────────────────────────────────────────────────────────
-// Minimal DB helpers (psql via child_process — avoids pulling the Drizzle
+// Minimal DB helpers (Bun/Postgres — avoids pulling the Drizzle
 // stack into the Playwright worker and keeps the test zero-dependency on app
 // internals beyond the HTTP surface).
 // ────────────────────────────────────────────────────────────────────────────
 
 function psql(sql: string): string {
   // Feed SQL via stdin so multiline statements and quotes don't require
-  // shell escaping. --no-psqlrc / -t suppress prompts and headers.
-  return execSync(
-    `psql "${DATABASE_URL}" --no-psqlrc -t`,
-    { input: sql, encoding: 'utf8', timeout: 15_000 },
-  ).trim();
+  // shell escaping. The shared helper emits data rows without headers.
+  return e2eSql(sql).trim();
 }
 
 /**
@@ -149,7 +151,7 @@ test.describe('Cron: plugin-jobs-tick @cron @plugins', () => {
 
     // ── First tick: should claim our due job ──────────────────────────────
     const res = await request.get(`${BASE_URL}/api/cron/plugin-jobs-tick`, {
-      headers: { 'x-vercel-cron': '1' },
+      headers: cronHeaders(),
     });
     expect(res.status()).toBe(200);
     const body = await res.json() as { success: boolean; fired: Array<{ jobId: number; runId: number }> };
@@ -177,7 +179,7 @@ test.describe('Cron: plugin-jobs-tick @cron @plugins', () => {
 
     // ── Second tick: same job must NOT fire again (CAS guard) ────────────
     const res2 = await request.get(`${BASE_URL}/api/cron/plugin-jobs-tick`, {
-      headers: { 'x-vercel-cron': '1' },
+      headers: cronHeaders(),
     });
     expect(res2.status()).toBe(200);
     const body2 = await res2.json() as { success: boolean; fired: Array<{ jobId: number; runId: number }> };
@@ -194,17 +196,19 @@ test.describe('Cron: plugin-jobs-tick @cron @plugins', () => {
     // Seed must exist before this runs (but this test is independent of the
     // first tick's outcome — we just need the endpoint to respond).
     const res = await request.get(`${BASE_URL}/api/cron/plugin-jobs-tick`);
-    // When CRON_SECRET is not set the endpoint accepts the Vercel header only.
-    // Without any header it should 401. Accept either 200 (lenient env where
-    // CRON_SECRET is unset + no header protection) or 401 per the route's auth
-    // implementation.  We assert the shape is always { success: bool }.
-    const body = await res.json() as { success: boolean };
-    expect(typeof body.success).toBe('boolean');
+    expect(res.status()).toBe(401);
   });
 
-  test('auth: accepts x-vercel-cron header and returns the { success, fired } shape', async ({ request }) => {
+  test('auth: rejects a forged platform header without the Bearer secret', async ({ request }) => {
     const res = await request.get(`${BASE_URL}/api/cron/plugin-jobs-tick`, {
       headers: { 'x-vercel-cron': '1' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('auth: accepts configured Bearer secret and returns the { success, fired } shape', async ({ request }) => {
+    const res = await request.get(`${BASE_URL}/api/cron/plugin-jobs-tick`, {
+      headers: cronHeaders(),
     });
     expect(res.status()).toBe(200);
     const body = await res.json() as { success: boolean; fired: unknown[] };

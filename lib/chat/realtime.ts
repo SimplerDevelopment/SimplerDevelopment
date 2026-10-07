@@ -125,6 +125,7 @@ export async function publishConversationUpdate(
     conversationId: number;
     status?: 'open' | 'assigned' | 'closed';
     assignedUserId?: number | null;
+    aiMode?: 'ai' | 'human' | 'paused' | 'hybrid' | 'closed';
     visitorName?: string | null;
     lastMessageAt?: Date | string | null;
     kind?: 'created' | 'updated';

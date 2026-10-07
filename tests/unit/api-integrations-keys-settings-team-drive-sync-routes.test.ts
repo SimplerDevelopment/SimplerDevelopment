@@ -83,7 +83,8 @@ vi.mock('bcryptjs', () => ({
   hash: (...args: unknown[]) => hashMock(...args),
 }));
 
-vi.mock('crypto', () => ({
+vi.mock('crypto', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('crypto')>()),
   randomBytes: (n: number) => ({
     toString: (_enc: string) => 'r'.repeat(n * 2),
   }),
@@ -955,7 +956,7 @@ describe('GET /api/cron/drive-sync', () => {
     restoreEnv();
   });
 
-  it('accepts the Vercel cron header without bearer token', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     delete process.env.CRON_SECRET;
     selectQueue.push([]);
     const res = await driveSyncRoute.GET(
@@ -963,12 +964,23 @@ describe('GET /api/cron/drive-sync', () => {
         headers: { 'x-vercel-cron': '1' },
       }),
     );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    selectQueue.push([]);
+    const res = await driveSyncRoute.GET(
+      new Request('http://x/api/cron/drive-sync', {
+        headers: { authorization: 'Bearer security-test-secret' },
+      }),
+    );
     expect(res.status).toBe(200);
     restoreEnv();
   });
 
   it('filters out connections without drive scope', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 1,
@@ -993,7 +1005,7 @@ describe('GET /api/cron/drive-sync', () => {
     ]);
     const res = await driveSyncRoute.GET(
       new Request('http://x/api/cron/drive-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -1005,7 +1017,7 @@ describe('GET /api/cron/drive-sync', () => {
   });
 
   it('skips connections whose tenant credentials are revoked or missing', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 1,
@@ -1033,7 +1045,7 @@ describe('GET /api/cron/drive-sync', () => {
       .mockResolvedValueOnce({ status: 'revoked', oauth: {} }); // second -> skipped
     const res = await driveSyncRoute.GET(
       new Request('http://x/api/cron/drive-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -1046,7 +1058,7 @@ describe('GET /api/cron/drive-sync', () => {
   });
 
   it('persists refreshed tokens and continues to sync', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 5,
@@ -1069,7 +1081,7 @@ describe('GET /api/cron/drive-sync', () => {
 
     const res = await driveSyncRoute.GET(
       new Request('http://x/api/cron/drive-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -1091,7 +1103,7 @@ describe('GET /api/cron/drive-sync', () => {
   });
 
   it('bootstraps the start page token when the row is missing one', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 6,
@@ -1109,7 +1121,7 @@ describe('GET /api/cron/drive-sync', () => {
 
     const res = await driveSyncRoute.GET(
       new Request('http://x/api/cron/drive-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -1127,7 +1139,7 @@ describe('GET /api/cron/drive-sync', () => {
   });
 
   it('propagates per-file errors from the sync into failures[]', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 7,
@@ -1150,7 +1162,7 @@ describe('GET /api/cron/drive-sync', () => {
 
     const res = await driveSyncRoute.GET(
       new Request('http://x/api/cron/drive-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const body = await res.json();
@@ -1163,7 +1175,7 @@ describe('GET /api/cron/drive-sync', () => {
   });
 
   it('caps failures[] at 20 entries', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 8,
@@ -1185,7 +1197,7 @@ describe('GET /api/cron/drive-sync', () => {
     });
     const res = await driveSyncRoute.GET(
       new Request('http://x/api/cron/drive-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const body = await res.json();
@@ -1194,7 +1206,7 @@ describe('GET /api/cron/drive-sync', () => {
   });
 
   it('isolates a thrown error to a single connection', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     selectQueue.push([
       {
         id: 9,
@@ -1223,7 +1235,7 @@ describe('GET /api/cron/drive-sync', () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const res = await driveSyncRoute.GET(
       new Request('http://x/api/cron/drive-sync', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     const body = await res.json();

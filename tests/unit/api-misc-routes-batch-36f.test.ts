@@ -1000,10 +1000,20 @@ describe('GET /api/cron/brain-empty-old-trash', () => {
     expect((await res.json()).success).toBe(false);
   });
 
-  it('accepts the x-vercel-cron header without a bearer token', async () => {
+  it('rejects a forged cron header without a bearer secret', async () => {
     const res = await cronMod.GET(
       new Request('http://x/api/cron/brain-empty-old-trash', {
         headers: { 'x-vercel-cron': '1' },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a matching bearer secret and preserves the response', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
+    const res = await cronMod.GET(
+      new Request('http://x/api/cron/brain-empty-old-trash', {
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -1032,16 +1042,17 @@ describe('GET /api/cron/brain-empty-old-trash', () => {
   });
 
   it('skips auth entirely when CRON_SECRET is unset', async () => {
-    delete process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     const res = await cronMod.GET(
       new Request('http://x/api/cron/brain-empty-old-trash', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
   });
 
   it('fans out across every tenant and accumulates per-client counts', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     state.clients.push({ id: 1 });
     state.clients.push({ id: 2 });
     state.clients.push({ id: 3 });
@@ -1053,7 +1064,7 @@ describe('GET /api/cron/brain-empty-old-trash', () => {
 
     const res = await cronMod.GET(
       new Request('http://x/api/cron/brain-empty-old-trash', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);
@@ -1071,6 +1082,7 @@ describe('GET /api/cron/brain-empty-old-trash', () => {
   });
 
   it("isolates a single tenant's failure so the sweep continues", async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     state.clients.push({ id: 100 });
     state.clients.push({ id: 200 });
     state.clients.push({ id: 300 });
@@ -1084,7 +1096,7 @@ describe('GET /api/cron/brain-empty-old-trash', () => {
 
     const res = await cronMod.GET(
       new Request('http://x/api/cron/brain-empty-old-trash', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);

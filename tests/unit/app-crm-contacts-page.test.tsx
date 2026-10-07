@@ -299,6 +299,21 @@ async function renderPage() {
 
 describe('CrmContactsPage', () => {
   describe('initial render', () => {
+    it.each([
+      { firstName: 'Jane', lastName: null, email: 'jane@acme.test', name: 'Jane', initials: 'J' },
+      { firstName: null, lastName: 'Doe', email: 'jane@acme.test', name: 'Doe', initials: 'D' },
+      { firstName: null, lastName: null, email: 'jane@acme.test', name: 'jane@acme.test', initials: '?' },
+      { firstName: null, lastName: null, email: null, name: 'Unnamed contact', initials: '?' },
+    ])('renders nullable names with a usable label and avatar: $name', async ({ name, initials, ...fields }) => {
+      setFetchHandler((url, init) => url.startsWith('/api/portal/crm/contacts?')
+        ? jsonResponse({ data: { contacts: [{ ...baseContacts[0], ...fields }], total: 1 } })
+        : defaultFetch(url, init));
+      const { container } = render(<CrmContactsPage />);
+      await waitFor(() => expect(container.querySelector('tbody p.font-medium')?.textContent).toBe(name));
+      expect(container.querySelector('tbody span.rounded-full.font-bold')?.textContent).toBe(initials);
+      expect(container.querySelector('tbody')?.textContent).not.toContain('null');
+    });
+
     it('renders the total contact count', async () => {
       const { container } = await renderPage();
       expect(container.textContent).toContain('5 contacts');

@@ -9,6 +9,8 @@ export * from './crm';
 export * from './pm';
 export * from './brain';
 export * from './store';
+export * from './storePayments';
+export * from './mediaAccess';
 export * from './productDesigner';
 export * from './catalog';
 export * from './email';

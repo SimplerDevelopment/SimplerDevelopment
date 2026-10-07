@@ -1014,7 +1014,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       const mimeType = resp.headers.get('content-type')?.split(';')[0]?.trim() || 'application/octet-stream';
       const derivedName = filename
         ?? decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() || 'upload');
-      const result = await uploadToS3(buf, derivedName, mimeType);
+      const result = await uploadToS3(buf, derivedName, mimeType, { privateClientId: ctx.client.id });
       const [row] = await db.insert(kanbanCardFiles).values({
         cardId,
         projectId: card.projectId,

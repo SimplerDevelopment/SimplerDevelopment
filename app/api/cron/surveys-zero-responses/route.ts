@@ -23,7 +23,7 @@ export const runtime = 'nodejs';
  * one exists we skip. Cadence target is weekly, so a 14-day window safely
  * covers two consecutive cron firings without flapping.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 async function _GET(req: Request) {
   if (!isAuthorizedCron(req)) {

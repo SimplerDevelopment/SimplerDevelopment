@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
  * spiked? which tools regressed?) and lean on `mcp_tool_call_daily_rollups`
  * for longer-horizon trends (Round 2).
  *
- * Auth: `Authorization: Bearer ${CRON_SECRET}` or Vercel cron header.
+ * Auth: `Authorization: Bearer ${CRON_SECRET}`.
  * Suggested schedule: daily at 04:23 UTC (offset from other crons).
  *
  * Optional query params (manual runs only):

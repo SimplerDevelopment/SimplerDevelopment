@@ -18,29 +18,16 @@
  *
  * Tagged @gap @brain for selective runs.
  */
-import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups } from './setup/helpers';
 import { randomUUID } from 'crypto';
 
-const DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 const CLIENT_ID = 1; // Acme Corp — the all-access E2E tenant
 
-/** Run a SQL statement against the test DB via psql using a temp file. Returns trimmed stdout. */
+/** Run a SQL statement against the explicit local test DB. Returns trimmed stdout. */
 function sql(statement: string): string {
-  const tmpFile = join(tmpdir(), `e2e-brain-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
-  try {
-    writeFileSync(tmpFile, statement, 'utf8');
-    return execSync(
-      `psql "${DB}" -f ${tmpFile} -t -A`,
-      { encoding: 'utf8' },
-    ).trim();
-  } finally {
-    try { unlinkSync(tmpFile); } catch {}
-  }
+  return e2eSql(statement);
 }
 
 /** Insert a pending review item. Returns the new row id. */

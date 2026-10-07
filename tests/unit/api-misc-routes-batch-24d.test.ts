@@ -1,3 +1,4 @@
+import { AiCreditError } from '@/lib/ai/credit-accounting';
 // @vitest-environment node
 /**
  * Unit tests for four small API routes (batch 24d):
@@ -269,13 +270,7 @@ describe('POST /api/portal/automations/parse', () => {
     authorizePortalMock.mockResolvedValue({ client: { id: 1 }, userId: 7, role: 'admin' });
     getPortalClientMock.mockResolvedValue({ id: 33 });
     checkAiPlanGateMock.mockResolvedValue({ allowed: true });
-    parseAutomationDescriptionMock.mockResolvedValue({
-      parsed: { trigger: 'x', actions: [] },
-      inputTokens: 10,
-      outputTokens: 5,
-      source: 'platform',
-    });
-    hasCreditsMock.mockResolvedValue(false);
+    parseAutomationDescriptionMock.mockRejectedValue(new AiCreditError('Insufficient AI credits'));
     const res = await automationsParseRoute.POST(req({ description: 'do a thing' }));
     expect(res.status).toBe(402);
     expect((await res.json()).error).toMatch(/Insufficient AI credits/);
@@ -300,9 +295,8 @@ describe('POST /api/portal/automations/parse', () => {
     expect(body.success).toBe(true);
     expect(body.tokensUsed).toBe(17);
     expect(body.keySource).toBe('platform');
-    expect(deductCreditsMock).toHaveBeenCalledTimes(1);
-    expect(deductCreditsMock.mock.calls[0][0]).toBe(33);
-    expect(deductCreditsMock.mock.calls[0][1]).toBe(17);
+    expect(deductCreditsMock).not.toHaveBeenCalled();
+    expect(parseAutomationDescriptionMock).toHaveBeenCalledWith(expect.any(String), { clientId: 33 });
   });
 
   it('skips credit checks when source is BYOK', async () => {
@@ -406,7 +400,7 @@ describe('GET /api/portal/automations/logs', () => {
 describe('GET /api/portal/chat/inbox-stream', () => {
   it('returns 401 without a session', async () => {
     authMock.mockResolvedValue(null);
-    const res = await chatInboxStreamRoute.GET();
+    const res = await chatInboxStreamRoute.GET(new Request('http://x/api/portal/chat/inbox-stream'));
     expect(res.status).toBe(401);
     expect(await res.text()).toBe('Unauthorized');
   });
@@ -414,7 +408,7 @@ describe('GET /api/portal/chat/inbox-stream', () => {
   it('returns 404 when no portal client', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue(null);
-    const res = await chatInboxStreamRoute.GET();
+    const res = await chatInboxStreamRoute.GET(new Request('http://x/api/portal/chat/inbox-stream'));
     expect(res.status).toBe(404);
     expect(await res.text()).toBe('Client not found');
   });
@@ -429,7 +423,7 @@ describe('GET /api/portal/chat/inbox-stream', () => {
       unsubscribe,
     });
 
-    const res = await chatInboxStreamRoute.GET();
+    const res = await chatInboxStreamRoute.GET(new Request('http://x/api/portal/chat/inbox-stream'));
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('text/event-stream');
     expect(res.headers.get('cache-control')).toMatch(/no-cache/);
@@ -464,7 +458,7 @@ describe('GET /api/portal/chat/inbox-stream', () => {
       },
     );
 
-    const res = await chatInboxStreamRoute.GET();
+    const res = await chatInboxStreamRoute.GET(new Request('http://x/api/portal/chat/inbox-stream'));
     const reader = res.body!.getReader();
     // Drain the initial hello frame.
     await reader.read();
@@ -490,7 +484,7 @@ describe('GET /api/portal/chat/inbox-stream', () => {
       unsubscribe: vi.fn().mockResolvedValue(undefined),
     });
 
-    const res = await chatInboxStreamRoute.GET();
+    const res = await chatInboxStreamRoute.GET(new Request('http://x/api/portal/chat/inbox-stream'));
     const reader = res.body!.getReader();
     // Hello first.
     await reader.read();

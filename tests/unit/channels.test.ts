@@ -240,7 +240,9 @@ describe('ChannelGateway.send', () => {
   });
 
   it('sends through the adapter and emits channel.message.sent', async () => {
-    const { gateway, events } = makeGateway();
+    const { gateway, events } = makeGateway({
+      findConnectionById: async () => ({ id: 1, clientId: 7, provider: 'webchat', status: 'connected', credentials: {}, metadata: {} }),
+    });
     const result = await gateway.send(outbound({ provider: 'webchat', channel: 'webchat' }));
     expect(result.status).toBe('sent');
     expect(webchatSend).toHaveBeenCalled();
@@ -249,12 +251,24 @@ describe('ChannelGateway.send', () => {
 
   it('marks the outbox failed when no adapter is registered', async () => {
     const markFailed = vi.fn(async () => {});
-    const { gateway } = makeGateway({ markFailed });
+    const { gateway } = makeGateway({ markFailed,
+      findConnectionById: async () => ({ id: 1, clientId: 7, provider: 'email', status: 'connected', credentials: {}, metadata: {} }),
+    });
     const result = await gateway.send(
       outbound({ provider: 'resend', channel: 'email', recipientIdentity: { kind: 'email', value: 'ana@example.com' } }),
     );
     // No email adapter registered → error, and the outbox row is marked failed.
     expect(result.status).toBe('error');
     expect(markFailed).toHaveBeenCalled();
+  });
+
+  it('rejects mismatched adapters and channels before consent reads or enqueueing', async () => {
+    const enqueueOutbox = vi.fn();
+    const getConsent = vi.fn();
+    const { gateway } = makeGateway({ enqueueOutbox, getConsent });
+    expect((await gateway.send(outbound({ provider: 'resend' }))).status).toBe('error');
+    expect((await gateway.send(outbound({ channel: 'email' }))).status).toBe('error');
+    expect(enqueueOutbox).not.toHaveBeenCalled();
+    expect(getConsent).not.toHaveBeenCalled();
   });
 });

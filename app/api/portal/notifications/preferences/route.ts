@@ -21,7 +21,7 @@ const DELIVERY_SET = new Set<string>(NOTIFICATION_DELIVERIES);
  * PUT — upserts a single { notificationType, delivery } pair.
  */
 export async function GET() {
-  const result = await authorizePortal({ action: 'read' });
+  const result = await authorizePortal({ action: 'read', scope: 'notifications:read' });
   if (isAuthError(result)) return result.response;
 
   const rows = await db
@@ -50,7 +50,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const result = await authorizePortal({ action: 'write' });
+  const result = await authorizePortal({ action: 'write', scope: 'notifications:write' });
   if (isAuthError(result)) return result.response;
 
   const body = await request.json().catch(() => null);

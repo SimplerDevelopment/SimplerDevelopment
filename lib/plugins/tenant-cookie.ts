@@ -28,7 +28,7 @@
 
 // Mirror of lib/auth.ts USE_SECURE_COOKIES — insecure only in local/e2e dev.
 function secureCookiesEnabled(): boolean {
-  return process.env.AUTH_INSECURE_COOKIES !== '1' && process.env.NODE_ENV === 'production';
+  return process.env.NODE_ENV === 'production';
 }
 
 // Mirror of lib/auth.ts session-cookie `domain`: self-host override, else pin

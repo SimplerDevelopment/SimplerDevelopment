@@ -11,7 +11,7 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import Stripe from 'stripe';
 
 export async function POST() {
-  const auth = await authorizePortal({ action: 'admin' });
+  const auth = await authorizePortal({ action: 'admin', scope: 'billing:write' });
   if (isAuthError(auth)) return auth.response;
 
   const { client } = auth;

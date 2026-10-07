@@ -34,7 +34,7 @@ export const runtime = 'nodejs';
  * notification on the same `entityId` issued in the last 24 hours, so a
  * persistently-broken rule doesn't get re-broadcast on every daily tick.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}` (matches
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}` (matches
  * `app/api/cron/process-embeddings/route.ts`).
  */
 

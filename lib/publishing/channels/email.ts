@@ -25,7 +25,7 @@ import {
   kanbanCards,
   projects,
 } from '@/lib/db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { PublishingStageKey } from '../constants';
 
 /** Stages whose target campaign status, if any, this adapter mirrors. The
@@ -224,6 +224,8 @@ export async function syncCardStageToCampaign(
       and(
         inArray(emailCampaigns.id, campaignIds),
         eq(emailCampaigns.clientId, project.clientId),
+        inArray(emailCampaigns.status, ['draft', 'scheduled']),
+        isNull(emailCampaigns.dispatchPlan),
       ),
     );
 }

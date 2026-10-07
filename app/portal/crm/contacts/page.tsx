@@ -13,8 +13,8 @@ import MediaPicker from '@/components/admin/MediaPicker';
 
 interface Contact {
   id: number;
-  firstName: string;
-  lastName: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   title: string | null;
@@ -30,8 +30,8 @@ interface Contact {
 
 // First letter of first + last name, uppercased, for the avatar fallback
 // circle. Matches the initials pattern used on brain/people/[id].
-function contactInitials(firstName: string, lastName: string): string {
-  return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase() || '?';
+function contactInitials(firstName: string | null, lastName: string | null): string {
+  return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || '?';
 }
 
 interface SavedView {
@@ -576,7 +576,7 @@ export default function CrmContactsPage() {
                           </span>
                         )}
                         <div>
-                          <p className="font-medium text-foreground">{c.firstName} {c.lastName}</p>
+                          <p className="font-medium text-foreground">{[c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || 'Unnamed contact'}</p>
                           {c.title && <p className="text-xs text-muted-foreground">{c.title}</p>}
                         </div>
                       </div>

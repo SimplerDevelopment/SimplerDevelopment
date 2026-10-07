@@ -9,12 +9,9 @@
  *
  * All tests create and clean up their own data.
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups, createTestApiKey, McpTestClient } from './setup/helpers';
-import { execSync } from 'child_process';
-
-const DB_URL =
-  process.env.DATABASE_URL ?? 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -207,10 +204,7 @@ test.describe('ESign Approvals — Block template approval via token link @appro
       // Cleanup via psql since there's no portal DELETE for block templates
       cleanups.push(async () => {
         try {
-          execSync(
-            `psql "${DB_URL}" -c "DELETE FROM block_templates WHERE id = ${tplId};"`,
-            { stdio: 'pipe' },
-          );
+          e2eSql(`DELETE FROM block_templates WHERE id = ${tplId};`);
         } catch {
           // best-effort
         }
@@ -228,10 +222,7 @@ test.describe('ESign Approvals — Block template approval via token link @appro
       expect(linkData.data.status).toBe('approved');
 
       // Verify the draft overlay was cleared in the DB
-      const rows = execSync(
-        `psql "${DB_URL}" -t -A -c "SELECT draft IS NULL FROM block_templates WHERE id = ${tplId};"`,
-        { stdio: 'pipe' },
-      )
+      const rows = e2eSql(`SELECT draft IS NULL FROM block_templates WHERE id = ${tplId};`)
         .toString()
         .trim();
       expect(rows).toBe('t');
@@ -257,25 +248,16 @@ test.describe('ESign Approvals — Expired token enforcement @approvals @expiry'
       const clientId = 1; // seeded test client
 
       try {
-        execSync(
-          `psql "${DB_URL}" -c "DELETE FROM mcp_approval_links WHERE token = '${expiredToken}';"`,
-          { stdio: 'pipe' },
-        );
+        e2eSql(`DELETE FROM mcp_approval_links WHERE token = '${expiredToken}';`);
         // Use a heredoc-style -c argument to avoid shell quoting issues with INTERVAL
-        execSync(
-          `psql "${DB_URL}" -c "INSERT INTO mcp_approval_links (token, client_id, link_type, entity_type, entity_id, status, summary, expires_at) VALUES ('${expiredToken}', ${clientId}, 'entity', 'survey', NULL, 'pending', 'Expired token test', NOW() - INTERVAL '1 day');"`,
-          { stdio: 'pipe', shell: '/bin/bash' },
-        );
+        e2eSql(`INSERT INTO mcp_approval_links (token, client_id, link_type, entity_type, entity_id, status, summary, expires_at) VALUES ('${expiredToken}', ${clientId}, 'entity', 'survey', NULL, 'pending', 'Expired token test', NOW() - INTERVAL '1 day');`);
       } catch (err) {
         throw new Error(`Failed to seed expired token: ${err}`);
       }
 
       cleanups.push(async () => {
         try {
-          execSync(
-            `psql "${DB_URL}" -c "DELETE FROM mcp_approval_links WHERE token = '${expiredToken}';"`,
-            { stdio: 'pipe' },
-          );
+          e2eSql(`DELETE FROM mcp_approval_links WHERE token = '${expiredToken}';`);
         } catch {
           // best-effort
         }

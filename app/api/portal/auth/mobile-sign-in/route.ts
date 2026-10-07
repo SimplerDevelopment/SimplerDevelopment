@@ -3,7 +3,7 @@
  *
  * Native credentials sign-in for the SimplerDev Chat mobile app. Skips the
  * in-app browser bounce + workspace picker that `/portal/mobile-auth` requires:
- * accepts `{ email, password }`, validates against `users` using the same
+ * accepts `{ email, password, totpCode? }`, validates against `users` using the same
  * bcrypt compare as the NextAuth credentials provider in `lib/auth.ts`, then
  * auto-selects the caller's primary client (owned > member, first match wins)
  * and mints a 90-day `portal_api_keys` row.
@@ -17,8 +17,8 @@
  *     to the NextAuth provider's behavior.
  *   - Generic `invalid_credentials` on email-or-password mismatch (no user
  *     enumeration).
- *   - Mints a key named "SimplerDev Chat (Mobile)" + ISO date, scopes `['*']`,
- *     `requireCmsApproval: false` (mobile is first-party). Identical to what
+ *   - MFA uses the same one-time counter as web credentials.
+ *   - Mints a limited-capability key with CMS approval required. Identical to what
  *     `/portal/mobile-auth/page.tsx` produces — users can revoke it from
  *     `/portal/settings/api-keys`.
  */
@@ -30,6 +30,8 @@ import { db } from '@/lib/db';
 import { users, clients, clientMembers, portalApiKeys } from '@/lib/db/schema';
 import { generatePortalApiKey } from '@/lib/mcp-auth';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { consumeLoginMfa } from '@/lib/security/login-mfa';
+import { mobileScopesForRole } from '@/lib/security/mobile-scopes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -137,6 +139,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!(await consumeLoginMfa(user, body.totpCode))) {
+      return NextResponse.json(
+        { success: false, error: 'invalid_credentials', message: 'Wrong credentials or authenticator code' },
+        { status: 401 },
+      );
+    }
+
     const primary = await pickPrimaryClient(user.id);
     if (!primary) {
       return NextResponse.json(
@@ -161,9 +170,8 @@ export async function POST(req: Request) {
       name: `${KEY_NAME} — ${new Date().toISOString().slice(0, 10)}`,
       keyHash: hash,
       keyPreview: preview,
-      scopes: ['*'],
-      // Mobile is a trusted first-party client; CMS writes don't need staging.
-      requireCmsApproval: false,
+      scopes: mobileScopesForRole(primary.role),
+      requireCmsApproval: true,
       expiresAt,
     });
 

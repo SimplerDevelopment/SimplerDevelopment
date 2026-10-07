@@ -98,11 +98,14 @@ export async function runCampaignSendJob(
   // Finished by an earlier attempt (e.g. lease reclaimed after the worker died
   // post-completion). Without this guard executeCampaignSend would throw
   // "No active subscribers remaining" and burn retries on a done campaign.
-  if (campaign.status === 'sent') return;
+  if (campaign.status === 'sent' || campaign.status === 'cancelled') return;
 
   const { executeCampaignSend } = await import('./campaign-send');
   try {
-    await executeCampaignSend(campaignId, campaign);
+    const result = await executeCampaignSend(campaignId, campaign);
+    if (result.failed > 0) {
+      throw new Error(`Campaign delivery incomplete: ${result.failed} recipients failed`);
+    }
   } catch (err) {
     // On the FINAL attempt, flip the campaign to 'cancelled' so it doesn't
     // strand in 'sending' forever once the job dead-letters. (The old cron did
@@ -117,7 +120,7 @@ export async function runCampaignSendJob(
     if (job && job.attemptCount + 1 >= MAX_ATTEMPTS) {
       await db
         .update(emailCampaigns)
-        .set({ status: 'cancelled', updatedAt: new Date() })
+        .set({ status: 'failed', updatedAt: new Date() })
         .where(eq(emailCampaigns.id, campaignId));
     }
     throw err;

@@ -229,6 +229,8 @@ describe('POST /api/portal/sign-out', () => {
   });
 
   it('uses Secure prefix names and writes wildcard cookies in production', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.stubEnv('AUTH_COOKIE_DOMAIN', '');
     process.env.NODE_ENV = 'production';
     const res = await signOutRoute.POST();
     expect(res.status).toBe(200);
@@ -240,6 +242,7 @@ describe('POST /api/portal/sign-out', () => {
     expect(joined).toContain('__Secure-authjs.csrf-token=');
     // wildcard-domain clears
     expect(joined).toMatch(/Domain=\.?simplerdevelopment\.com/);
+    vi.unstubAllEnvs();
   });
 
   it('returns expired-cookie headers with epoch expiry', async () => {
@@ -396,23 +399,24 @@ describe('GET /api/cron/expire-mcp-pendings', () => {
     });
   });
 
-  it('runs expiration when x-vercel-cron header is "1" (no bearer required)', async () => {
+  it('rejects a forged cron header without a secret', async () => {
     expireStalePendingsMock.mockResolvedValue({ expired: 0 });
     const res = await expireMcpPendingsRoute.GET(
       makeReq('http://x/api/cron/expire-mcp-pendings', {
         headers: { 'x-vercel-cron': '1' },
       }),
     );
-    expect(res.status).toBe(200);
-    expect(expireStalePendingsMock).toHaveBeenCalled();
+    expect(res.status).toBe(401);
+    expect(expireStalePendingsMock).not.toHaveBeenCalled();
   });
 
   it('parses ttlSeconds and ids from query params', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     expireStalePendingsMock.mockResolvedValue({ expired: 1 });
     const res = await expireMcpPendingsRoute.GET(
       makeReq(
         'http://x/api/cron/expire-mcp-pendings?ttlSeconds=600&ids=1,2,3,not-a-number,4',
-        { headers: { 'x-vercel-cron': '1' } },
+        { headers: { authorization: 'Bearer security-test-secret' } },
       ),
     );
     expect(res.status).toBe(200);
@@ -423,10 +427,11 @@ describe('GET /api/cron/expire-mcp-pendings', () => {
   });
 
   it('treats non-numeric ttlSeconds as undefined', async () => {
+    process.env.CRON_SECRET = 'security-test-secret'; // Synthetic cron fixture. pragma: allowlist secret
     expireStalePendingsMock.mockResolvedValue({ expired: 0 });
     const res = await expireMcpPendingsRoute.GET(
       makeReq('http://x/api/cron/expire-mcp-pendings?ttlSeconds=banana', {
-        headers: { 'x-vercel-cron': '1' },
+        headers: { authorization: 'Bearer security-test-secret' },
       }),
     );
     expect(res.status).toBe(200);

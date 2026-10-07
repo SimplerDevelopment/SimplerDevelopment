@@ -23,21 +23,17 @@
  * verification step only — every security assertion itself still goes
  * through the real HTTP route.
  */
-import { execSync } from 'child_process';
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups, createTestApiKey, createTestWebsite, McpTestClient } from './setup/helpers';
 import type { ApiClient } from './setup/api-client';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const DB_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 // ── Direct-DB helpers (setup/verification only — see file header) ──────────
 
 function psql(sqlStr: string): string {
-  return execSync(`psql "${DB_URL}" -t -A -c "${sqlStr.replace(/"/g, '\\"')}"`, {
-    stdio: 'pipe',
-    encoding: 'utf-8',
-  }).trim();
+  return e2eSql(sqlStr).trim();
 }
 
 async function getActiveClientId(api: ApiClient): Promise<number> {

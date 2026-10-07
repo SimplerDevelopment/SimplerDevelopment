@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   const args = body.args && typeof body.args === 'object' ? body.args : {};
 
   // ── Auth + role check (the tool declares its required action level).
-  const authed = await authorizePortal({ action: tool.action });
+  const authed = await authorizePortal({ action: tool.action, scope: 'chat:write' });
   if (isAuthError(authed)) return authed.response;
   const { userId, client } = authed;
 

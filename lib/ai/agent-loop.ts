@@ -19,6 +19,8 @@ import {
 } from 'ai';
 import { getModelForTask, type AiTask } from './models';
 import { sanitizeToolResult } from './brain-tools/sanitizer';
+import { beginAiCreditRequest, type AiCreditContext } from './credit-accounting';
+import { recordAiUsage } from './audit';
 
 /** Minimal shape of an Anthropic-style tool definition (name + JSON input schema). */
 export interface AnthropicStyleTool {
@@ -69,6 +71,7 @@ export interface AgentLoopOpts {
   /** Max agent steps (model turn + tool round = up to this many). Default 8. */
   maxSteps?: number;
   maxTokens?: number;
+  credits?: Pick<AiCreditContext, 'category' | 'price'>;
 }
 
 /**
@@ -78,13 +81,34 @@ export interface AgentLoopOpts {
  * stops or `maxSteps` is hit.
  */
 export async function completeAgentLoop(opts: AgentLoopOpts) {
-  const { model } = await getModelForTask(opts.task, opts.clientId);
-  return generateText({
+  const { model, keySource } = await getModelForTask(opts.task, opts.clientId);
+  const context = opts.credits ? { ...opts.credits, clientId: opts.clientId, source: keySource } : undefined;
+  let pending: Awaited<ReturnType<typeof beginAiCreditRequest>> | undefined;
+  try {
+  return await generateText({
     model,
     system: opts.system,
     messages: opts.messages,
     tools: opts.tools,
     stopWhen: stepCountIs(opts.maxSteps ?? 8),
     maxOutputTokens: opts.maxTokens,
+    prepareStep: context ? async ({ messages }) => {
+      pending = await beginAiCreditRequest(context,
+        Buffer.byteLength(JSON.stringify({ system: opts.system, messages, tools: opts.tools }), 'utf8') + 4096,
+        opts.maxTokens ?? 4096);
+      return {};
+    } : undefined,
+    onStepFinish: context ? async ({ usage }) => {
+      if (!Number.isSafeInteger(usage.inputTokens) || !Number.isSafeInteger(usage.outputTokens)) {
+        throw new Error('Provider usage unavailable; credit reservation pending reconciliation');
+      }
+      try { await pending?.settle(usage.inputTokens!, usage.outputTokens!); }
+      finally { void recordAiUsage({ clientId: opts.clientId, source: keySource, tokens: usage.inputTokens! + usage.outputTokens! }); }
+      pending = undefined;
+    } : undefined,
   });
+  } catch (error) {
+    await pending?.rejected(error);
+    throw error;
+  }
 }

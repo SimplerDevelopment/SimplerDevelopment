@@ -28,6 +28,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 vi.mock('@/lib/db/schema', () => ({
+  users: { id: { __col: 'userId' }, active: { __col: 'active' }, role: { __col: 'role' } },
   clients: {
     __table: 'clients',
     id: { __col: 'id' },
@@ -86,7 +87,7 @@ function makeChain(label: string, payload?: any) {
     set: (vals: any) => { dbCalls.push({ op: `${label}.set`, vals }); return chain; },
     values: (vals: any) => { dbCalls.push({ op: `${label}.values`, vals }); return chain; },
     returning: () => Promise.resolve(dbQueue.length ? dbQueue.shift() : payload ?? []),
-    limit: (_n: number) => Promise.resolve(dbQueue.length ? dbQueue.shift() : payload ?? []),
+    limit: (_n: number) => Promise.resolve(label === 'liveUser' ? [{ active: true, role: 'client' }] : dbQueue.length ? dbQueue.shift() : payload ?? []),
     // Thenable: allows `await db.update(x).set(y).where(z)` style w/o terminal.
     then: (resolve: any) => {
       const next = dbQueue.length ? dbQueue.shift() : payload ?? [];
@@ -99,7 +100,7 @@ function makeChain(label: string, payload?: any) {
 
 vi.mock('@/lib/db', () => ({
   db: {
-    select: (_proj?: any) => { dbCalls.push({ op: 'select' }); return makeChain('select'); },
+    select: (_proj?: any) => { dbCalls.push({ op: 'select' }); return makeChain(_proj?.active ? 'liveUser' : 'select'); },
     insert: (_t: any) => { dbCalls.push({ op: 'insert' }); return makeChain('insert'); },
     update: (_t: any) => { dbCalls.push({ op: 'update' }); return makeChain('update'); },
     delete: (_t: any) => { dbCalls.push({ op: 'delete' }); return makeChain('delete'); },
@@ -240,21 +241,21 @@ describe('lib/portal-auth.ts', () => {
     expect(result.role).toBe('admin');
   });
 
-  it('defaults to "viewer" when there is no membership row', async () => {
+  it('denies access when there is no membership row', async () => {
     authMock.mockResolvedValue({ user: { id: '11' } });
     getPortalClientMock.mockResolvedValue({ id: 99, userId: 1 });
     dbQueue.push([]); // no membership
 
     const result: any = await authorizePortal(); // default action: read
-    expect(isAuthError(result)).toBe(false);
-    expect(result.role).toBe('viewer');
+    expect(isAuthError(result)).toBe(true);
+    expect(result.response.status).toBe(403);
   });
 
   // -------- authorizePortal: permission denial --------
   it('denies a viewer attempting "write" with 403 and a labelled message', async () => {
     authMock.mockResolvedValue({ user: { id: '11' } });
     getPortalClientMock.mockResolvedValue({ id: 99, userId: 1 });
-    dbQueue.push([]); // viewer
+    dbQueue.push([{ role: 'viewer' }]); // current viewer membership
 
     const result: any = await authorizePortal({ action: 'write' });
     expect(result.response.status).toBe(403);

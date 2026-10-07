@@ -32,7 +32,8 @@ const WORKER_ID = process.env.VITEST_POOL_ID ?? process.env.VITEST_WORKER_ID ?? 
  * 63-char identifier limit.
  */
 const REPO_ROOT = path.resolve(__dirname, '../..');
-export const WORKTREE_ID = crypto.createHash('sha1').update(REPO_ROOT).digest('hex').slice(0, 8);
+const runDiscriminator = process.env.TEST_RUN_ID ? `:${process.env.TEST_RUN_ID}` : '';
+export const WORKTREE_ID = crypto.createHash('sha1').update(REPO_ROOT + runDiscriminator).digest('hex').slice(0, 8);
 
 /** Name of the immutable template DB built once in globalSetup. */
 export const TEMPLATE_DB = `simplerdev_test_template_${WORKTREE_ID}`;

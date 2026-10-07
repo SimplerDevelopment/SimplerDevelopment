@@ -3,6 +3,7 @@
  */
 import type Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/lib/db';
+import { editDraftCampaign } from '@/lib/email/campaign-edit';
 import {
   emailCampaigns, emailLists, emailSubscribers, emailSegments,
 } from '@/lib/db/schema';
@@ -182,7 +183,7 @@ export const emailHandlers: Record<string, EmailHandler> = {
     if (input.from_email !== undefined) update.fromEmail = input.from_email;
     if (input.html_content !== undefined) update.htmlContent = input.html_content;
 
-    await db.update(emailCampaigns).set(update).where(eq(emailCampaigns.id, campaignId));
+    await editDraftCampaign(campaignId, clientId, update);
 
     return { success: true, message: `Campaign "${campaign.name}" updated.` };
   },

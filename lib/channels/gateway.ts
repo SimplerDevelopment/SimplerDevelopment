@@ -51,6 +51,7 @@ export interface GatewayRepos {
     channel: string;
     provider: string;
     connectionId: number | null;
+    contactId?: number | null;
     direction: 'inbound' | 'outbound';
     externalMessageId: string | null;
     authorKind: 'visitor' | 'agent' | 'system';
@@ -74,7 +75,7 @@ export interface GatewayRepos {
     body?: string;
     media?: unknown[];
     idempotencyKey?: string;
-  }): Promise<{ id: number; externalMessageId: string }>;
+  }): Promise<{ id: number; externalMessageId: string; status?: string; claimed?: boolean }>;
   markSent(input: { id: number; externalMessageId: string; sentAt: Date }): Promise<void>;
   markFailed(input: { id: number; error: string; errorCode?: string }): Promise<void>;
 }
@@ -111,6 +112,11 @@ export interface SendResult {
 }
 
 const noEvents: EventSink = { emit: () => {} };
+
+const adapterChannels: Record<ChannelAdapterKey, ChannelConnectionRef['provider'] | null> = {
+  'meta-whatsapp': 'whatsapp', 'meta-instagram': 'instagram', 'meta-messenger': 'messenger',
+  webchat: 'webchat', resend: 'email', local: null,
+};
 
 // ─── Gateway ──────────────────────────────────────────────────────────────────
 
@@ -194,6 +200,7 @@ export class ChannelGateway {
         channel: message.channel,
         provider: message.provider,
         connectionId,
+        contactId: contact.id,
         direction: message.direction,
         externalMessageId: message.externalMessageId ?? null,
         authorKind: message.direction === 'inbound' ? 'visitor' : 'agent',
@@ -234,6 +241,10 @@ export class ChannelGateway {
     try {
       const connection = await repos.findConnectionById(request.connectionId);
       if (!connection) return { status: 'error', reason: 'connection not found' };
+      if (request.channel !== connection.provider ||
+          (adapterChannels[request.provider] !== null && adapterChannels[request.provider] !== connection.provider)) {
+        return { status: 'error', reason: 'Outbound provider/channel does not match connection' };
+      }
 
       // Contact consent is required for the policy gate.
       let consent: ConsentState = { status: null };
@@ -268,6 +279,11 @@ export class ChannelGateway {
         media: request.media,
         idempotencyKey: request.idempotencyKey,
       });
+
+      if (enqueued.status === 'sent') {
+        return { status: 'sent', externalMessageId: enqueued.externalMessageId, outboxId: enqueued.id };
+      }
+      if (enqueued.claimed === false) return { status: 'queued', outboxId: enqueued.id };
 
       const adapter = this.deps.adapters.get(request.provider);
       if (!adapter) {

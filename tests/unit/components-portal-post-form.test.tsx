@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react';
 import React from 'react';
+import { renderToString } from 'react-dom/server';
 
 // ---------------------------------------------------------------------------
 // Mocks — declared before module imports so vi.mock hoisting works correctly.
@@ -121,7 +122,7 @@ vi.mock('@/contexts/DesignTokensContext', () => ({
 
 // Stub portal-specific heavy sub-components
 vi.mock('@/components/portal/VisualEditorShell', () => ({
-  VisualEditorShell: () => React.createElement('div', { 'data-testid': 'visual-editor-shell' }),
+  VisualEditorShell: ({ iframeSrc }: any) => React.createElement('div', { 'data-testid': 'visual-editor-shell', 'data-iframe-src': iframeSrc }),
 }));
 
 vi.mock('@/components/portal/CustomCodeModal', () => ({
@@ -383,6 +384,24 @@ describe('PortalPostForm — iframe editor mode (siteUrl provided)', () => {
     publicUrl: 'https://example.com',
     previewToken: 'tok123',
   };
+
+  it.each(['http://localhost:3100', 'http://127.0.0.1:3100'])('renders same-origin preview paths before hydration for %s', (configuredOrigin) => {
+    const props = { ...iframeProps, siteUrl: `${configuredOrigin}/sites/customer.example`, previewToken: 'tok123' };
+    const html = renderToString(<PortalPostForm {...props} />);
+    const server = document.createElement('div');
+    server.innerHTML = html;
+    expect(server.querySelector('[data-iframe-src]')?.getAttribute('data-iframe-src')).toBe('/sites/customer.example/my-post?_edit=true&_token=tok123');
+    render(<PortalPostForm {...props} />);
+    expect(screen.getByTestId('visual-editor-shell').getAttribute('data-iframe-src')).toBe('/sites/customer.example/my-post?_edit=true&_token=tok123');
+  });
+
+  it('preserves production preview origins and normalizes a root loopback path', () => {
+    const production = render(<PortalPostForm {...iframeProps} siteUrl="https://app.example/sites/customer.example" />);
+    expect(screen.getByTestId('visual-editor-shell').getAttribute('data-iframe-src')).toBe('https://app.example/sites/customer.example/my-post?_edit=true&_token=tok123');
+    production.unmount();
+    render(<PortalPostForm {...iframeProps} siteUrl="http://localhost:3100/" />);
+    expect(screen.getByTestId('visual-editor-shell').getAttribute('data-iframe-src')).toBe('/my-post?_edit=true&_token=tok123');
+  });
 
   it('renders VisualEditorShell when siteUrl + post.slug present', async () => {
     render(<PortalPostForm {...iframeProps} />);

@@ -9,7 +9,7 @@ import { and, eq } from 'drizzle-orm';
 // timeline stays monotonic. The chosen historical row is consumed (deleted)
 // because its bytes are now live again on the media row.
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string; versionId: string }> }) {
-  const authz = await authorizePortal({ action: 'write' });
+  const authz = await authorizePortal({ action: 'write', scope: 'media:write' });
   if (isAuthError(authz)) return authz.response;
   const { client, userId } = authz;
 

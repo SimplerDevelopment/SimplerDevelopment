@@ -14,6 +14,7 @@
 import { db } from '@/lib/db';
 import { cronHealth } from '@/lib/db/schema/cronHealth';
 import { eq, sql } from 'drizzle-orm';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 
 /** Truncate long error messages so a runaway stack trace doesn't blow up
  *  the row. 4 KB is plenty for a dashboard preview. */
@@ -101,6 +102,9 @@ export function withCronHealth(
   handler: (req: Request) => Promise<Response>,
 ): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
+    // Rejected requests must not mutate health counters or clear a prior error.
+    // Let the route retain its own missing-secret/unauthorized response.
+    if (opts.area === 'api-cron' && !isAuthorizedCron(req)) return handler(req);
     await recordStart(opts.name, opts.area);
     try {
       const res = await handler(req);

@@ -18,7 +18,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { clientWebsites, users } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
-import { resolvePortalFromRequest } from '@/lib/mcp-auth';
+import { resolvePortalFromRequest, hasScope } from '@/lib/mcp-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,6 +57,9 @@ export async function GET(req: Request) {
   // 1. Bearer token path (mobile / API clients).
   const bearerCtx = await resolvePortalFromRequest(req);
   if (bearerCtx) {
+    if (!hasScope(bearerCtx.scopes, 'profile:read')) {
+      return NextResponse.json({ success: false, error: 'insufficient_scope', required_scope: 'profile:read' }, { status: 403 });
+    }
     const [user] = await db
       .select({ id: users.id, email: users.email, name: users.name, role: users.role })
       .from(users)

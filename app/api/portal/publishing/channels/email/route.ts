@@ -42,7 +42,7 @@ async function isStaffSession(): Promise<boolean> {
 }
 
 export async function GET(request: Request) {
-  const authed = await authorizePortal({ action: 'read' });
+  const authed = await authorizePortal({ action: 'read', scope: 'email:read' });
   if (isAuthError(authed)) return authed.response;
 
   const url = new URL(request.url);
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authed = await authorizePortal({ action: 'write' });
+  const authed = await authorizePortal({ action: 'write', scope: 'email:write' });
   if (isAuthError(authed)) return authed.response;
 
   const gate = await checkPublishingPermission(
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authed = await authorizePortal({ action: 'write' });
+  const authed = await authorizePortal({ action: 'write', scope: 'email:write' });
   if (isAuthError(authed)) return authed.response;
 
   const gate = await checkPublishingPermission(

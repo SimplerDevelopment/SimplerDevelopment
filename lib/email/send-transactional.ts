@@ -26,6 +26,7 @@ import type { Block, BlockEditorData } from '@/types/blocks';
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@simplerdevelopment.com';
 
 interface SendTransactionalEmailOptions {
+  idempotencyKey?: string;
   websiteId: number;
   event: string;
   to: string;
@@ -230,11 +231,12 @@ export async function sendTransactionalEmail(
       to,
       subject,
       html: htmlContent,
-    });
+    }, options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined);
 
-    if (result.error) {
-      console.error(`[email] Resend error for ${event} to ${to}:`, JSON.stringify(result.error));
-      return { success: false, error: result.error.message || JSON.stringify(result.error) };
+    if (result.error || !result.data?.id) {
+      return { success: false, error: result.error
+        ? result.error.message || JSON.stringify(result.error)
+        : 'Provider returned no message receipt' };
     }
 
     console.log(`[email] Sent ${event} to ${to} (messageId: ${result.data?.id})`);

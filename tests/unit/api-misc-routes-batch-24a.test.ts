@@ -1,3 +1,4 @@
+import { AiCreditError } from '@/lib/ai/credit-accounting';
 // @vitest-environment node
 /**
  * Unit tests for four small API routes (batch 24a):
@@ -329,13 +330,7 @@ describe('POST /api/portal/automations/parse', () => {
     authorizePortalMock.mockResolvedValue(OK_AUTH);
     getPortalClientMock.mockResolvedValue({ id: 33 });
     checkAiPlanGateMock.mockResolvedValue({ allowed: true });
-    parseAutomationDescriptionMock.mockResolvedValue({
-      parsed: { trigger: 't' },
-      inputTokens: 10,
-      outputTokens: 20,
-      source: 'platform',
-    });
-    hasCreditsMock.mockResolvedValue(false);
+    parseAutomationDescriptionMock.mockRejectedValue(new AiCreditError('Insufficient AI credits'));
     const res = await automationsParseRoute.POST(makeJsonReq({ description: 'parse me' }));
     expect(res.status).toBe(402);
     expect((await res.json()).error).toContain('Insufficient AI credits');
@@ -364,13 +359,8 @@ describe('POST /api/portal/automations/parse', () => {
     expect(body.parsed.trigger).toBe('deal.created');
     expect(body.tokensUsed).toBe(300);
     expect(body.keySource).toBe('platform');
-    expect(deductCreditsMock).toHaveBeenCalledWith(
-      33,
-      300,
-      'automation_parse',
-      'nlp-parse',
-      expect.stringContaining('NLP automation parse'),
-    );
+    expect(deductCreditsMock).not.toHaveBeenCalled();
+    expect(parseAutomationDescriptionMock).toHaveBeenCalledWith(expect.any(String), { clientId: 33 });
   });
 
   it('skips credit checks for BYOK calls', async () => {

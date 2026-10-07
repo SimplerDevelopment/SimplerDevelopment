@@ -1,3 +1,4 @@
+import { authenticateBrowserContext } from './setup/auth-session';
 /**
  * Admin Agentic OS — UI smoke (executor-disabled mode)
  *
@@ -35,19 +36,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 /** Log the browser context in as the seeded admin user via the NextAuth
  *  credentials callback. Mirrors `loginAsClient` in pm-kanban-ui.spec.ts. */
 async function loginAsAdmin(page: Page) {
-  const csrfRes = await page.request.get('/api/auth/csrf');
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-  const signInRes = await page.request.post('/api/auth/callback/credentials', {
-    form: {
-      email: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD,
-      csrfToken,
-      json: 'true',
-    },
-  });
-  if (signInRes.status() >= 400) {
-    throw new Error(`Admin browser login failed: ${signInRes.status()}`);
-  }
+  await authenticateBrowserContext(page.context(), ADMIN_EMAIL, ADMIN_PASSWORD);
 }
 
 test.describe('admin agentic-os @admin @agentic-os @critical', () => {

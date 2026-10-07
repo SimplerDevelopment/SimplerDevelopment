@@ -36,8 +36,12 @@ vi.mock('@/lib/portal-client', () => ({
 
 const hasCreditsMock = vi.fn();
 const deductCreditsMock = vi.fn();
+const reserveCreditsMock = vi.fn();
+const settleCreditsMock = vi.fn();
 const getBalanceMock = vi.fn();
 vi.mock('@/lib/ai-credits', () => ({
+  reserveCredits: (...args: unknown[]) => reserveCreditsMock(...args),
+  settleCredits: (...args: unknown[]) => settleCreditsMock(...args),
   hasCredits: (...args: unknown[]) => hasCreditsMock(...args),
   deductCredits: (...args: unknown[]) => deductCreditsMock(...args),
   getBalance: (...args: unknown[]) => getBalanceMock(...args),
@@ -90,10 +94,10 @@ const messagesCreateMock = vi.fn();
 const anthropicCtorSpy = vi.fn();
 vi.mock('@anthropic-ai/sdk', () => {
   class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
+    public messages: { create: typeof messagesCreateMock; countTokens: ReturnType<typeof vi.fn> };
     constructor(opts: { apiKey: string }) {
       anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
+      this.messages = { create: messagesCreateMock, countTokens: vi.fn().mockResolvedValue({ input_tokens: 100 }) };
     }
   }
   return { default: Anthropic };
@@ -325,8 +329,10 @@ beforeEach(() => {
   isAuthErrorMock.mockReset().mockReturnValue(false);
   getPortalClientMock.mockReset();
   hasCreditsMock.mockReset().mockResolvedValue(true);
+  reserveCreditsMock.mockReset().mockResolvedValue({ success: true, newBalance: 1000 });
+  settleCreditsMock.mockReset().mockResolvedValue({ success: true, newBalance: 4242 });
   deductCreditsMock.mockReset().mockResolvedValue({ newBalance: 4242 });
-  getBalanceMock.mockReset().mockResolvedValue({ balance: 0 });
+  getBalanceMock.mockReset().mockResolvedValue({ balance: 4242 });
   resolveClientApiKeyMock.mockReset().mockResolvedValue({ source: 'platform', key: 'sk-test' });
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);
   checkAiPlanGateMock.mockReset().mockResolvedValue({ allowed: true });
@@ -509,12 +515,11 @@ describe('POST /api/portal/ai/chat — happy path (new conversation)', () => {
     );
     const res = await POST(makeRequest({ message: 'hi' }));
     const body = await res.json();
-    expect(deductCreditsMock).toHaveBeenCalledWith(
+    expect(settleCreditsMock).toHaveBeenCalledWith(
       10,
       333,
       'ai',
       expect.any(String),
-      expect.stringContaining('Chat conversation'),
     );
     expect(body.data.creditsRemaining).toBe(4242);
   });
@@ -638,6 +643,7 @@ describe('POST /api/portal/ai/chat — agentic tool loop', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('tool_call_cap_exceeded');
+    expect(settleCreditsMock).toHaveBeenCalledWith(10, 2, 'ai', expect.stringMatching(/^request:/));
     // No DB writes happen on cap-exceeded
     expect(state.aiMessages).toHaveLength(0);
   });
@@ -653,6 +659,8 @@ describe('POST /api/portal/ai/chat — agentic tool loop', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('loop_cap_exceeded');
+    expect(reserveCreditsMock).toHaveBeenCalledTimes(8);
+    expect(settleCreditsMock).toHaveBeenCalledTimes(8);
     expect(state.aiMessages).toHaveLength(0);
   });
 });

@@ -56,13 +56,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   if (!campaign) return NextResponse.json({ success: false, message: 'Campaign not found' }, { status: 404 });
   if (!campaign.abEnabled) return NextResponse.json({ success: false, message: 'A/B test not enabled on this campaign' }, { status: 400 });
-  if (campaign.abDecidedAt) return NextResponse.json({ success: false, message: 'Winner already promoted' }, { status: 400 });
+  if (campaign.status === 'sent') return NextResponse.json({ success: false, message: 'Campaign already delivered' }, { status: 400 });
+  if (!campaign.abDecidedAt && campaign.status !== 'ab_testing') return NextResponse.json({ success: false, message: 'Complete the initial A/B delivery before promoting' }, { status: 409 });
   if (!campaign.abSubjectB) return NextResponse.json({ success: false, message: 'Subject B is empty' }, { status: 400 });
 
   // Allow `?force=1` (for ops) — otherwise enforce the wait window.
   const url = new URL(req.url);
   const force = url.searchParams.get('force') === '1';
-  if (!force && !isAbDecisionWindowReady(campaign.sentAt)) {
+  if (!campaign.abDecidedAt && !force && !isAbDecisionWindowReady(campaign.sentAt)) {
     return NextResponse.json({
       success: false,
       message: 'Decision window not yet reached (4h from initial send). Add ?force=1 to override.',

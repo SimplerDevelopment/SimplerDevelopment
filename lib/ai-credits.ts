@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { aiCreditBalances, aiCreditLedger, aiCreditPackages, clientServices, services } from '@/lib/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { revalidateTag } from 'next/cache';
 
 /**
@@ -25,6 +25,102 @@ export interface CreditBalance {
   payAsYouGo: boolean;
 }
 
+type CreditTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export interface CreditMutationResult {
+  success: boolean;
+  newBalance: number;
+  error?: string;
+}
+
+const INSUFFICIENT_CREDITS = 'Insufficient AI credits. Purchase more credits or enable pay-as-you-go.';
+
+function validAmount(amount: number): boolean {
+  return Number.isSafeInteger(amount) && amount >= 0;
+}
+
+async function lockBalance(tx: CreditTransaction, clientId: number) {
+  await tx.insert(aiCreditBalances).values({ clientId }).onConflictDoNothing();
+  const [row] = await tx.select().from(aiCreditBalances)
+    .where(eq(aiCreditBalances.clientId, clientId)).for('update');
+  if (!row) throw new Error('AI credit balance unavailable');
+  return row;
+}
+
+async function changeBalance(tx: CreditTransaction, clientId: number, delta: number): Promise<number> {
+  const [row] = await tx.update(aiCreditBalances).set({
+    balance: sql`${aiCreditBalances.balance} + ${delta}`,
+    updatedAt: new Date(),
+  }).where(eq(aiCreditBalances.clientId, clientId)).returning({ balance: aiCreditBalances.balance });
+  return row.balance;
+}
+
+/** Hold credits BEFORE a provider request. UUID reference is per call, never a conversation ID.
+ * All reservation mutations lock the tenant's balance first: both the balance
+ * and ledger commit together, and retries cannot reserve/settle twice.
+ */
+export async function reserveCredits(
+  clientId: number, amount: number, category: string, referenceId: string,
+): Promise<CreditMutationResult> {
+  if (!validAmount(amount) || !referenceId) throw new Error('Invalid AI credit reservation');
+  const result = await db.transaction(async tx => {
+    const balance = await lockBalance(tx, clientId);
+    const [existing] = await tx.select().from(aiCreditLedger).where(and(
+      eq(aiCreditLedger.clientId, clientId), eq(aiCreditLedger.serviceCategory, category),
+      eq(aiCreditLedger.referenceId, referenceId),
+    )).limit(1);
+    if (existing) {
+      const compatible = existing.type === 'reservation' && existing.amount === -amount;
+      return { success: compatible, newBalance: balance.balance,
+        ...(!compatible ? { error: 'AI credit operation already settled or reservation mismatch' } : {}) };
+    }
+    if (!balance.payAsYouGo && balance.balance < amount) {
+      return { success: false, newBalance: balance.balance, error: INSUFFICIENT_CREDITS };
+    }
+    const newBalance = await changeBalance(tx, clientId, -amount);
+    await tx.insert(aiCreditLedger).values({
+      clientId, type: 'reservation', amount: -amount, balanceAfter: newBalance,
+      serviceCategory: category, referenceId, description: 'AI provider request: pending usage reconciliation',
+    });
+    return { success: true, newBalance };
+  });
+  if (result.success) invalidateCreditsCache(clientId);
+  return result;
+}
+
+/** Replace a hold with actual usage atomically. A repeated settlement is a no-op.
+ * amount=0 releases a request the provider definitely rejected. Transport errors
+ * keep a pending hold because the provider may still have consumed tokens.
+ */
+export async function settleCredits(
+  clientId: number, amount: number, category: string, referenceId: string, description?: string,
+): Promise<CreditMutationResult> {
+  if (!validAmount(amount)) throw new Error('Invalid AI credit settlement');
+  const result = await db.transaction(async tx => {
+    const balance = await lockBalance(tx, clientId);
+    const [entry] = await tx.select().from(aiCreditLedger).where(and(
+      eq(aiCreditLedger.clientId, clientId), eq(aiCreditLedger.serviceCategory, category),
+      eq(aiCreditLedger.referenceId, referenceId),
+    )).limit(1);
+    if (!entry) return { success: false, newBalance: balance.balance, error: 'AI credit reservation not found' };
+    if (entry.type !== 'reservation') {
+      return { success: (entry.type === 'usage' || entry.type === 'released') && entry.amount === -amount,
+        newBalance: balance.balance, ...(entry.amount !== -amount ? { error: 'AI credit settlement mismatch' } : {}) };
+    }
+    const refund = -entry.amount - amount;
+    if (!balance.payAsYouGo && balance.balance + refund < 0) {
+      return { success: false, newBalance: balance.balance, error: 'AI usage exceeded reserved credits; reconciliation required' };
+    }
+    const newBalance = await changeBalance(tx, clientId, refund);
+    await tx.update(aiCreditLedger).set({
+      type: amount === 0 ? 'released' : 'usage', amount: -amount, balanceAfter: newBalance,
+      description: description ?? 'AI provider request usage',
+    }).where(and(eq(aiCreditLedger.id, entry.id), eq(aiCreditLedger.clientId, clientId)));
+    return { success: true, newBalance };
+  });
+  if (result.success) invalidateCreditsCache(clientId);
+  return result;
+}
+
 /**
  * Get the current credit balance for a client.
  * Creates a balance record if one doesn't exist.
@@ -35,7 +131,8 @@ export async function getBalance(clientId: number): Promise<CreditBalance> {
 
   // Create initial balance record
   await db.insert(aiCreditBalances).values({ clientId, balance: 0, monthlyGrant: 0, payAsYouGo: false }).onConflictDoNothing();
-  return { balance: 0, monthlyGrant: 0, payAsYouGo: false };
+  const [created] = await db.select().from(aiCreditBalances).where(eq(aiCreditBalances.clientId, clientId)).limit(1);
+  return { balance: created.balance, monthlyGrant: created.monthlyGrant, payAsYouGo: created.payAsYouGo };
 }
 
 /**
@@ -57,35 +154,23 @@ export async function deductCredits(
   category: string,
   referenceId: string,
   description?: string,
-): Promise<{ success: boolean; newBalance: number; error?: string }> {
-  const { balance, payAsYouGo } = await getBalance(clientId);
-
-  if (amount <= 0) return { success: true, newBalance: balance };
-
-  if (!payAsYouGo && balance < amount) {
-    return { success: false, newBalance: balance, error: 'Insufficient AI credits. Purchase more credits or enable pay-as-you-go.' };
-  }
-
-  const newBalance = balance - amount;
-
-  // Atomic update: decrement balance and insert ledger entry
-  await db.update(aiCreditBalances).set({
-    balance: sql`${aiCreditBalances.balance} - ${amount}`,
-    updatedAt: new Date(),
-  }).where(eq(aiCreditBalances.clientId, clientId));
-
-  await db.insert(aiCreditLedger).values({
-    clientId,
-    type: 'usage',
-    amount: -amount,
-    balanceAfter: newBalance,
-    description: description || `AI usage: ${category}`,
-    serviceCategory: category,
-    referenceId,
+): Promise<CreditMutationResult> {
+  if (!validAmount(amount)) throw new Error('Invalid AI credit amount');
+  const result = await db.transaction(async tx => {
+    const balance = await lockBalance(tx, clientId);
+    if (!balance.payAsYouGo && balance.balance < amount) {
+      return { success: false, newBalance: balance.balance, error: INSUFFICIENT_CREDITS };
+    }
+    if (amount === 0) return { success: true, newBalance: balance.balance };
+    const newBalance = await changeBalance(tx, clientId, -amount);
+    await tx.insert(aiCreditLedger).values({
+      clientId, type: 'usage', amount: -amount, balanceAfter: newBalance,
+      description: description || `AI usage: ${category}`, serviceCategory: category, referenceId,
+    });
+    return { success: true, newBalance };
   });
-
-  invalidateCreditsCache(clientId);
-  return { success: true, newBalance };
+  if (result.success) invalidateCreditsCache(clientId);
+  return result;
 }
 
 /**
@@ -93,48 +178,35 @@ export async function deductCredits(
  * Calculates total included credits across all active services.
  */
 export async function grantMonthlyCredits(clientId: number): Promise<{ granted: number; newBalance: number }> {
-  // Get all active subscriptions with their service credit amounts
-  const activeSubscriptions = await db
-    .select({ serviceId: clientServices.serviceId, credits: services.includedAiCredits, category: services.category })
-    .from(clientServices)
-    .innerJoin(services, eq(services.id, clientServices.serviceId))
-    .where(and(eq(clientServices.clientId, clientId), eq(clientServices.status, 'active')));
-
-  const totalGrant = activeSubscriptions.reduce((sum, s) => sum + (s.credits ?? 0), 0);
-  if (totalGrant === 0) return { granted: 0, newBalance: (await getBalance(clientId)).balance };
-
-  const { balance } = await getBalance(clientId);
-  const newBalance = balance + totalGrant;
-
-  // Upsert balance
-  await db.insert(aiCreditBalances).values({
-    clientId, balance: totalGrant, monthlyGrant: totalGrant, payAsYouGo: false,
-  }).onConflictDoUpdate({
-    target: aiCreditBalances.clientId,
-    set: {
-      balance: sql`${aiCreditBalances.balance} + ${totalGrant}`,
-      monthlyGrant: totalGrant,
-      updatedAt: new Date(),
-    },
+  const result = await db.transaction(async tx => {
+    const balance = await lockBalance(tx, clientId);
+    const subscriptions = await tx.select({
+      id: clientServices.id, credits: services.includedAiCredits,
+      category: services.category, grantedAt: clientServices.creditsGrantedAt,
+    }).from(clientServices).innerJoin(services, eq(services.id, clientServices.serviceId))
+      .where(and(eq(clientServices.clientId, clientId), eq(clientServices.status, 'active')));
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    // Existing subscriptions have already received this month's grant; a new
+    // module still receives its initial grant without regranting its siblings.
+    const eligible = subscriptions.filter(subscription => !subscription.grantedAt || subscription.grantedAt < monthStart);
+    const totalGrant = eligible.reduce((sum, subscription) => sum + (subscription.credits ?? 0), 0);
+    if (totalGrant === 0) return { granted: 0, newBalance: balance.balance };
+    const newBalance = await changeBalance(tx, clientId, totalGrant);
+    await tx.update(aiCreditBalances).set({ monthlyGrant: subscriptions.reduce((sum, subscription) => sum + (subscription.credits ?? 0), 0) })
+      .where(eq(aiCreditBalances.clientId, clientId));
+    await tx.insert(aiCreditLedger).values({
+      clientId, type: 'grant', amount: totalGrant, balanceAfter: newBalance,
+      description: `Monthly credit grant (${eligible.filter(subscription => (subscription.credits ?? 0) > 0).map(subscription => subscription.category).join(', ')})`,
+      serviceCategory: 'system', referenceId: `monthly:${monthStart.toISOString().slice(0, 7)}`,
+    });
+    await tx.update(clientServices).set({ creditsGrantedAt: now }).where(and(
+      eq(clientServices.clientId, clientId), inArray(clientServices.id, eligible.map(subscription => subscription.id)),
+    ));
+    return { granted: totalGrant, newBalance };
   });
-
-  // Record in ledger
-  const categories = activeSubscriptions.filter(s => s.credits > 0).map(s => s.category).join(', ');
-  await db.insert(aiCreditLedger).values({
-    clientId,
-    type: 'grant',
-    amount: totalGrant,
-    balanceAfter: newBalance,
-    description: `Monthly credit grant (${categories})`,
-    serviceCategory: 'system',
-  });
-
-  // Mark grants as applied
-  await db.update(clientServices).set({ creditsGrantedAt: new Date() })
-    .where(and(eq(clientServices.clientId, clientId), eq(clientServices.status, 'active')));
-
-  invalidateCreditsCache(clientId);
-  return { granted: totalGrant, newBalance };
+  if (result.granted) invalidateCreditsCache(clientId);
+  return result;
 }
 
 /**
@@ -146,27 +218,20 @@ export async function addPurchasedCredits(
   stripePaymentId: string,
   packageName: string,
 ): Promise<number> {
-  const { balance } = await getBalance(clientId);
-  const newBalance = balance + tokens;
-
-  await db.insert(aiCreditBalances).values({
-    clientId, balance: tokens, monthlyGrant: 0, payAsYouGo: false,
-  }).onConflictDoUpdate({
-    target: aiCreditBalances.clientId,
-    set: {
-      balance: sql`${aiCreditBalances.balance} + ${tokens}`,
-      updatedAt: new Date(),
-    },
-  });
-
-  await db.insert(aiCreditLedger).values({
-    clientId,
-    type: 'purchase',
-    amount: tokens,
-    balanceAfter: newBalance,
-    description: `Purchased: ${packageName}`,
-    serviceCategory: 'system',
-    referenceId: stripePaymentId,
+  if (!validAmount(tokens) || !stripePaymentId) throw new Error('Invalid AI credit purchase');
+  const newBalance = await db.transaction(async tx => {
+    const balance = await lockBalance(tx, clientId);
+    const [already] = await tx.select().from(aiCreditLedger).where(and(
+      eq(aiCreditLedger.clientId, clientId), eq(aiCreditLedger.type, 'purchase'),
+      eq(aiCreditLedger.referenceId, stripePaymentId),
+    )).limit(1);
+    if (already) return balance.balance;
+    const updated = await changeBalance(tx, clientId, tokens);
+    await tx.insert(aiCreditLedger).values({
+      clientId, type: 'purchase', amount: tokens, balanceAfter: updated,
+      description: `Purchased: ${packageName}`, serviceCategory: 'system', referenceId: stripePaymentId,
+    });
+    return updated;
   });
 
   invalidateCreditsCache(clientId);
@@ -186,7 +251,9 @@ export async function addPurchasedCredits(
 export const SIGNUP_FREE_CREDITS = 250_000; // tokens — a few agent runs
 
 export async function grantSignupCredits(clientId: number): Promise<{ granted: number }> {
-  const [already] = await db
+  const result = await db.transaction(async tx => {
+  await lockBalance(tx, clientId);
+  const [already] = await tx
     .select({ id: aiCreditLedger.id })
     .from(aiCreditLedger)
     .where(and(
@@ -197,20 +264,9 @@ export async function grantSignupCredits(clientId: number): Promise<{ granted: n
     .limit(1);
   if (already) return { granted: 0 };
 
-  const { balance } = await getBalance(clientId);
-  const newBalance = balance + SIGNUP_FREE_CREDITS;
+  const newBalance = await changeBalance(tx, clientId, SIGNUP_FREE_CREDITS);
 
-  await db.insert(aiCreditBalances).values({
-    clientId, balance: SIGNUP_FREE_CREDITS, monthlyGrant: 0, payAsYouGo: false,
-  }).onConflictDoUpdate({
-    target: aiCreditBalances.clientId,
-    set: {
-      balance: sql`${aiCreditBalances.balance} + ${SIGNUP_FREE_CREDITS}`,
-      updatedAt: new Date(),
-    },
-  });
-
-  await db.insert(aiCreditLedger).values({
+  await tx.insert(aiCreditLedger).values({
     clientId,
     type: 'grant',
     amount: SIGNUP_FREE_CREDITS,
@@ -219,8 +275,10 @@ export async function grantSignupCredits(clientId: number): Promise<{ granted: n
     serviceCategory: 'signup',
   });
 
-  invalidateCreditsCache(clientId);
   return { granted: SIGNUP_FREE_CREDITS };
+  });
+  if (result.granted) invalidateCreditsCache(clientId);
+  return result;
 }
 
 /**

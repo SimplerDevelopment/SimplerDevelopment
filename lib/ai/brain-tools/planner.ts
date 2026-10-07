@@ -41,6 +41,7 @@ export async function generatePlan(
   try {
     const { object } = await completeObject({
       task: 'brainPlan',
+      credits: { category: 'brain_planner' },
       clientId,
       maxTokens: 512,
       schema: agentPlanSchema,

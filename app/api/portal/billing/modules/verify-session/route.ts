@@ -16,7 +16,7 @@ import { activateModuleSubscription } from '@/lib/billing/activate-modules';
 import Stripe from 'stripe';
 
 export async function POST(req: Request) {
-  const auth = await authorizePortal({ action: 'admin' });
+  const auth = await authorizePortal({ action: 'admin', scope: 'billing:write' });
   if (isAuthError(auth)) return auth.response;
   const { client } = auth;
 

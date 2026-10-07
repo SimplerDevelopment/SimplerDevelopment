@@ -93,6 +93,9 @@ export async function POST(req: Request) {
       visitorName: body.name?.slice(0, 255) ?? null,
       visitorEmail: body.email?.slice(0, 255) ?? null,
       status: 'open',
+      // Widget-level opt-in applies only at creation. Reusing a conversation
+      // must preserve a human handoff rather than silently re-enable the AI.
+      aiMode: widget.brainEnabled ? 'ai' : 'human',
       lastMessageAt: new Date(),
     })
     .returning();

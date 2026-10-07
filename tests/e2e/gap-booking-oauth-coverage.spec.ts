@@ -1,3 +1,4 @@
+import { authenticatedRequestContext } from './setup/auth-session';
 /**
  * Gap regression — booking OAuth CSRF + individual-booking entitlement gate
  *
@@ -34,13 +35,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 /** Build an authenticated APIRequestContext (own cookie jar) so we can inspect
  *  raw 3xx Location + Set-Cookie headers without auto-following redirects. */
 async function loggedInContext() {
-  const ctx = await request.newContext({ baseURL: BASE_URL });
-  const csrf = (await (await ctx.get('/api/auth/csrf')).json()) as { csrfToken: string };
-  const res = await ctx.post('/api/auth/callback/credentials', {
-    form: { email: CLIENT_EMAIL, password: CLIENT_PASSWORD, csrfToken: csrf.csrfToken, json: 'true' },
-  });
-  if (res.status() >= 400) throw new Error(`Login failed: ${res.status()}`);
-  return ctx;
+  return authenticatedRequestContext(CLIENT_EMAIL, CLIENT_PASSWORD, BASE_URL);
 }
 
 function setCookieValues(res: { headersArray(): { name: string; value: string }[] }): string[] {

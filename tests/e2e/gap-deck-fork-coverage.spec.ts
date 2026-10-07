@@ -5,13 +5,11 @@
  * decks_fork MCP tool: independent draft copy with parentDeckId set; parent
  * untouched. Tenant-scoped.
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups } from './setup/helpers';
-import { execSync } from 'child_process';
-
-const DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 function sql(q: string): string {
-  return execSync(`psql "${DB}" -At -c "${q.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+  return e2eSql(q).trim();
 }
 
 test.describe.configure({ mode: 'serial' });

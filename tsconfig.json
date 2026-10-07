@@ -31,6 +31,7 @@
     "**/*.mts"
   ],
   "exclude": [
+    ".qa-reports",
     "node_modules",
     "workers",
     "packages",

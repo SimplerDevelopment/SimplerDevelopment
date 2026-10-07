@@ -1,56 +1,28 @@
 import { request, APIRequestContext } from '@playwright/test';
+import { loginRequestContext, sharedStorageState } from './auth-session';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 /**
  * Authenticated API client that handles NextAuth session cookies.
- * Logs in via the credentials provider and reuses the session for all requests.
+ * Clones prepared seed sessions into its own cookie jar; new/negative credentials
+ * still use real sign-in. Pass { freshLogin: true } to explicitly test seed login.
  */
 export class ApiClient {
   private ctx!: APIRequestContext;
   private ready: Promise<void>;
 
-  constructor(private email?: string, private password?: string) {
+  constructor(private email?: string, private password?: string, private options: { freshLogin?: boolean } = {}) {
     this.ready = this.init();
   }
 
   private async init() {
-    this.ctx = await request.newContext({ baseURL: BASE_URL });
+    const storageState = this.email && this.password && !this.options.freshLogin
+      ? sharedStorageState(this.email, this.password) : undefined;
+    this.ctx = await request.newContext({ baseURL: BASE_URL, storageState });
 
-    if (this.email && this.password) {
-      // Get CSRF token
-      const csrfRes = await this.ctx.get('/api/auth/csrf');
-      const { csrfToken } = await csrfRes.json();
-
-      // Sign in via NextAuth credentials callback
-      const signInRes = await this.ctx.post('/api/auth/callback/credentials', {
-        form: {
-          email: this.email,
-          password: this.password,
-          csrfToken,
-          json: 'true',
-        },
-      });
-
-      if (signInRes.status() >= 400) {
-        throw new Error(`Login failed for ${this.email}: ${signInRes.status()}`);
-      }
-
-      // Pin an active client. Most portal routes resolve the client via team
-      // membership/ownership, but cookie-only resolvers (e.g. the Publishing
-      // Command Center → getPublishingSession) need the `sd-active-client`
-      // cookie. Staff users have no implicit client, so resolve the accessible
-      // workspace and persist the cookie via switch-client (its Set-Cookie
-      // lands in this context's jar). No-op for users with no client.
-      const clientsRes = await this.ctx.get('/api/portal/clients');
-      if (clientsRes.ok()) {
-        const { activeClientId } = (await clientsRes.json().catch(() => ({}))) as {
-          activeClientId?: number | null;
-        };
-        if (activeClientId) {
-          await this.ctx.post('/api/portal/switch-client', { data: { clientId: activeClientId } });
-        }
-      }
+    if (this.email && this.password && !storageState) {
+      await loginRequestContext(this.ctx, this.email, this.password, false);
     }
   }
 

@@ -181,7 +181,11 @@ describe('ContractSigningPage', () => {
     // Pricing - subtotal = 100000 + 2*50000 = 200000 cents = $2,000.00
     // tax = 10% of 200000 = 20000 cents = $200.00; flat = 5000 cents = $50.00
     // total = 200000 + 20000 + 5000 = 225000 cents = $2,250.00
-    expect(screen.getByText('$2,250.00')).toBeTruthy();
+    // Keep the independently calculated total; only separators follow the viewer's locale.
+    const expectedTotal = '$' + new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }).format(2250);
+    expect(container.querySelector('tfoot tr:last-child td:last-child')?.textContent).toBe(expectedTotal);
     // Footer
     expect(screen.getByText('Footer text here')).toBeTruthy();
   });

@@ -9,6 +9,7 @@
  * `userPrompt` it passes in.
  */
 import Anthropic from '@anthropic-ai/sdk';
+import { anthropicInputTokens, creditTrackedAnthropic, type AiCreditContext } from './credit-accounting';
 import type { PitchDeckSlideV2 } from '@/lib/db/schema';
 import { resolvePrompt } from '@/lib/ai/prompt-registry';
 
@@ -96,8 +97,10 @@ export async function generateDeckSlidesRaw(
   userPrompt: string,
   apiKey: string,
   systemPromptOverride?: string,
+  creditContext?: AiCreditContext,
 ): Promise<{ rawText: string; inputTokens: number; outputTokens: number }> {
-  const anthropic = new Anthropic({ apiKey });
+  const rawAnthropic = new Anthropic({ apiKey });
+  const anthropic = creditContext ? creditTrackedAnthropic(rawAnthropic, creditContext) : rawAnthropic;
   const system = systemPromptOverride ?? await resolvePrompt('deck-generator', GENERATE_SYSTEM);
   let totalInput = 0;
   let totalOutput = 0;
@@ -108,7 +111,7 @@ export async function generateDeckSlidesRaw(
     system,
     messages: [{ role: 'user', content: userPrompt }],
   });
-  totalInput += response.usage.input_tokens;
+  totalInput += anthropicInputTokens(response.usage);
   totalOutput += response.usage.output_tokens;
   let text = textOf(response.content);
 
@@ -122,7 +125,7 @@ export async function generateDeckSlidesRaw(
         { role: 'assistant', content: text },
       ],
     });
-    totalInput += continuation.usage.input_tokens;
+    totalInput += anthropicInputTokens(continuation.usage);
     totalOutput += continuation.usage.output_tokens;
     text += textOf(continuation.content);
   }

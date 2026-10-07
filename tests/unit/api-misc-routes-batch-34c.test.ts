@@ -115,6 +115,8 @@ const state: State = {
 
 function tableArray(name: string): Array<Record<string, unknown>> {
   switch (name) {
+    case 'users':
+      return [{ id: 7, active: true, role: 'editor' }];
     case 'shippingZones':
       return state.shippingZones;
     case 'shippingRates':

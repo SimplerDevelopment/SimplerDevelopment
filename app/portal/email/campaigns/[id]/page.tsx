@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, use } from 'react';
 import { useCampaignSendingPoll } from '@/components/portal/email/use-campaign-sending-poll';
+import { useCampaignSend } from '@/components/portal/email/use-campaign-send';
 import Link from 'next/link';
 import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 import type { Block, BlockType, BlockEditorData } from '@/types/blocks';
@@ -65,6 +66,8 @@ const statusColor: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   scheduled: 'bg-blue-100 text-blue-700',
   sending: 'bg-yellow-100 text-yellow-700',
+  partial: 'bg-orange-100 text-orange-700',
+  failed: 'bg-red-100 text-red-700',
   ab_testing: 'bg-purple-100 text-purple-700',
   sent: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
@@ -84,8 +87,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [sends, setSends] = useState<Send[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{ queued: true; totalTargets: number } | null>(null);
+  const { sending, sendResult, sendCampaign } = useCampaignSend(id, campaign, setCampaign);
   const [tab, setTab] = useState<'overview' | 'content' | 'sends'>('overview');
 
   // Edit state
@@ -268,18 +270,6 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
     }
   }
 
-  async function sendCampaign() {
-    if (!campaign) return;
-    if (!confirm(`Send "${campaign.name}" to all active subscribers now?`)) return;
-    setSending(true);
-    const res = await fetch(`/api/portal/email/campaigns/${id}/send`, { method: 'POST' });
-    const data = await res.json();
-    setSending(false);
-    if (!data.success) { alert(data.message); return; }
-    // Route queues the send + flips status server-side; the poll catches the end.
-    setSendResult(data.data);
-    setCampaign(prev => prev ? { ...prev, status: 'sending' } : prev);
-  }
 
   if (loading) return <div className="p-6 text-muted-foreground text-sm">Loading…</div>;
   if (!campaign) return <div className="p-6 text-muted-foreground text-sm">Campaign not found.</div>;
@@ -326,10 +316,10 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
                   {sendingTest ? 'Sending…' : 'Send test'}
                 </button>
               )}
-              {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
+              {['draft', 'scheduled', 'partial', 'failed'].includes(campaign.status) && (
                 <button onClick={sendCampaign} disabled={sending} className={`${pBtnPrimary} disabled:opacity-50`}>
                   <span className="material-icons text-base">{sending ? 'hourglass_empty' : 'send'}</span>
-                  {sending ? 'Sending…' : 'Send Now'}
+                  {sending ? 'Queuing…' : ['partial', 'failed'].includes(campaign.status) ? 'Resume delivery' : 'Send Now'}
                 </button>
               )}
             </div>

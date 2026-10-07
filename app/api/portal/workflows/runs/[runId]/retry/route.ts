@@ -15,7 +15,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ runId:
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const authResult = await authorizePortal({ action: 'write' });
+  const authResult = await authorizePortal({ action: 'write', scope: 'automations:write' });
   if (isAuthError(authResult)) return authResult.response;
 
   const userId = parseInt(session.user.id, 10);

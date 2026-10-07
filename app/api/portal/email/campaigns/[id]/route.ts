@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { emailCampaigns, emailCampaignSends, emailSubscribers, emailLists } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray, isNull } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { renderBlocksToEmailHtml } from '@/lib/email';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
@@ -143,7 +143,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const campaignId = parseInt(id);
   const existing = await ownsCampaign(client.id, campaignId);
   if (!existing) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
-  if (existing.status === 'sent') return NextResponse.json({ success: false, message: 'Cannot edit a sent campaign' }, { status: 400 });
+  if (!['draft', 'scheduled'].includes(existing.status)) return NextResponse.json({ success: false, message: 'Cannot edit a campaign after dispatch has started' }, { status: 400 });
 
   const {
     name,
@@ -203,9 +203,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       status: scheduledAt ? 'scheduled' : 'draft',
       updatedAt: new Date(),
     })
-    .where(eq(emailCampaigns.id, campaignId))
+    .where(and(eq(emailCampaigns.id, campaignId), eq(emailCampaigns.clientId, client.id), inArray(emailCampaigns.status, ['draft', 'scheduled']), isNull(emailCampaigns.dispatchPlan)))
     .returning();
 
+  if (!updated) return NextResponse.json({ success: false, message: 'Campaign dispatch started while editing' }, { status: 409 });
   return NextResponse.json({ success: true, data: updated });
 }
 

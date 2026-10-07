@@ -5,13 +5,11 @@
  * type is creatable (enum), a value is validated to point at a real post on
  * write, and the value resolves to a referenced-post summary on read.
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
 import { runCleanups, resolveClientSiteId, createTestPost } from './setup/helpers';
-import { execSync } from 'child_process';
-
-const DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 function sql(q: string): string {
-  return execSync(`psql "${DB}" -At -c "${q.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+  return e2eSql(q).trim();
 }
 
 test.describe.configure({ mode: 'serial' });

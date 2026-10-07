@@ -732,7 +732,7 @@ export function BookingFormInline({
             ) : (
               <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
                 {slots.map((slot) => {
-                  const capacityOk = !pageInfo.maxGuests || !slot.remainingCapacity || groupSize <= slot.remainingCapacity;
+                  const capacityOk = slot.remainingCapacity === null || groupSize <= slot.remainingCapacity;
                   return (
                     <button key={slot.start}
                       onClick={() => capacityOk && handleSlotSelect(slot)}

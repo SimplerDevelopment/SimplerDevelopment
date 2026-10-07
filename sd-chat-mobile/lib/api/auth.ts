@@ -232,9 +232,11 @@ function parseCallback(url: string): CallbackParams {
 export async function signInWithCredentials({
   email,
   password,
+  totpCode,
 }: {
   email: string;
   password: string;
+  totpCode?: string;
 }): Promise<Session> {
   const url = `${api.baseUrl}/api/portal/auth/mobile-sign-in`;
 
@@ -243,7 +245,7 @@ export async function signInWithCredentials({
     res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, totpCode }),
     });
   } catch (err) {
     throw new AuthError(

@@ -6,12 +6,10 @@
  * or recently-reminded contracts. The DropboxSign call is best-effort (external,
  * neutralized in test) — the reminder is recorded regardless, which is asserted.
  */
+import { e2eSql } from './setup/sql';
 import { test, expect } from './setup/fixtures';
-import { execSync } from 'child_process';
-
-const DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
 function sql(q: string): string {
-  return execSync(`psql "${DB}" -At -c "${q.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+  return e2eSql(q).trim();
 }
 function seedContract(opts: { esignStatus: string; sentDaysAgo: number; lastReminderDaysAgo?: number }): number {
   const tag = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e9).toString(36)}`;

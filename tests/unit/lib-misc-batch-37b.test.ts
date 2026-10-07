@@ -418,7 +418,7 @@ describe('lib/automation/nlp-parser.ts', () => {
     expect(resolveClientApiKeyMock).not.toHaveBeenCalled();
   });
 
-  it('resolves BYOK key and records ai usage when clientId is supplied', async () => {
+  it('resolves BYOK key and delegates accounting when clientId is supplied', async () => {
     vi.resetModules();
     resolveClientApiKeyMock.mockResolvedValueOnce({ key: 'sk-byok', source: 'byok' });
     completeMock.mockResolvedValueOnce({
@@ -442,11 +442,8 @@ describe('lib/automation/nlp-parser.ts', () => {
       clientId: 42,
       provider: 'anthropic',
     });
-    expect(recordAiUsageMock).toHaveBeenCalledWith({
-      clientId: 42,
-      source: 'byok',
-      tokens: 12,
-    });
+    expect(completeMock).toHaveBeenCalledWith(expect.objectContaining({ clientId: 42, credits: { category: 'automation_parse' } }));
+    expect(recordAiUsageMock).not.toHaveBeenCalled();
   });
 
   it('resolves platform key, calls complete() and returns parsed automation', async () => {

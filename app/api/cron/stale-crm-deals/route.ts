@@ -27,7 +27,7 @@ export const runtime = 'nodejs';
  * same `entityId` issued in the last 30 days, so a deal that stays stale
  * doesn't get notified every weekly tick.
  *
- * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}` (matches
+ * Auth: requires `Authorization: Bearer ${CRON_SECRET}` (matches
  * `app/api/cron/process-embeddings/route.ts`).
  */
 async function _GET(req: Request) {

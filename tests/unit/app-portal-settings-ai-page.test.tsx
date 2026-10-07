@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 
 // ---------------------------------------------------------------------------
 // Mocks (declared before importing the module under test)
@@ -236,8 +236,9 @@ describe('AISettingsPage', () => {
   it('displays formatted credit balance', async () => {
     await act(async () => { render(<AISettingsPage />); });
     await flush();
-    // 8500 formatted as 8,500
-    expect(document.body.textContent).toContain('8,500');
+    // Assert the balance in its own card, using the viewer's number separators.
+    const creditCard = screen.getByText('Credits Remaining').parentElement!;
+    expect(within(creditCard).getByText(new Intl.NumberFormat().format(8500))).toBeTruthy();
   });
 
   it('shows --- for credits when credit fetch fails', async () => {
@@ -319,7 +320,9 @@ describe('AISettingsPage', () => {
   it('renders the monthly usage count in Token Receipts', async () => {
     await act(async () => { render(<AISettingsPage />); });
     await flush();
-    expect(document.body.textContent).toContain('1,500');
+    const receiptHeader = screen.getByText('Token Receipts').parentElement!.parentElement!;
+    const usage = within(receiptHeader).getByText(new Intl.NumberFormat().format(1500));
+    expect(usage.parentElement?.textContent).toBe(`This month: ${new Intl.NumberFormat().format(1500)} tokens`);
   });
 
   it('renders ledger rows in Token Receipts table', async () => {

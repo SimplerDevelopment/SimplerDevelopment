@@ -3,8 +3,8 @@
 #
 #   1. DATABASE_URL_TEST set → use it verbatim (CI injects its service DB).
 #   2. Otherwise → self-provision the local PG17 test DB (start-local-db.sh),
-#      ensure extensions, and sync the schema (drizzle-kit push) so a stale
-#      local schema can't fail the suite.
+#      ensure extensions. The integration harness builds its isolated template
+#      using the official migration journal, so missing migrations stay visible.
 #
 # Ambient DATABASE_URL is NEVER consulted — that's exactly how tenancy runs
 # used to silently execute against remote Railway/staging DBs and time out.
@@ -16,8 +16,6 @@ if [ -z "${DATABASE_URL_TEST:-}" ]; then
   LOCAL="postgresql://${USER}@localhost:5432/simplerdev_test"
   PSQL="$(command -v psql || echo /usr/local/opt/postgresql@17/bin/psql)"
   "$PSQL" "$LOCAL" -q -c 'CREATE EXTENSION IF NOT EXISTS vector' -c 'CREATE EXTENSION IF NOT EXISTS pg_trgm' -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto'
-  echo ">> syncing schema to the local test DB (drizzle-kit push)"
-  DRIZZLE_DATABASE_URL="$LOCAL" DATABASE_URL="$LOCAL" npx drizzle-kit push --force >/dev/null
   export DATABASE_URL_TEST="$LOCAL"
 fi
 

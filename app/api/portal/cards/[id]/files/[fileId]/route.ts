@@ -1,3 +1,4 @@
+import { rememberPrivateAttachment } from '@/lib/security/private-media-registry';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -77,6 +78,10 @@ export async function DELETE(
     const [file] = await db.select().from(kanbanCardFiles).where(condition).limit(1);
     if (!file) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
+    const [project] = await db.select({ clientId: projects.clientId }).from(projects)
+      .where(eq(projects.id, file.projectId)).limit(1);
+    if (!project) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    await rememberPrivateAttachment(file.storedFilename, project.clientId);
     await deleteFromS3(file.storedFilename);
     await db.delete(kanbanCardFiles).where(eq(kanbanCardFiles.id, fId));
 

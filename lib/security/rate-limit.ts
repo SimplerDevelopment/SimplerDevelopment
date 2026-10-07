@@ -116,6 +116,7 @@ export async function checkRateLimit(key: string, limit: number, windowMs: numbe
  * Never true in production → no prod weakening.
  */
 export function isAuthRateLimitDisabled(): boolean {
+  if (process.env.NODE_ENV === 'production') return false;
   return process.env.DISABLE_AUTH_RATE_LIMIT === '1' || process.env.NODE_ENV === 'test';
 }
 
