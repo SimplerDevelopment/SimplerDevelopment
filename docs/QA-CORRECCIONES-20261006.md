@@ -37,15 +37,17 @@ Base local de revisión: `e004fd3`. Rama: `codex/security-payment-reliability-20
 - Los **9 casos finales de email pasan con PostgreSQL**, incluyendo rollback del evento durable, finalización única y recuperación sin reenviar al proveedor.
 - Los escenarios de navegador con preparación SQL usan ahora Bun/Postgres sin shell ni dependencia de `psql`, con destino obligatorio local y dentro del namespace de test. Las pruebas positivas de cron usan Bearer desde `CRON_SECRET`; las cabeceras falsificadas se comprueban como rechazo 401.
 - Las sesiones de prueba se preparan mediante dos accesos reales verificados y se clonan por escenario; los contextos anónimos y las pruebas de login conservan su autenticación real. El límite de producción sigue activo. Se corrigieron los fixtures de CMS para usar bloques autorizados, la selección de experimentos por ID y las carreras de onboarding causadas por reiniciar la misma fila en paralelo. El smoke de rutas mantiene ejecución secuencial y continúa tras un fallo individual. Gate E2E crítico sobre build de producción: **679 pasan, 39 se omiten, 0 fallan, 0 flaky y 0 quedan sin ejecutar**. De las omitidas, 20 requieren capacidades/dependencias fuera de este entorno y 19 rutas dinámicas no recibieron un ID en el fixture; esas rutas siguen sin cobertura. Las rutas de entradas y edición CMS pasan.
+- El escaneo interno de secretos sobre el commit pasó. El check externo GitGuardian del PR #223 reportó **2 detecciones** en el análisis inicial de 12 commits; la API de GitHub no expone sus ubicaciones. Una revisión local sin imprimir valores encontró credenciales de desarrollo por defecto en URLs de Compose y literales de fixtures de prueba, pero no permite correlacionarlos con esas dos detecciones. Deben revisarse en el panel de GitGuardian antes de integrar.
 - El cliente móvil recibió los cambios de MFA y permisos; su compilación completa con Expo no se ha validado en esta máquina.
 
 ## Condiciones antes de integrar o desplegar
 
 1. Completar la cobertura de las 19 rutas dinámicas del smoke que no recibieron ID y validar los flujos con proveedores reales en HTTPS, conservando el límite de autenticación.
 2. Revisar las duplicaciones atribuidas por Fallow y comprobar los umbrales de cobertura en CI. No ampliar esta rama con refactorizaciones masivas de deuda histórica sin revisión.
-3. Actualizar la rama respecto al `main` remoto y resolver los conflictos con comprobaciones nuevas: al iniciar la publicación, el checkout tenía 11 commits locales exclusivos y le faltaban 188 commits remotos.
-4. Verificar destino, copia de seguridad, esquema y registro de migraciones del entorno de despliegue. Aplicar las migraciones necesarias y ejecutar el backfill idempotente de medios privados **antes de servir el código que requiere esas columnas y marcadores**.
-5. Validar proveedores reales de pagos/email, permisos entre tenants, acceso móvil y flujo completo con los datos del candidato final.
+3. Sincronizar el PR borrador #223 con el `main` remoto y resolver los conflictos observados; repetir los gates tras la sincronización. En la publicación, el checkout tenía 13 commits exclusivos y le faltaban 188 commits remotos.
+4. Revisar y resolver las dos detecciones de GitGuardian desde su panel. El check de Vercel falló porque el fork no tiene autorización para desplegar; no se publicó ningún despliegue.
+5. Verificar destino, copia de seguridad, esquema y registro de migraciones del entorno de despliegue. Aplicar las migraciones necesarias y ejecutar el backfill idempotente de medios privados **antes de servir el código que requiere esas columnas y marcadores**.
+6. Validar proveedores reales de pagos/email, permisos entre tenants, acceso móvil y flujo completo con los datos del candidato final.
 
 La protección nueva evita futuras descargas públicas de adjuntos registrados. No puede revocar archivos ya descargados ni bytes servidos previamente con caché pública prolongada.
 
