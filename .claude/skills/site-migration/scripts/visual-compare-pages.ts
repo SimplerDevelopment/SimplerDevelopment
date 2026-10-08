@@ -128,7 +128,8 @@ async function captureScreenshots(
       await page.setViewportSize(args.viewport);
       await page.goto(sourceUrl, { waitUntil: 'load', timeout: 60_000 });
       // Let late-loading assets settle
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(1500);
+      await settlePage(page);
       await page.screenshot({ path: sourceFile, fullPage: true });
       await page.close();
       result.sourceOk = true;
@@ -144,7 +145,8 @@ async function captureScreenshots(
       const page = await browser.newPage();
       await page.setViewportSize(args.viewport);
       await page.goto(migratedUrl, { waitUntil: 'load', timeout: 60_000 });
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(1500);
+      await settlePage(page);
       await page.screenshot({ path: migratedFile, fullPage: true });
       await page.close();
       result.migratedOk = true;
@@ -251,6 +253,22 @@ function buildHtmlReport(
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
+
+
+// Cookie banners cover the top of most source sites and lazy-loaded images below the fold stay blank in a
+// fullPage capture unless the page has been scrolled once. Best effort: decline the common consent widgets
+// (privacy-preserving choice), then walk the page so IntersectionObserver-driven images load.
+async function settlePage(page: import('playwright').Page) {
+  for (const sel of ['#CybotCookiebotDialogBodyLevelButtonLevelOptinDeclineAll', '#CybotCookiebotDialogBodyButtonDecline', '#onetrust-reject-all-handler', 'button:has-text("Use necessary cookies only")', 'button:has-text("Reject All")']) {
+    try { await page.locator(sel).first().click({ timeout: 1500 }); break; } catch { /* no such banner */ }
+  }
+  try {
+    const h = await page.evaluate(() => document.documentElement.scrollHeight);
+    for (let y = 0; y < h; y += 800) { await page.evaluate((yy) => window.scrollTo(0, yy), y); await page.waitForTimeout(120); }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(600);
+  } catch { /* page navigated away or closed */ }
+}
 
 async function main() {
   const args = parseArgs();
