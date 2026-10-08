@@ -38,6 +38,19 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const slideCount = slides.length;
 
+  // Only the active slide and its immediate neighbours get their background
+  // image URL in the DOM (PUX-241). A 5-slide hero used to fetch all five
+  // full-size images in parallel with — and ahead of — the LCP slide. A slide
+  // stays "loaded" once it has been adjacent/active so it never un-mounts its
+  // image mid fade-out (which would flash the layer empty). Derived during
+  // render (React's "adjust state when a prop/state changes" pattern) so the
+  // first paint after a slide change already requests the next image.
+  const [loadedSlides, setLoadedSlides] = useState<ReadonlySet<number>>(() => neighbourIndexes(0, slideCount));
+  const wantedSlides = neighbourIndexes(current, slideCount);
+  if (Array.from(wantedSlides).some((i) => !loadedSlides.has(i))) {
+    setLoadedSlides(new Set([...loadedSlides, ...wantedSlides]));
+  }
+
   const goTo = useCallback((index: number) => {
     if (isTransitioning || slideCount <= 1) return;
     setIsTransitioning(true);
@@ -98,6 +111,7 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
           key={slide.id}
           slide={slide}
           isActive={i === current}
+          loadImage={loadedSlides.has(i) || wantedSlides.has(i)}
           transition={transition}
           transMs={transMs}
           kenBurns={kenBurns}
@@ -140,21 +154,35 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
 
       {/* Dots */}
       {showDots && slideCount > 1 && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center">
           {slides.map((_, i) => (
+            // The <button> is the hit target (>=24x24 CSS px, Lighthouse
+            // `target-size` / WCAG 2.5.8); the visible dot is the inner span,
+            // drawn exactly as before. Horizontal padding is sized so the dot
+            // pitch matches the old 12px gap.
             <button
               key={i}
               onClick={() => goTo(i)}
-              className="transition-all duration-500 rounded-full"
+              className="flex items-center justify-center"
               style={{
-                width: i === current ? '32px' : '10px',
-                height: '10px',
-                background: i === current ? dotActiveColor : dotColor,
+                minWidth: '24px',
+                height: '24px',
+                padding: '0 6px',
+                background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
               }}
               aria-label={`Go to slide ${i + 1}`}
-            />
+            >
+              <span
+                className="block transition-all duration-500 rounded-full"
+                style={{
+                  width: i === current ? '32px' : '10px',
+                  height: '10px',
+                  background: i === current ? dotActiveColor : dotColor,
+                }}
+              />
+            </button>
           ))}
         </div>
       )}
@@ -208,9 +236,21 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
 
 // ─── Individual Slide ──────────────────────────────────────────────────────
 
+/** The slide at `index` plus the slides immediately before/after it (wrapping). */
+function neighbourIndexes(index: number, count: number): Set<number> {
+  const out = new Set<number>();
+  if (count <= 0) return out;
+  out.add(index);
+  out.add((index + 1) % count);
+  out.add((index - 1 + count) % count);
+  return out;
+}
+
 interface SlideLayerProps {
   slide: HeroSlideshowSlide;
   isActive: boolean;
+  /** Whether this slide's backgroundImage should be in the DOM yet. */
+  loadImage: boolean;
   transition: 'fade' | 'slide' | 'zoom';
   transMs: number;
   kenBurns: boolean;
@@ -218,7 +258,7 @@ interface SlideLayerProps {
   hasBlockVideo?: boolean;
 }
 
-function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementStyles, hasBlockVideo }: SlideLayerProps) {
+function SlideLayer({ slide, isActive, loadImage, transition, transMs, kenBurns, elementStyles, hasBlockVideo }: SlideLayerProps) {
   const overlayColor = slide.overlayColor || 'rgba(0,0,0,0.45)';
   const overlayOpacity = slide.overlayOpacity ?? 1;
   const textAlign = slide.textAlignment || 'center';
@@ -264,7 +304,7 @@ function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementSty
       )}
 
       {/* Background image with Ken Burns — skipped when persistent block video is playing */}
-      {slide.backgroundImage && !hasBlockVideo && (
+      {slide.backgroundImage && !hasBlockVideo && loadImage && (
         <div
           className="absolute inset-0"
           style={{
