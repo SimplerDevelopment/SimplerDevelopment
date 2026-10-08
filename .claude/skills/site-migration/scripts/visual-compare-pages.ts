@@ -60,10 +60,13 @@ function parseArgs() {
   const pathsRaw = get('--paths') ?? '/';
   const outDir = get('--out') ?? './reports/visual';
   const viewportRaw = get('--viewport') ?? '1440x900';
+  // Same semantics as lighthouse-compare: `--source-suffix .html` for AEM/WordPress
+  // sources whose paths carry an extension; home becomes `${sourceBase}${suffix}`.
+  const sourceSuffix = get('--source-suffix') ?? '';
 
   if (!sourceBase || !migratedBase) {
     console.error(
-      'Usage: bunx tsx visual-compare-pages.ts --source <url> --migrated <url> [--paths /,/about] [--out ./reports/visual] [--viewport 1440x900]'
+      'Usage: bunx tsx visual-compare-pages.ts --source <url> --migrated <url> [--paths /,/about] [--out ./reports/visual] [--viewport 1440x900] [--source-suffix .html]'
     );
     process.exit(1);
   }
@@ -74,6 +77,7 @@ function parseArgs() {
   return {
     sourceBase: sourceBase.replace(/\/$/, ''),
     migratedBase: migratedBase.replace(/\/$/, ''),
+    sourceSuffix,
     paths,
     outDir,
     viewport: { width: width || 1440, height: height || 900 },
@@ -116,13 +120,15 @@ async function captureScreenshots(
     console.log(`\n[${pagePath}]`);
 
     // Source screenshot
-    const sourceUrl = `${args.sourceBase}${pagePath}`;
+    const sourceUrl = pagePath === '/' && args.sourceSuffix
+      ? `${args.sourceBase}${args.sourceSuffix}`
+      : `${args.sourceBase}${pagePath}${args.sourceSuffix}`;
     try {
       const page = await browser.newPage();
       await page.setViewportSize(args.viewport);
-      await page.goto(sourceUrl, { waitUntil: 'networkidle', timeout: 30_000 });
+      await page.goto(sourceUrl, { waitUntil: 'load', timeout: 60_000 });
       // Let late-loading assets settle
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(2500);
       await page.screenshot({ path: sourceFile, fullPage: true });
       await page.close();
       result.sourceOk = true;
@@ -137,8 +143,8 @@ async function captureScreenshots(
     try {
       const page = await browser.newPage();
       await page.setViewportSize(args.viewport);
-      await page.goto(migratedUrl, { waitUntil: 'networkidle', timeout: 30_000 });
-      await page.waitForTimeout(1500);
+      await page.goto(migratedUrl, { waitUntil: 'load', timeout: 60_000 });
+      await page.waitForTimeout(2500);
       await page.screenshot({ path: migratedFile, fullPage: true });
       await page.close();
       result.migratedOk = true;

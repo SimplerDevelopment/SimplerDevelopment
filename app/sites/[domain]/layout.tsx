@@ -288,7 +288,9 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
             fontFamily: cssFontStack(branding.bodyFont, 'system-ui, sans-serif') || 'system-ui, sans-serif',
           }}
         >
-          {children}
+          {/* Landmark for the custom-layout path: the default chrome wraps pages in <main>, and
+            without one Lighthouse's `landmark-one-main` audit fails on every custom-layout tenant page. */}
+          <main>{children}</main>
         </div>
       </>
     );

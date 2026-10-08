@@ -199,12 +199,19 @@ describe('VEQA-067 — HeroCtaBlockRender (native hero-cta)', () => {
     expect(container.querySelectorAll('a').length).toBe(0);
   });
 
-  it("layout: 'banner' still renders the primary button even when text/url are absent (unconditional per legacy cta)", () => {
+  // PUX-240: the banner layout used to render the primary button unconditionally (legacy cta
+  // parity). An empty <button> has no accessible name and fails Lighthouse's `button-name`
+  // audit on every page that uses a banner without a CTA, so it now guards like the hero layout.
+  it("layout: 'banner' omits the primary button when primaryButtonText is absent", () => {
     const block: any = { ...base('hc4', 'hero-cta'), layout: 'banner', title: 'Empty button' };
     const { container } = render(<HeroCtaBlockRender block={block} />);
-    // Button renders unconditionally in banner layout, but href is empty/undefined -> safeHref(undefined) is null
-    const buttons = container.querySelectorAll('button, a');
-    expect(buttons.length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('button, a').length).toBe(0);
+  });
+
+  it("layout: 'banner' renders the primary button when text is present", () => {
+    const block: any = { ...base('hc4b', 'hero-cta'), layout: 'banner', title: 'With button', primaryButtonText: 'Go', primaryButtonUrl: '/go' };
+    const { container } = render(<HeroCtaBlockRender block={block} />);
+    expect(container.querySelectorAll('button, a').length).toBeGreaterThan(0);
   });
 
   // VEQA-064 — the Content tab's Description field is a rich-text control
