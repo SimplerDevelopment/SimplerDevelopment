@@ -13,7 +13,6 @@ import { VideoBlockRender } from './VideoBlockRender';
 import { YoutubeBlockRender } from './YoutubeBlockRender';
 import { ColumnsBlockRender } from './ColumnsBlockRender';
 import { TabsBlockRender } from './TabsBlockRender';
-import { StickyScrollTabsBlockRender } from './StickyScrollTabsBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { HeroBlockRender } from './HeroBlockRender';
 import { HeroCtaBlockRender } from './HeroCtaBlockRender';
@@ -26,20 +25,15 @@ import { RoiCalculatorBlockRender } from './RoiCalculatorBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { NavigationBlockRender } from './NavigationBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
-import { CardGridBlockRender } from './CardGridBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
 import { GalleryBlockRender } from './GalleryBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { EmailHeaderBlockRender } from './EmailHeaderBlockRender';
 import { EmailFooterBlockRender } from './EmailFooterBlockRender';
-import { TimelineBlockRender } from './TimelineBlockRender';
-import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
 import { TeamFlipGridBlockRender } from './TeamFlipGridBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { SiteFooterBlockRender } from './SiteFooterBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
-import { FlipCardGridBlockRender } from './FlipCardGridBlockRender';
-import { MetricCardsBlockRender } from './MetricCardsBlockRender';
 import { LogoStripBlockRender } from './LogoStripBlockRender';
 import { PopupBlockRender } from './PopupBlockRender';
 import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
@@ -66,6 +60,17 @@ import {
   SurveyInputBlockRender,
   HtmlEmbedBlockRender,
   HtmlRenderBlockRender,
+} from './lazy-blocks';
+// PUX-241: heavy-dependency blocks (framer-motion via Card; the sanitize-html
+// stack via lib/security/sanitize-html) are code-split so a page that doesn't
+// use them doesn't download/evaluate ~300 KB raw. See lazy-blocks.tsx.
+import {
+  StickyScrollTabsBlockRender,
+  CardGridBlockRender,
+  TimelineBlockRender,
+  TeamShowcaseBlockRender,
+  FlipCardGridBlockRender,
+  MetricCardsBlockRender,
 } from './lazy-blocks';
 
 interface BlockRendererProps {

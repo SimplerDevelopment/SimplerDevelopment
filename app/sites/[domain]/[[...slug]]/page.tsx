@@ -21,15 +21,14 @@ import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
 import { prefetchNavigationData } from '@/lib/blocks/prefetch-navigation';
 import { siteBaseUrl } from '@/lib/sites/site-base-url';
 import { blogPostingSchema, jsonLd } from '@/lib/sites/structured-data';
-import { ProductPage } from '@/components/storefront/ProductPage';
-import { ShopPage } from '@/components/storefront/ShopPage';
+// Conditional client views behind async split points — see the file for why they
+// must not be static imports of this server component.
+import { ProductPage, ShopPage, AccessCodeForm, AbGoalTracker } from '@/components/sites/LazySiteViews';
 import { auth } from '@/lib/auth';
 import { verifyPreviewToken } from '@/lib/preview-token';
 import { unlockCookieName, verifyUnlockCookieValue } from '@/lib/preview-unlock';
 import { cookies } from 'next/headers';
 import { applyAbToPostContent } from '@/lib/ab/render';
-import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
-import { AccessCodeForm } from '@/components/marketing/AccessCodeForm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';

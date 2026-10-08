@@ -112,6 +112,7 @@ Why: August landed 197 commits on `main` in four weeks; September landed one mer
 
 - `bun dev` — dev server
   - ⚠️ **Turbopack dev chunks have stable filenames.** The browser can keep serving a *cached* chunk while the dev server returns new bytes for the same URL — surviving `rm -rf .next` and a server restart. The symptoms mimic a logic bug perfectly and have burned hours. Hard-reload (⌘⇧R) and confirm with `curl <chunk-url> | grep -c <symbol>` before you start debugging your own code.
+- Local **prod** server for `/sites/*` (`PORT=3005 bun run start`): `middleware.ts` only treats `localhost:3000/3001/3005/3100` as app hosts. Any other port makes every `/sites/<domain>/...` request a plain-text **404 "Not Found"** (the host is taken for a tenant custom domain). Symptom is a 404 with no app log line.
 - `bun run lint` — ESLint
 - `tsc --noEmit` — typecheck (alias: `bun run typecheck`; run after any non-trivial Edit batch)
 - `scripts/test.sh --layer=unit --no-coverage` — Vitest unit (alias: `bun test`)

@@ -4,7 +4,7 @@ import React from 'react';
 import { Block, BlockStyle } from '@/types/blocks';
 import { isBrandSentinel, resolveBrandSentinel } from '@/lib/branding/sentinel';
 import { generateResponsiveStyles, parseShorthandSide } from '@/lib/utils/responsiveCss';
-import { cssFontStack } from '@/lib/blocks/page-fonts';
+import { cssFontStack } from '@/lib/blocks/css-font-stack';
 
 interface BlockStyleWrapperProps {
   block: Block;

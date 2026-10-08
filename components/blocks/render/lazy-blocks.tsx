@@ -41,6 +41,26 @@ export const SurveyResultsBlockRender = dynamic(() =>
   import('./SurveyResultsBlockRender').then((m) => m.SurveyResultsBlockRender));
 export const SurveyInputBlockRender = dynamic(() =>
   import('./SurveyInputBlockRender').then((m) => m.SurveyInputBlockRender));
+// Heavy-dependency content blocks (PUX-241). Each is only needed by pages that
+// actually contain it, but they were STATIC imports of every dispatcher
+// (BlockRenderer + Section/Columns/Tabs), so a one-paragraph page paid for:
+//   - card-grid → components/ui/Card → framer-motion + motion-dom (~134 KB raw)
+//   - timeline / team-showcase / flip-card-grid / metric-cards /
+//     sticky-scroll-tabs → lib/security/sanitize-html → sanitize-html +
+//     postcss + htmlparser2 + entities (~170 KB raw)
+export const CardGridBlockRender = dynamic(() =>
+  import('./CardGridBlockRender').then((m) => m.CardGridBlockRender));
+export const TimelineBlockRender = dynamic(() =>
+  import('./TimelineBlockRender').then((m) => m.TimelineBlockRender));
+export const TeamShowcaseBlockRender = dynamic(() =>
+  import('./TeamShowcaseBlockRender').then((m) => m.TeamShowcaseBlockRender));
+export const FlipCardGridBlockRender = dynamic(() =>
+  import('./FlipCardGridBlockRender').then((m) => m.FlipCardGridBlockRender));
+export const MetricCardsBlockRender = dynamic(() =>
+  import('./MetricCardsBlockRender').then((m) => m.MetricCardsBlockRender));
+export const StickyScrollTabsBlockRender = dynamic(() =>
+  import('./StickyScrollTabsBlockRender').then((m) => m.StickyScrollTabsBlockRender));
+
 // html-render / html-embed are deliberately STATIC (not dynamic): they are
 // among the most common content blocks AND frequently the LCP element (heroes
 // are often authored as html-render). Lazy-loading them deferred the LCP

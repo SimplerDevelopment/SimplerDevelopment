@@ -1,7 +1,6 @@
 'use client';
 
 import React, {
-  createContext,
   useContext,
   useState,
   useCallback,
@@ -28,7 +27,7 @@ import {
 import { findBlockById, updateBlockById } from '@/lib/utils/blockHelpers';
 
 // Context value interface
-interface BlockEditorContextValue {
+export interface BlockEditorContextValue {
   // State
   state: EditorState;
 
@@ -79,9 +78,12 @@ interface BlockEditorContextValue {
   updatePageSettings: (updates: Partial<PageSettings>) => void;
 }
 
-const BlockEditorContext = createContext<BlockEditorContextValue | undefined>(
-  undefined
-);
+// The context object + optional hook live in BlockEditorContext.shared.ts so the
+// PUBLIC renderers (ColumnsBlockRender) can read the optional editor viewport
+// without importing this file — which pulls in immer + the history/undo stack
+// (PUX-241: ~18 KB raw on every tenant page). Re-exported for existing callers.
+import { BlockEditorContext, useBlockEditorOptional } from './BlockEditorContext.shared';
+export { useBlockEditorOptional };
 
 // Provider props
 interface BlockEditorProviderProps {
@@ -640,13 +642,4 @@ export function useBlockEditor() {
     );
   }
   return context;
-}
-
-/**
- * Hook to optionally access BlockEditor context.
- * Returns the context value if within a BlockEditorProvider, undefined otherwise.
- * Safe to call from components that may or may not be rendered inside the provider.
- */
-export function useBlockEditorOptional() {
-  return useContext(BlockEditorContext);
 }

@@ -13,6 +13,14 @@ import {
   StoreBannerBlockRender,
   SurveyBlockRender,
 } from './lazy-blocks';
+// PUX-241: heavy-dependency blocks (framer-motion via Card; the sanitize-html
+// stack via lib/security/sanitize-html) are code-split so a page that doesn't
+// use them doesn't download/evaluate ~300 KB raw. See lazy-blocks.tsx.
+import {
+  CardGridBlockRender,
+  TimelineBlockRender,
+  TeamShowcaseBlockRender,
+} from './lazy-blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { TextBlockRender } from './TextBlockRender';
 import { HeadingBlockRender } from './HeadingBlockRender';
@@ -32,21 +40,18 @@ import { TestimonialBlockRender } from './TestimonialBlockRender';
 import { StatsBlockRender } from './StatsBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
-import { CardGridBlockRender } from './CardGridBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { TabsBlockRender } from './TabsBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { MarqueeBlockRender } from './MarqueeBlockRender';
-import { TimelineBlockRender } from './TimelineBlockRender';
-import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
 import { PopupBlockRender } from './PopupBlockRender';
 import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import { ContainerTypography } from './typography-cascade';
-import { useBlockEditorOptional } from '@/contexts/BlockEditorContext';
+import { useBlockEditorOptional } from '@/contexts/BlockEditorContext.shared';
 
 // This component's column-width/gap/padding styling is hand-mirrored by
 // `ContainerBlockRenderer` in EditableBlockRenderer.tsx (the visual-editor

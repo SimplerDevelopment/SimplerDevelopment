@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import * as Sentry from '@sentry/nextjs';
+import { captureLazily } from '@/lib/sentry-lazy';
 
 export default function Error({
   error,
@@ -14,7 +14,7 @@ export default function Error({
     // Report to Sentry — this segment-level boundary swallows the exception
     // before it can bubble to global-error.tsx (which already captures), so
     // without this line production render crashes it catches are invisible.
-    Sentry.captureException(error);
+    captureLazily(error);
     // Log error to console in development
     if (process.env.NODE_ENV === 'development') {
       console.error(error);
