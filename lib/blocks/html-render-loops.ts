@@ -53,6 +53,9 @@ interface LoopItem {
    *  list templates want this for `{{post.publishedDate}}` — the ISO string
    *  reads poorly in card copy. */
   publishedDate: string;
+  /** Four-digit year of `publishedAt` (e.g. `2026`), for archive lists whose
+   *  items only know their year. Empty when the post is undated. */
+  publishedYear: string;
   postType: string;
   /** Per-field values from the post's first html-render block (if it exists),
    *  exposed as `{{post.values.X}}` so the loop can pull custom card text. */
@@ -206,6 +209,7 @@ async function fetchLoopItems(
     coverImage: r.coverImage || '',
     publishedAt: r.publishedAt ? new Date(r.publishedAt).toISOString() : '',
     publishedDate: r.publishedAt ? dateFmt.format(new Date(r.publishedAt)) : '',
+    publishedYear: r.publishedAt ? String(new Date(r.publishedAt).getUTCFullYear()) : '',
     postType: r.postType,
     values: collectPostValues(r.content || ''),
     fields: fieldsByPostId.get(r.id) ?? {},
