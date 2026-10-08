@@ -78,20 +78,27 @@ function parseArgs() {
   const migratedBase = get('--migrated');
   const pathsRaw = get('--paths') ?? '/';
   const outDir = get('--out') ?? './reports/lighthouse';
+  // AEM/WordPress sources often serve `/about.html` where the migrated site serves
+  // `/about`; `--source-suffix .html` appends to every source path (home becomes
+  // `${sourceBase}.html`, e.g. https://ww2.eagle.org/en.html). `--preset desktop`
+  // passes Lighthouse's desktop config; default is the mobile preset, which is
+  // the one that decides whether a score is "green".
+  const sourceSuffix = get('--source-suffix') ?? '';
+  const preset = get('--preset') ?? 'mobile';
 
   if (!sourceBase || !migratedBase) {
-    console.error('Usage: bunx tsx lighthouse-compare.ts --source <url> --migrated <url> [--paths /,/about] [--out ./reports]');
+    console.error('Usage: bunx tsx lighthouse-compare.ts --source <url> --migrated <url> [--paths /,/about] [--out ./reports] [--source-suffix .html] [--preset mobile|desktop]');
     process.exit(1);
   }
 
   const paths = pathsRaw.split(',').map(p => (p.startsWith('/') ? p : `/${p}`));
 
-  return { sourceBase: sourceBase.replace(/\/$/, ''), migratedBase: migratedBase.replace(/\/$/, ''), paths, outDir };
+  return { sourceBase: sourceBase.replace(/\/$/, ''), migratedBase: migratedBase.replace(/\/$/, ''), paths, outDir, sourceSuffix, preset };
 }
 
 // ─── Lighthouse Runner ────────────────────────────────────────────────────────
 
-function runLighthouse(url: string): ScoreSet {
+function runLighthouse(url: string, preset = 'mobile'): ScoreSet {
   console.log(`  Running Lighthouse on ${url} …`);
   const tmpFile = `/tmp/lh-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
 
@@ -101,7 +108,8 @@ function runLighthouse(url: string): ScoreSet {
     // --output=json --output-path writes the score file we parse below.
     execSync(
       `bunx lighthouse "${url}" --output=json --output-path="${tmpFile}" ` +
-      `--chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" ` +
+      (preset === 'desktop' ? '--preset=desktop ' : '') +
+      `--chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage" ` +
       `--only-categories=performance,accessibility,best-practices,seo ` +
       `--quiet`,
       { stdio: 'pipe', timeout: 120_000 },
@@ -226,21 +234,23 @@ async function main() {
 
   for (const pagePath of args.paths) {
     console.log(`\n[${pagePath}]`);
-    const sourceUrl = `${args.sourceBase}${pagePath}`;
+    const sourceUrl = pagePath === '/' && args.sourceSuffix
+      ? `${args.sourceBase}${args.sourceSuffix}`
+      : `${args.sourceBase}${pagePath}${args.sourceSuffix}`;
     const migratedUrl = `${args.migratedBase}${pagePath}`;
 
     let sourceScores: ScoreSet;
     let migratedScores: ScoreSet;
 
     try {
-      sourceScores = runLighthouse(sourceUrl);
+      sourceScores = runLighthouse(sourceUrl, args.preset);
     } catch (err) {
       console.warn(`  WARN: Could not run Lighthouse on source ${sourceUrl}: ${err}`);
       sourceScores = { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };
     }
 
     try {
-      migratedScores = runLighthouse(migratedUrl);
+      migratedScores = runLighthouse(migratedUrl, args.preset);
     } catch (err) {
       console.error(`  ERROR: Could not run Lighthouse on migrated ${migratedUrl}: ${err}`);
       migratedScores = { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };

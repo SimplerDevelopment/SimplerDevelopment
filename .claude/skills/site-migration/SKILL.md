@@ -881,6 +881,19 @@ await db.update(posts).set({ published: true }).where(eq(posts.websiteId, WEBSIT
 
 If testing against `localhost`, use `http://localhost:3000/sites/<subdomain>.simplerdevelopment.com` as the migrated base URL.
 
+#### Measure the platform floor FIRST (before blaming the content)
+
+Insert a throwaway page with one `text` block on the migrated site and run Lighthouse on
+it. That number is the best any page on this platform can score; if it is below the
+target, the gap is a platform card, not a migration task. Measured 2026-10-07 on a
+local production build: one-paragraph tenant page = **perf 74 mobile, TBT 1,060 ms,
+468 KB JS** (tracked as PUX-241). Lighthouse numbers are also noisy while another
+`next build` runs on the same machine — check `pgrep -f "next build"` before trusting a run.
+
+"Green" means **≥ 90 in all four categories on the default (mobile) preset** — the
+desktop preset scores ~20 points higher on performance and is not what PageSpeed
+shows first.
+
 #### Command
 
 ```bash
@@ -888,8 +901,14 @@ bunx tsx .claude/skills/site-migration/scripts/lighthouse-compare.ts \
   --source   https://original-site.com \
   --migrated https://<subdomain>.simplerdevelopment.com \
   --paths    /,/about,/services,/contact \
-  --out      scripts/migrations/<site-slug>/reports/lighthouse
+  --out      scripts/migrations/<site-slug>/reports/lighthouse \
+  [--source-suffix .html]   # AEM/WordPress sources that serve /about.html; home becomes <source>.html
+  [--preset desktop]        # default is mobile — the preset that decides "green"
 ```
+
+Locally the migrated base is `http://localhost:3100/sites/<subdomain>.simplerdevelopment.com`
+**without a trailing slash** — `/sites/<host>/` 308-redirects to the slash-less form and
+Lighthouse scores the redirect.
 
 For a large site, run only the top-level pages (home + all marketing pages). Skip deep blog/product URLs unless the client has flagged them specifically.
 
@@ -1041,3 +1060,27 @@ After importing the home page, you MUST do a visual comparison before continuing
 - Images can be referenced by external URL initially; media upload can happen in a later pass
 - **Never use CSS variables** (`var(--brand-*)`) in block styles — they don't work in the editor
 - **Always set explicit colors** on text inside dark sections — don't rely on inheritance
+
+
+## Traps discovered the hard way (symptom → rule)
+
+Recorded from the ww2.eagle.org (ABS) migration, 2026-10-07 (PUX-240). Each entry names
+the symptom first so the next run recognises it instead of rediscovering it.
+
+- **Served page still shows the OLD image URLs / copy after your script updated `posts.content`, even after `next start` was restarted.** The tenant page data goes through `lib/sites/site-cache.ts` (`unstable_cache`, 1 h TTL) and Next persists that cache on disk in `.next/cache/fetch-cache` across restarts. Scripts that write the DB directly never call `revalidateTag`. Locally: kill the server by port, `rm -rf .next/cache/fetch-cache`, start again. On prod the page self-heals within an hour, or save the post once through the portal API.
+- **Lighthouse `errors-in-console` lists 404s for pages you have not touched.** Next prefetches every `<Link>` on the page; links to source paths that are not in the sitemap (`/en/engage/...` microsites, `/en/search`) 404 on the new site. `rewriteHref` must only localise slugs that exist in the sitemap and leave everything else absolute on the source host.
+- **Speed Index 17 s on a page whose LCP is 3 s.** A `hero-slideshow` with autoplay rotated inside Lighthouse's trace window. Use `interval ≥ 12000`, `kenBurns: false`. Also, until PUX-241 lands, that renderer sets every slide's `backgroundImage` at mount, so five 1920×1080 slides download before LCP.
+- **`image-delivery-insight` reports megabytes of savings; the source CDN serves 3 MB PNG heroes and 880 KB thumbnails.** The platform has no responsive-image pipeline (`image` blocks render a plain `<img loading="lazy">`, no srcset, `/_next/image` is non-functional). Re-encode with `sharp` to WebP by size class (hero/section bg 1600, inline 1200, cards 800, logos 400), upload via `lib/s3/upload.ts` `uploadToS3(buf, name, 'image/webp', { key })` with a deterministic key (idempotent), register a `media` row, rewrite the block URL to the returned `/api/media/proxy/<key>` (same-origin, `Cache-Control: immutable`) and set `naturalWidth/naturalHeight`. Keep a `source-url → {key,url,w,h}` map on disk so the metro replay re-uploads without re-encoding. Home went 5.9 MB → 557 KB.
+- **`/api/media/proxy/...` returns 500 `Failed to load media` for every key.** The running `next start` has no `S3_*` env (started before `.env.local` was edited, or started without exporting it). `S3_ENDPOINT=http://minio:9000` in `.env.local` is the docker-network name — from the host use the published port, and run the compose `minio-init` service once so the bucket exists with anonymous download.
+- **`docker compose up -d db` fails with "address already in use" on 55432 and `lsof` shows nothing on the port.** A macOS process held an ephemeral connection whose *source* port was 55432. Start the DB with a compose override in the scratchpad (`ports: !override ["55434:5432"]`), point `.env.local` at that port, and expect `scripts/apply-local-manual-migrations.ts` to be needed on a stale volume (31 manual migrations were missing).
+- **`git status` shows none of your migration scripts.** `/scripts/migrations/*/` is gitignored on purpose (client content + PII). Migration scripts are not committed and not typechecked (`tsconfig.json` excludes `scripts/`, so `tsc | grep <slug>` proves nothing — bun-run them instead). Only platform changes (renderer fixes, `SITE_CONTACT_OVERRIDES`) go to a PR.
+- **Killing the server with `pkill -f next` took down other sessions' Next servers on the machine.** Kill by port: `lsof -nP -iTCP:3100 -sTCP:LISTEN -t`.
+- **Default `SiteFooter` renders the brand's white logo invisible on its light background, with no contact or legal links.** Until `brandingProfiles` has contact fields, add a `SITE_CONTACT_OVERRIDES[<subdomain>]` entry in `app/sites/[domain]/layout.tsx` (`theme`, `contactEmail`, `contactPhone`, `legalLinks`) — keyed by subdomain, so pin the subdomain on the prod replay. The footer derives its columns from the top 4 nav items × 8 children, which is fine even for a 196-row mega-nav.
+- **The `blog-posts` block shows nothing on a tenant site.** It reads the agency blog (`websiteId IS NULL`). Tenant listing pages use an `html-render` block with `loop: { source: 'posts', postType, limit, orderBy: 'recent' }` and a `data-loop="posts"` element with `{{post.title}}` / `{{post.url}}` / `{{post.excerpt}}` / `{{post.publishedDate}}` / `{{post.coverImage}}`. The loop filters by `postType` only, so each listing page (press room vs company news vs events) needs its own post type.
+- **A section background image with the headline baked into it renders the text twice.** AEM/WordPress "banner" images often *are* the banner. Drop the background and keep the CTA block, or use an `html-render` `<a><img></a>` with alt text.
+- **Adobe AEM specifics:** one `page-template` for everything, content under `div.root > div > div.container…` → `aem-Grid`; the mega-nav/footer are experience fragments repeated on every page (strip, don't convert); `cmp-tier-three-banner__background` inline style URLs are CSS-escaped (`\2f ` = `/`); teaser links use the internal `/content/<site>/en/...` path; `.coreimg.<width>.<ext>` gives resized renditions for component images but not for raw `/content/dam/` assets; URLs are case-sensitive (`/en/Products-and-Services/` works, lowercase 404s) so slugs keep the source casing; ~3 % of pages may be an older CMS template with `<body class="… sampublish …">` and the content in `div.content`; many event-calendar pages are empty shells — skip empty conversions rather than creating hollow posts.
+- **A `heading` block ignores `style.fontSize` and `elementStyles` — the `<h2>` keeps the branding size (24 px).** `block.style` lands on `BlockStyleWrapper`'s div, `HeadingBlockRender` never puts own styles on the tag, and it calls `useResolvedTypography` without an element key. The size that reaches the tag inline comes from the *ancestor* typography cascade: wrap the heading in a bare `section` with `style: { fontSize: '2.5rem' }` and leave `fontSize` off the heading itself (own `fontSize` wins and goes to the wrapper). Or change the brand's `typography.h2` in the profile if every h2 should grow.
+- **A "thumbnail left of the copy" tile list comes out as full-width photo cards.** `card-grid` → `Card.tsx` always paints `image` as `w-full h-48` inside an `overflow-hidden` wrapper above the text; `elementStyles.cardImage` can shrink it but never move it beside the copy (the wrapper is its own formatting context, so even `float:left` won't wrap). For a source list whose photos are small side thumbnails (ABS home "Partner with ABS", 158×109), use one `html-render` block with a 2-column CSS grid, `<a><img width height loading="lazy"><div><h3/><p/></div></a>` per tile — exact layout, explicit image dimensions, still a universal block.
+- **Converted pages look cramped: headings sit on the paragraph above, lists have no bullets, tables no borders.** `heading` and `text` blocks render with NO margins of their own (only `image` has `my-6` and `button` `my-4`), and Tailwind preflight strips list/table styling. Don't bake margins into 1,700 posts — every public block (nested too) is wrapped in `<div data-block-type="…">` and `clientWebsites.customCss` is injected on every tenant page, so one site-wide rhythm rule set fixes everything and stays editable under Site settings → Custom CSS. Reference: `scripts/migrations/eagle-org/import-site-css.ts` (≈2 rem above headings, 1.25 rem after text, 2 rem around columns/images, 2.5 rem around dividers, first child inside columns/sections flush).
+- **"Make the nav a shared block / symbol."** The live edit-once-update-everywhere mechanism is a post-type `template` (`postTypes.template`, a block tree with one `{type:'post-content'}` placeholder, site-scoped row wins over the global one — so built-in `page` needs a site-scoped row) plus `clientWebsites.customLayout=true` to drop the default chrome. `blockTemplates.scope='global'` is an insert library, not a render-time symbol (nothing re-resolves `templateId`). The data-driven `navigation` block renders two levels (section → dropdown) + `isButton` CTA pills + mobile sheet; a three-level mega-nav needs the default chrome or a platform card.
+- **`kanban_list_board` without `column` on the master board is refused (~56 k tokens)** — use `kanban_cards_search` with `column`/`query` for the Validating count and the next SKU.

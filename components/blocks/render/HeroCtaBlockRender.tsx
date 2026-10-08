@@ -140,9 +140,12 @@ export function HeroCtaBlockRender({ block, elementKeys }: HeroCtaBlockRenderPro
           )}
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button href={safeHref(block.primaryButtonUrl) ?? undefined} size="lg" style={getElementCSS(block.elementStyles, keys.primaryButton)}>
-              {block.primaryButtonText}
-            </Button>
+            {/* An empty <button> fails the accessibility `button-name` audit; the hero layout below already guards. */}
+            {block.primaryButtonText && (
+              <Button href={safeHref(block.primaryButtonUrl) ?? undefined} size="lg" style={getElementCSS(block.elementStyles, keys.primaryButton)}>
+                {block.primaryButtonText}
+              </Button>
+            )}
             {block.secondaryButtonText && block.secondaryButtonUrl && (
               <Button href={block.secondaryButtonUrl} variant="outline" size="lg" style={getElementCSS(block.elementStyles, keys.secondaryButton)}>
                 {block.secondaryButtonText}
