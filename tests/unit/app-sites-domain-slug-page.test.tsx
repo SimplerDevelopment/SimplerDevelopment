@@ -138,21 +138,15 @@ vi.mock('@/components/blocks/render/HeroPreload', () => ({
   HeroPreload: () => null,
 }));
 
-vi.mock('@/components/blocks/AbGoalTracker', () => ({
+// The page imports the conditional client views through LazySiteViews (next/dynamic
+// split points, PUX-241). next/dynamic resolves asynchronously, so stub the wrapper
+// module with the synchronous test doubles instead.
+vi.mock('@/components/sites/LazySiteViews', () => ({
   AbGoalTracker: () => null,
-}));
-
-vi.mock('@/components/storefront/ProductPage', () => ({
   ProductPage: ({ productSlug }: { siteId: number; productSlug: string }) =>
     React.createElement('div', { 'data-testid': 'product-page', 'data-slug': productSlug }),
-}));
-
-vi.mock('@/components/storefront/ShopPage', () => ({
   ShopPage: ({ siteId }: { siteId: number }) =>
     React.createElement('div', { 'data-testid': 'shop-page', 'data-site': siteId }),
-}));
-
-vi.mock('@/components/marketing/AccessCodeForm', () => ({
   AccessCodeForm: ({ variant }: { variant: string }) =>
     React.createElement('div', { 'data-testid': 'access-code-form', 'data-variant': variant }),
 }));

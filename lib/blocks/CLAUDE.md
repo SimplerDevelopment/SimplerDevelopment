@@ -32,6 +32,16 @@ DATA-DRIVEN blocks (no authored content of their own — `navigation` is the pat
 
 `emailOnly: true` filters out of page/site pickers; email-campaign UI shows them. Don't add page-only logic the same way — if a block can run on a page it can run anywhere except email; the toggle is one-directional.
 
+## Public-page bundle weight (PUX-241) — every tenant visitor pays for a static import
+
+`BlockRenderer` and the container blocks (`Section`/`Columns`/`Tabs`) are client components on the public tenant tree, so a **static import of a block renderer ships (and evaluates) its whole dependency graph on every page that has even one block**. Measured on a one-paragraph page: framer-motion (via `ui/Card`, 134 KB raw) and the sanitize-html stack (postcss + htmlparser2 + entities, 171 KB raw) rode in on blocks that page did not contain; mobile cost is ~2.3 ms per KB evaluated.
+
+- A block with a heavy dependency (animation lib, sanitizer, Stripe, editor context) goes in `components/blocks/render/lazy-blocks.tsx` (`next/dynamic`) and **every** dispatcher imports it from there — `BlockRenderer`, `SectionBlockRender`, `ColumnsBlockRender`, `TabsBlockRender`. Lazy in one dispatcher and static in another gains nothing.
+- `dynamic()` only splits when it is declared in a **client** module. Declared in a server component (a layout or page), the target becomes a client reference of that route segment and its chunks load on every request whether rendered or not — see `components/AppChromeShell.tsx` and `components/sites/LazySiteViews.tsx` for the working shape.
+- Never import `@sentry/*` statically from client code; go through `lib/sentry-lazy.ts`.
+- Public renderers must not import `contexts/BlockEditorContext` (immer + history stack); use `BlockEditorContext.shared`.
+- Known remaining cost: `html-render` / `html-embed` stay static (LCP), and `lib/security/sanitize-html` + `lib/blocks/html-render-template` run in the browser during hydration even though React discards the result. Removing it needs server-side sanitisation (an architecture call), not another `dynamic()`.
+
 ## Workflow
 
 | Task | Use |

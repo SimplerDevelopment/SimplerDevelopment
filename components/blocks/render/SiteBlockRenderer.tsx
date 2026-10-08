@@ -1,29 +1,14 @@
-'use client';
-
-import { useEffect } from 'react';
-import dynamic from 'next/dynamic';
+// SERVER component (PUX-241). It was 'use client' only because it hosted the
+// edit-mode dynamic() imports and HydrationSignal; those now live in
+// SiteBlockRenderer.client.tsx. Staying on the server keeps page-fonts / the
+// sanitize-html stack (~170 KB raw) out of the client bundle of every tenant
+// page. Every caller is a server page, props are all serializable.
 import { BlockRenderer } from './BlockRenderer';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
 import { collectBlockFonts, googleFontsHref } from '@/lib/blocks/page-fonts';
 import { DeferredStylesheet } from '@/components/sites/DeferredStylesheet';
-
-// The editor renderer (~40KB + the full editing UI) was statically imported,
-// so it shipped to every PUBLIC page even though it only renders when
-// `?_edit=true`. Lazy-load it (client-only) so visitors never download it.
-const EditableBlockRenderer = dynamic(
-  () => import('./EditableBlockRenderer').then((m) => m.EditableBlockRenderer),
-  { ssr: false },
-);
-
-// The editor provider pulls in `useEditorMode` → the full block registry (all 64
-// renderers) + dnd-kit. Statically importing it here shipped that ~400KB chunk
-// to every PUBLIC page even though it only renders at `?_edit=true`. Lazy-load
-// it (client-only) alongside EditableBlockRenderer so visitors never download it.
-const EditorModeProvider = dynamic(
-  () => import('@/components/visual-editor/EditorModeProvider').then((m) => m.EditorModeProvider),
-  { ssr: false },
-);
+import { HydrationSignal, SiteEditRenderer } from './SiteBlockRenderer.client';
 
 interface CodeLayer {
   customCss?: string | null;
@@ -121,27 +106,11 @@ function SiteCodeAndFonts({ content, branding, site, type, customCss, customJs }
   );
 }
 
-// Fires once the client has committed the block tree (effects run after the
-// hydration commit), telling the gated custom-JS layers it is safe to mutate
-// block DOM. See jsWrapper above for why this matters.
-function HydrationSignal() {
-  useEffect(() => {
-    const w = window as unknown as { __sdSiteHydrated?: boolean };
-    w.__sdSiteHydrated = true;
-    document.dispatchEvent(new Event('sd:hydrated'));
-  }, []);
-  return null;
-}
-
 export function SiteBlockRenderer(props: SiteBlockRendererProps) {
   const { content, siteId, branding, isEditMode } = props;
 
   if (isEditMode) {
-    const rendered = (
-      <EditorModeProvider>
-        <EditableBlockRenderer content={content} />
-      </EditorModeProvider>
-    );
+    const rendered = <SiteEditRenderer content={content} />;
     return (
       <>
         <SiteCodeAndFonts {...props} />

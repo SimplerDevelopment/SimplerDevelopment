@@ -13,6 +13,12 @@ import {
   StoreBannerBlockRender,
   SurveyBlockRender,
 } from './lazy-blocks';
+// PUX-241: heavy-dependency blocks (framer-motion via Card; the sanitize-html
+// stack via lib/security/sanitize-html) are code-split so a page that doesn't
+// use them doesn't download/evaluate ~300 KB raw. See lazy-blocks.tsx.
+import {
+  CardGridBlockRender,
+} from './lazy-blocks';
 import { useState } from 'react';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
@@ -34,7 +40,6 @@ import { TestimonialBlockRender } from './TestimonialBlockRender';
 import { StatsBlockRender } from './StatsBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
-import { CardGridBlockRender } from './CardGridBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
 import { MarqueeBlockRender } from './MarqueeBlockRender';

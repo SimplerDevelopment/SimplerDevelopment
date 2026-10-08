@@ -5,18 +5,13 @@ import { defaultSEO } from "@/config/seo";
 import { StructuredData } from "@/components/seo/StructuredData";
 import { generateOrganizationSchema } from "@/lib/utils/structured-data";
 import { headers } from "next/headers";
-import dynamic from "next/dynamic";
+import { AppChromeShell } from "@/components/AppChromeShell";
 
-// Code-split the app chrome (NextAuth SessionProvider + LayoutContent →
-// marketing Navigation/Footer/UserDropdown, which pull in next-auth/react and
-// a pile of icons). Statically importing them bundled all of that into the
-// client chunk loaded on EVERY page — including public client sites that never
-// render them. Dynamic (ssr:true) keeps them server-rendered where used but
-// keeps their chunk off pages (client sites) that don't render them.
-const SessionProvider = dynamic(() => import("@/components/SessionProvider"));
-const LayoutContent = dynamic(() =>
-  import("@/components/LayoutContent").then((m) => m.LayoutContent),
-);
+// App chrome (SessionProvider + LayoutContent) lives behind AppChromeShell, a
+// client module that code-splits them with next/dynamic. It must NOT be a
+// `dynamic()` declared in this server file: that makes them client references
+// of the root layout, whose chunks then ship on every route including public
+// tenant sites (PUX-241: 76 KB raw). See components/AppChromeShell.tsx.
 
 // preload: false — these app/portal fonts were being <link rel=preload>ed on
 // EVERY route (~180KB of woff2), including public client sites that use their
@@ -188,9 +183,7 @@ gtag('config', '${gaId}');`,
           // component calls useSession.)
           children
         ) : (
-          <SessionProvider>
-            <LayoutContent isClientSite={isClientSite}>{children}</LayoutContent>
-          </SessionProvider>
+          <AppChromeShell>{children}</AppChromeShell>
         )}
       </body>
     </html>

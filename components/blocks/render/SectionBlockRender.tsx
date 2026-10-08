@@ -14,6 +14,17 @@ import {
   StoreBannerBlockRender,
   SurveyBlockRender,
 } from './lazy-blocks';
+// PUX-241: heavy-dependency blocks (framer-motion via Card; the sanitize-html
+// stack via lib/security/sanitize-html) are code-split so a page that doesn't
+// use them doesn't download/evaluate ~300 KB raw. See lazy-blocks.tsx.
+import {
+  StickyScrollTabsBlockRender,
+  CardGridBlockRender,
+  TimelineBlockRender,
+  TeamShowcaseBlockRender,
+  FlipCardGridBlockRender,
+  MetricCardsBlockRender,
+} from './lazy-blocks';
 import { TextBlockRender } from './TextBlockRender';
 import { HeadingBlockRender } from './HeadingBlockRender';
 import { ImageBlockRender } from './ImageBlockRender';
@@ -26,7 +37,6 @@ import { VideoBlockRender } from './VideoBlockRender';
 import { YoutubeBlockRender } from './YoutubeBlockRender';
 import { ColumnsBlockRender } from './ColumnsBlockRender';
 import { TabsBlockRender } from './TabsBlockRender';
-import { StickyScrollTabsBlockRender } from './StickyScrollTabsBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { HeroBlockRender } from './HeroBlockRender';
 import { MarqueeBlockRender } from './MarqueeBlockRender';
@@ -37,15 +47,10 @@ import { StatsBlockRender } from './StatsBlockRender';
 import { RoiCalculatorBlockRender } from './RoiCalculatorBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
-import { CardGridBlockRender } from './CardGridBlockRender';
 import { GalleryBlockRender } from './GalleryBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
-import { TimelineBlockRender } from './TimelineBlockRender';
-import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
 import { TeamFlipGridBlockRender } from './TeamFlipGridBlockRender';
-import { MetricCardsBlockRender } from './MetricCardsBlockRender';
 import { LogoStripBlockRender } from './LogoStripBlockRender';
-import { FlipCardGridBlockRender } from './FlipCardGridBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
 import { PopupBlockRender } from './PopupBlockRender';

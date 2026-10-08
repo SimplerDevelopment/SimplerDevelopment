@@ -13,6 +13,11 @@
 // block tree so the renderer can emit a SINGLE combined request.
 
 import { renderHtmlTemplate } from '@/lib/blocks/html-render-template';
+// cssFontStack lives in its own dependency-free module so CLIENT code
+// (BlockStyleWrapper) can use it without importing this file, which drags in
+// html-render-template → the sanitize-html stack (~170 KB raw). Re-exported so
+// existing server-side importers keep working.
+export { cssFontStack } from '@/lib/blocks/css-font-stack';
 
 // Generic CSS keywords and common system fonts that are NOT Google Fonts and
 // must never be sent to the css2 endpoint. Compared lowercase.
@@ -43,24 +48,6 @@ export function bareFontFamily(raw: string | null | undefined): string | null {
   if (!first) return null;
   if (NON_GOOGLE_FAMILIES.has(first.toLowerCase())) return null;
   return first;
-}
-
-/**
- * Produce a valid CSS `font-family` value for inline application. If the
- * authored value is already a stack (contains a comma) it is used verbatim —
- * the old code wrapped the WHOLE stack in quotes, producing an invalid single
- * family name that silently fell back to the generic. A bare name gets quoted
- * and given a sensible fallback.
- */
-export function cssFontStack(
-  raw: string | null | undefined,
-  fallback = 'sans-serif',
-): string | undefined {
-  if (!raw || typeof raw !== 'string') return undefined;
-  const trimmed = raw.trim();
-  if (!trimmed) return undefined;
-  if (trimmed.includes(',')) return trimmed; // already a stack — use as-is
-  return `"${trimmed}", ${fallback}`;
 }
 
 /**
