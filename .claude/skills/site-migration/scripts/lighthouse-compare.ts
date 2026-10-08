@@ -25,6 +25,7 @@
  *   FLOOR_ACCESSIBILITY=80  — migrated page must score at least 80
  *   FLOOR_BEST_PRACTICES=80 — migrated page must score at least 80
  *   FLOOR_SEO=80            — migrated page must score at least 80
+ *   FLOOR_AGENTIC=80        — migrated page must score at least 80 (Lighthouse ≥13.5 "Agentic Browsing")
  *   MAX_REGRESSION=15       — migrated score may not drop more than 15 points vs source
  *
  * Exit codes: 0 = all pass, 1 = one or more pages failed thresholds.
@@ -42,11 +43,15 @@ const THRESHOLDS = {
     accessibility: parseInt(process.env.FLOOR_ACCESSIBILITY ?? '80'),
     bestPractices: parseInt(process.env.FLOOR_BEST_PRACTICES ?? '80'),
     seo: parseInt(process.env.FLOOR_SEO ?? '80'),
+    // Lighthouse 13.5+ scores "Agentic Browsing": accessibility tree, CLS and llms.txt (WebMCP/ARD are
+    // informational). Older Lighthouse builds omit the category; it then reads 0 and fails the floor on
+    // purpose — upgrade rather than skip it.
+    agentic: parseInt(process.env.FLOOR_AGENTIC ?? '80'),
   },
   maxRegression: parseInt(process.env.MAX_REGRESSION ?? '15'),
 };
 
-const CATEGORIES = ['performance', 'accessibility', 'best-practices', 'seo'] as const;
+const CATEGORIES = ['performance', 'accessibility', 'best-practices', 'seo', 'agentic-browsing'] as const;
 type Category = typeof CATEGORIES[number];
 
 interface ScoreSet {
@@ -54,6 +59,7 @@ interface ScoreSet {
   accessibility: number;
   bestPractices: number;
   seo: number;
+  agentic: number;
 }
 
 interface PageResult {
@@ -110,7 +116,7 @@ function runLighthouse(url: string, preset = 'mobile'): ScoreSet {
       `bunx lighthouse "${url}" --output=json --output-path="${tmpFile}" ` +
       (preset === 'desktop' ? '--preset=desktop ' : '') +
       `--chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage" ` +
-      `--only-categories=performance,accessibility,best-practices,seo ` +
+      `--only-categories=${CATEGORIES.join(',')} ` +
       `--quiet`,
       { stdio: 'pipe', timeout: 120_000 },
     );
@@ -123,6 +129,7 @@ function runLighthouse(url: string, preset = 'mobile'): ScoreSet {
       accessibility: Math.round((cats['accessibility']?.score ?? 0) * 100),
       bestPractices: Math.round((cats['best-practices']?.score ?? 0) * 100),
       seo: Math.round((cats['seo']?.score ?? 0) * 100),
+      agentic: Math.round((cats['agentic-browsing']?.score ?? 0) * 100),
     };
   } finally {
     try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
@@ -137,6 +144,7 @@ function checkPage(pagePath: string, source: ScoreSet, migrated: ScoreSet): Page
     accessibility: migrated.accessibility - source.accessibility,
     bestPractices: migrated.bestPractices - source.bestPractices,
     seo: migrated.seo - source.seo,
+    agentic: migrated.agentic - source.agentic,
   };
 
   const failures: string[] = [];
@@ -146,6 +154,7 @@ function checkPage(pagePath: string, source: ScoreSet, migrated: ScoreSet): Page
     ['accessibility', 'Accessibility'],
     ['bestPractices', 'Best Practices'],
     ['seo', 'SEO'],
+    ['agentic', 'Agentic Browsing'],
   ];
 
   for (const [key, label] of scoreMap) {
@@ -189,7 +198,8 @@ function buildMarkdown(args: ReturnType<typeof parseArgs>, results: PageResult[]
   md += `| Performance | ${THRESHOLDS.floors.performance} | ${THRESHOLDS.maxRegression} pts |\n`;
   md += `| Accessibility | ${THRESHOLDS.floors.accessibility} | ${THRESHOLDS.maxRegression} pts |\n`;
   md += `| Best Practices | ${THRESHOLDS.floors.bestPractices} | ${THRESHOLDS.maxRegression} pts |\n`;
-  md += `| SEO | ${THRESHOLDS.floors.seo} | ${THRESHOLDS.maxRegression} pts |\n\n`;
+  md += `| SEO | ${THRESHOLDS.floors.seo} | ${THRESHOLDS.maxRegression} pts |\n`;
+  md += `| Agentic Browsing | ${THRESHOLDS.floors.agentic} | ${THRESHOLDS.maxRegression} pts |\n\n`;
 
   for (const r of results) {
     md += `---\n\n## Path: \`${r.path}\`  ${r.passed ? '✅ PASS' : '❌ FAIL'}\n\n`;
@@ -198,7 +208,8 @@ function buildMarkdown(args: ReturnType<typeof parseArgs>, results: PageResult[]
     md += `| Performance    | ${r.source.performance} | ${r.migrated.performance} | ${deltaStr(r.delta.performance)} |\n`;
     md += `| Accessibility  | ${r.source.accessibility} | ${r.migrated.accessibility} | ${deltaStr(r.delta.accessibility)} |\n`;
     md += `| Best Practices | ${r.source.bestPractices} | ${r.migrated.bestPractices} | ${deltaStr(r.delta.bestPractices)} |\n`;
-    md += `| SEO            | ${r.source.seo} | ${r.migrated.seo} | ${deltaStr(r.delta.seo)} |\n\n`;
+    md += `| SEO            | ${r.source.seo} | ${r.migrated.seo} | ${deltaStr(r.delta.seo)} |\n`;
+    md += `| Agentic        | ${r.source.agentic} | ${r.migrated.agentic} | ${deltaStr(r.delta.agentic)} |\n\n`;
 
     if (r.failures.length > 0) {
       md += `**Failures:**\n\n`;
@@ -208,10 +219,10 @@ function buildMarkdown(args: ReturnType<typeof parseArgs>, results: PageResult[]
   }
 
   md += `---\n\n## Summary\n\n`;
-  md += `| Path | Perf S | Perf M | A11y S | A11y M | BP S | BP M | SEO S | SEO M | Result |\n`;
-  md += `|---|---|---|---|---|---|---|---|---|---|\n`;
+  md += `| Path | Perf S | Perf M | A11y S | A11y M | BP S | BP M | SEO S | SEO M | Agent S | Agent M | Result |\n`;
+  md += `|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
   for (const r of results) {
-    md += `| \`${r.path}\` | ${r.source.performance} | ${r.migrated.performance} | ${r.source.accessibility} | ${r.migrated.accessibility} | ${r.source.bestPractices} | ${r.migrated.bestPractices} | ${r.source.seo} | ${r.migrated.seo} | ${r.passed ? '✅' : '❌'} |\n`;
+    md += `| \`${r.path}\` | ${r.source.performance} | ${r.migrated.performance} | ${r.source.accessibility} | ${r.migrated.accessibility} | ${r.source.bestPractices} | ${r.migrated.bestPractices} | ${r.source.seo} | ${r.migrated.seo} | ${r.source.agentic} | ${r.migrated.agentic} | ${r.passed ? '✅' : '❌'} |\n`;
   }
 
   return md;
@@ -246,21 +257,21 @@ async function main() {
       sourceScores = runLighthouse(sourceUrl, args.preset);
     } catch (err) {
       console.warn(`  WARN: Could not run Lighthouse on source ${sourceUrl}: ${err}`);
-      sourceScores = { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };
+      sourceScores = { performance: 0, accessibility: 0, bestPractices: 0, seo: 0, agentic: 0 };
     }
 
     try {
       migratedScores = runLighthouse(migratedUrl, args.preset);
     } catch (err) {
       console.error(`  ERROR: Could not run Lighthouse on migrated ${migratedUrl}: ${err}`);
-      migratedScores = { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };
+      migratedScores = { performance: 0, accessibility: 0, bestPractices: 0, seo: 0, agentic: 0 };
     }
 
     const result = checkPage(pagePath, sourceScores, migratedScores);
     results.push(result);
 
-    console.log(`  Source    — Perf:${scoreBar(sourceScores.performance)}  A11y:${sourceScores.accessibility}  BP:${sourceScores.bestPractices}  SEO:${sourceScores.seo}`);
-    console.log(`  Migrated  — Perf:${scoreBar(migratedScores.performance)}  A11y:${migratedScores.accessibility}  BP:${migratedScores.bestPractices}  SEO:${migratedScores.seo}`);
+    console.log(`  Source    — Perf:${scoreBar(sourceScores.performance)}  A11y:${sourceScores.accessibility}  BP:${sourceScores.bestPractices}  SEO:${sourceScores.seo}  Agentic:${sourceScores.agentic}`);
+    console.log(`  Migrated  — Perf:${scoreBar(migratedScores.performance)}  A11y:${migratedScores.accessibility}  BP:${migratedScores.bestPractices}  SEO:${migratedScores.seo}  Agentic:${migratedScores.agentic}`);
     console.log(`  Result: ${result.passed ? '✅ PASS' : '❌ FAIL'}`);
     if (result.failures.length) result.failures.forEach(f => console.log(`    ✗ ${f}`));
   }
