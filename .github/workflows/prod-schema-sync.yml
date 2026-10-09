@@ -2,9 +2,20 @@
 # prod-schema-sync.yml — Automated additive-only schema sync to production
 #
 # REQUIRES
-#   Repo secret: PROD_DATABASE_URL
+#   Environment secret: PROD_DATABASE_URL, in the `prod-db` environment, whose
+#   deployment branches are restricted to `main`.
 #     The production Postgres connection string (e.g. postgres://user:pass@host/db).
-#     Add it under Settings → Secrets and variables → Actions → Repository secrets.
+#     Why an environment and not a repo secret: this repo is public and `main`
+#     is unprotected, so a repo secret is readable by a workflow pushed on ANY
+#     branch. The environment's branch policy means only runs from `main` can
+#     read a credential that writes to production.
+#     Setup (owner, once):
+#       gh api -X PUT repos/<owner>/<repo>/environments/prod-db \
+#         -F 'deployment_branch_policy[protected_branches]=false' \
+#         -F 'deployment_branch_policy[custom_branch_policies]=true'
+#       gh api -X POST repos/<owner>/<repo>/environments/prod-db/deployment-branch-policies \
+#         -f name=main -f type=branch
+#       <metro DATABASE_PUBLIC_URL> | gh secret set PROD_DATABASE_URL --env prod-db
 #
 # WHAT IT DOES
 #   On every push to `main`:
@@ -32,8 +43,8 @@ on:
     branches:
       - main
   # On-demand: run the additive sync manually (e.g. right after hand-applying a
-  # non-additive migration, or to verify metro is in sync). Requires the
-  # PROD_DATABASE_URL secret to be set — otherwise the sync job skips cleanly.
+  # non-additive migration, or to verify metro is in sync). Dispatch it from
+  # `main` — the prod-db environment refuses any other branch.
   workflow_dispatch: {}
 
 concurrency:
@@ -42,12 +53,16 @@ concurrency:
 
 jobs:
   # Secrets are not readable in a job-level `if`, so a cheap gate job exposes
-  # whether PROD_DATABASE_URL is configured. Deployments without a wired
-  # production DB (forks, the public org repo before setup) skip the sync
-  # cleanly instead of failing every push to main.
+  # whether PROD_DATABASE_URL is configured. Both jobs declare the prod-db
+  # environment — an environment secret is invisible to a job that doesn't.
+  #
+  # Forks skip cleanly. The canonical repo FAILS instead: a skipped job leaves
+  # the run green, and that silent skip is how metro drifted unnoticed for weeks
+  # (PR #80's column was absent after a "successful" sync, 2026-08-19).
   check-secret:
     name: Check prod DB secret
     runs-on: ubuntu-latest
+    environment: prod-db
     outputs:
       configured: ${{ steps.check.outputs.configured }}
     steps:
@@ -57,9 +72,12 @@ jobs:
         run: |
           if [ -n "$PROD_DATABASE_URL" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_REPOSITORY" = "SimplerDevelopment/SimplerDevelopment" ]; then
+            echo "::error::PROD_DATABASE_URL is not set in the prod-db environment — metro will not receive additive schema changes. See the setup block at the top of this file."
+            exit 1
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "PROD_DATABASE_URL secret not set — skipping prod schema sync."
+            echo "PROD_DATABASE_URL not set (fork) — skipping prod schema sync."
           fi
 
   sync:
@@ -67,6 +85,7 @@ jobs:
     needs: check-secret
     if: needs.check-secret.outputs.configured == 'true'
     runs-on: ubuntu-latest
+    environment: prod-db
 
     services:
       postgres:
