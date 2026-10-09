@@ -23,6 +23,7 @@ import {
   brainAiReviewItems,
 } from '@/lib/db/schema';
 import { ROLE_OPTIONS, type ProjectRole } from '@/lib/portal/project-permissions';
+import { isUserVisibleToClient } from '@/lib/security/assert-owned';
 import type { BrainReviewItemType } from '@/lib/db/schema';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
@@ -223,6 +224,10 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
           .limit(1);
         if (callerMember?.role !== 'owner') return json({ error: 'Only project owners can manage members' });
       }
+      // PUX-230: a project member must belong to this company (or be staff), as on
+      // the REST members route. Unchecked, project_members_list returned the name
+      // and email of any platform user added here.
+      if (!(await isUserVisibleToClient(userId, clientId))) return json({ error: 'User not found' });
       const [row] = await db.insert(projectMembers).values({
         projectId,
         userId,

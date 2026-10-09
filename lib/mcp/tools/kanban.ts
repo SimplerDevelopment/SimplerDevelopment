@@ -38,7 +38,7 @@ import { assertSafeUrl } from '@/lib/ssrf-guard';
 import {
   assertColumnInProject,
   assertProjectInClient,
-  assertUserVisibleToClient,
+  isUserVisibleToClient,
   isParentCardInProject,
   OwnershipError,
 } from '@/lib/security/assert-owned';
@@ -399,6 +399,11 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       const [proj] = await db.select({ id: projects.id }).from(projects)
         .where(and(eq(projects.id, card.projectId), eq(projects.clientId, clientId))).limit(1);
       if (!proj) return json({ error: 'Permission denied' });
+      // PUX-230: the same tenancy rule as kanban_card_assign below — the assignee
+      // must belong to this company (or be staff). Unchecked, assigning any user id
+      // and reading assignees back harvested every platform user's name and email.
+      // Checked before any write so a refused assignee doesn't half-apply the patch.
+      if (typeof assignedTo === 'number' && !(await isUserVisibleToClient(assignedTo, clientId))) return json({ error: 'User not found' });
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
       if (dueDate !== undefined) patch.dueDate = dueDate ? new Date(dueDate) : null;
@@ -820,12 +825,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       // Tenancy: the assignee must be a member of this client (or staff) — never
       // an arbitrary cross-tenant user. Mirrors filterUserIdsVisibleToClient on
       // the REST PATCH path.
-      try {
-        await assertUserVisibleToClient(userId, clientId);
-      } catch (e) {
-        if (e instanceof OwnershipError) return json({ error: 'User not found' });
-        throw e;
-      }
+      if (!(await isUserVisibleToClient(userId, clientId))) return json({ error: 'User not found' });
       await db.insert(kanbanCardAssignees).values({ cardId, userId }).onConflictDoNothing();
       // Auto-watch
       const { kanbanCardWatchers } = await import('@/lib/db/schema');
