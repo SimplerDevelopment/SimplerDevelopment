@@ -890,7 +890,7 @@ local production build: one-paragraph tenant page = **perf 74 mobile, TBT 1,060 
 468 KB JS** (tracked as PUX-241). Lighthouse numbers are also noisy while another
 `next build` runs on the same machine — check `pgrep -f "next build"` before trusting a run.
 
-"Green" means **≥ 90 in all four categories on the default (mobile) preset** — the
+"Green" means **≥ 90 in all five categories on the default (mobile) preset** — the
 desktop preset scores ~20 points higher on performance and is not what PageSpeed
 shows first.
 
@@ -920,6 +920,15 @@ For a large site, run only the top-level pages (home + all marketing pages). Ski
 | Accessibility | 80 | 15 points |
 | Best Practices | 80 | 15 points |
 | SEO | 80 | 15 points |
+| Agentic Browsing | 80 | 15 points |
+
+**Agentic Browsing** is a Lighthouse 13.5+ category (`agentic-browsing`): a well-formed accessibility tree,
+CLS, and an `llms.txt` that follows llmstxt.org (Markdown, at least one H1). WebMCP form/tool audits and the
+ARD `ai-catalog.json` audit are informational, zero weight. The platform serves `/llms.txt` for every tenant
+site (`app/sites/[domain]/llms.txt/route.ts`), so a migrated site scores 100 here unless the page's
+accessibility tree is broken — which the Accessibility category already catches. It was missing from the
+comparison script until 2026-10-08 because `--only-categories` listed the classic four; `FLOOR_AGENTIC`
+overrides its floor.
 
 Override any threshold via env var before the command:
 
