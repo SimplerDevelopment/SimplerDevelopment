@@ -19,6 +19,7 @@ import { db } from '@/lib/db';
 import { clientApiKeys } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { encryptApiKey, maskApiKey } from '@/lib/crypto/api-key';
 import { getClientEntitlements } from '@/lib/billing/entitlements';
 
@@ -37,6 +38,9 @@ export async function GET() {
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+  // role-matrix: API keys hold provider credentials - listing them is admin too.
+  const denied = await gatePortalRole(userId, client, 'admin');
+  if (denied) return denied;
 
   const rows = await db
     .select({
@@ -74,6 +78,9 @@ export async function POST(req: Request) {
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+  // role-matrix: API keys hold provider credentials - listing them is admin too.
+  const denied = await gatePortalRole(userId, client, 'admin');
+  if (denied) return denied;
 
   const body = await req.json().catch(() => ({}));
   const provider = String(body.provider ?? '').trim().toLowerCase() as Provider;

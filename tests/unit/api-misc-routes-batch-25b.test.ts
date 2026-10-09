@@ -31,6 +31,8 @@ vi.mock('@/lib/portal-client', () => ({
 const authorizePortalMock = vi.fn();
 const isAuthErrorMock = vi.fn((result: unknown) => 'response' in (result as object));
 vi.mock('@/lib/portal-auth', () => ({
+  // AUTH79-020: not about role gating - resolve the new gatePortalRole as allowed.
+  gatePortalRole: vi.fn(async () => null),
   authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
   isAuthError: (result: unknown) => isAuthErrorMock(result),
 }));

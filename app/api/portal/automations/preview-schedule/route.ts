@@ -13,10 +13,13 @@ import { computeNextRunAt, validateSchedule, describeSchedule } from '@/lib/auto
  * user is configuring a time-based trigger. Keeps the cron-parser dependency
  * server-side — the editor doesn't need to bundle it.
  */
-export async function POST(req: Request) {
+export async function POST(req: Request) { // role-gate: read-ok pure computation — schedule preview fired on page load
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
 
+  // role-matrix: read level on purpose. This is a pure computation that the rule editor fires from a
+  // useEffect on page load, so any member who merely opens the page calls it; 'admin' would log a
+  // would-be denial for each of them and, once enforced, reject valid schedules.
   const authResult = await authorizePortal({ action: 'read' });
   if (isAuthError(authResult)) return authResult.response;
 

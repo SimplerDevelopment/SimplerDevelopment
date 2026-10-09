@@ -26,6 +26,10 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const getPortalClientMock = vi.fn();
+// AUTH79-020: these routes now call gatePortalRole (a DB membership lookup). This suite is not about
+// role gating, so resolve it as allowed; the gate itself is covered in portal-auth-gate-portal-role.test.ts.
+vi.mock('@/lib/portal-auth', () => ({ gatePortalRole: vi.fn(async () => null) }));
+
 vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));

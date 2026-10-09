@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { kanbanCardLabels, kanbanCards, kanbanLabels, projects } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { logCardActivity } from '@/lib/pm-activity';
 import { canUserEditProject } from '@/lib/portal/project-access';
 import { publishBoardChangedForCard } from '@/lib/kanban/events';
@@ -14,12 +15,12 @@ function getRole(session: any): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function authorizeCardEdit(cardId: number, session: any): Promise<{ projectId: number; canEdit: boolean } | null> {
+async function authorizeCardEdit(cardId: number, session: any): Promise<{ projectId: number; canEdit: boolean; client: Awaited<ReturnType<typeof getPortalClient>> } | null> {
   const [card] = await db.select().from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
   if (!card) return null;
 
   const role = getRole(session);
-  if (role === 'admin' || role === 'employee') return { projectId: card.projectId, canEdit: true };
+  if (role === 'admin' || role === 'employee') return { projectId: card.projectId, canEdit: true, client: null };
 
   const s = session as unknown as { user?: { id: string } } | null;
   const userId = parseInt(s!.user!.id, 10);
@@ -30,7 +31,7 @@ async function authorizeCardEdit(cardId: number, session: any): Promise<{ projec
     .where(and(eq(projects.id, card.projectId), eq(projects.clientId, client.id))).limit(1);
   if (!proj) return null;
 
-  return { projectId: card.projectId, canEdit: await canUserEditProject(userId, proj.id) };
+  return { projectId: card.projectId, canEdit: await canUserEditProject(userId, proj.id), client };
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +42,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const cardId = parseInt(id, 10);
   const auth_ = await authorizeCardEdit(cardId, session);
   if (!auth_) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // role-matrix: labelling a card is a content edit (member+). `client` is null for staff.
+  if (auth_.client) {
+    const denied = await gatePortalRole(parseInt(session.user.id, 10), auth_.client, 'write');
+    if (denied) return denied;
+  }
   if (!auth_.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
   const { labelId } = await req.json();
@@ -66,6 +72,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const cardId = parseInt(id, 10);
   const auth_ = await authorizeCardEdit(cardId, session);
   if (!auth_) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // role-matrix: labelling a card is a content edit (member+). `client` is null for staff.
+  if (auth_.client) {
+    const denied = await gatePortalRole(parseInt(session.user.id, 10), auth_.client, 'write');
+    if (denied) return denied;
+  }
   if (!auth_.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
   const url = new URL(req.url);

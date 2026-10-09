@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { kanbanCards, kanbanCardLabels, kanbanCardChecklistItems, kanbanColumns, projects, cardTemplates } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { logCardActivity } from '@/lib/pm-activity';
 import { canUserEditProject } from '@/lib/portal/project-access';
 import { checkWipLimit } from '@/lib/portal/wip-limit';
@@ -45,6 +46,9 @@ export async function POST(req: Request) {
   if (!isStaff) {
     const client = await getPortalClient(userId);
     if (!client) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+    // role-matrix: creating a card is content authoring (member+). Staff skip this branch.
+    const denied = await gatePortalRole(userId, client, 'write');
+    if (denied) return denied;
     const [project] = await db.select().from(projects)
       .where(and(eq(projects.id, col.projectId), eq(projects.clientId, client.id)))
       .limit(1);

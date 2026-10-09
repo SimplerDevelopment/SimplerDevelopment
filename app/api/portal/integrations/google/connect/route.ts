@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { buildAuthUrl } from '@/lib/google/oauth';
 import { signState } from '@/lib/google/oauth-state';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
@@ -40,6 +41,11 @@ export async function GET(req: NextRequest) {
   if (!client) {
     return NextResponse.json({ error: 'No client for this user' }, { status: 404 });
   }
+
+  // role-matrix: write (member+), not admin. It links the caller's OWN account, but that mail/calendar/
+  // transcript stream then feeds the company's shared CRM/Brain, so a viewer must not start it.
+  const denied = await gatePortalRole(userId, client, 'write');
+  if (denied) return denied;
 
   const tenant = await getTenantWorkspaceCredentialsByClientId(client.id);
   if (!tenant) {
