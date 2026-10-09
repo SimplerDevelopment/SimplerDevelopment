@@ -5,12 +5,17 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatMoney } from '@/lib/utils/money';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pInput, pSelect } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pInput, pSelect, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { EmptyState } from '@/components/portal/EmptyState';
+import ProductsStudioTable from '@/components/portal/store/ProductsStudioTable';
+import { DEFAULT_LOW_STOCK } from '@/lib/store/stock-label';
 
 interface Product {
   id: number;
   name: string;
   slug: string;
+  sku?: string | null;
   status: string;
   price: number;
   compareAtPrice?: number | null;
@@ -48,6 +53,17 @@ export default function ProductsListPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  // PUX-186: under the flag the list reads the store's own low-stock threshold
+  // so the Stock pill agrees with the storefront's notices.
+  const studio = useFeatureFlag('portal-redesign');
+  const [lowStock, setLowStock] = useState(DEFAULT_LOW_STOCK);
+  useEffect(() => {
+    if (!studio) return;
+    fetch(`${base}/settings`)
+      .then((r) => r.json())
+      .then((data) => { if (data.success && typeof data.data?.lowStockThreshold === 'number') setLowStock(data.data.lowStockThreshold); })
+      .catch(() => {});
+  }, [base, studio]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,6 +159,8 @@ export default function ProductsListPage() {
     { label: 'Archived', value: 'archived' },
   ];
 
+  const filtered = Boolean(search || statusFilter !== 'all' || categoryFilter);
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <PortalPageHeader
@@ -152,10 +170,10 @@ export default function ProductsListPage() {
         actions={
           <Link
             href={`/portal/websites/${siteId}/store/products/new`}
-            className={pBtnPrimary}
+            className={studio ? sBtn : pBtnPrimary}
           >
             <span className="material-icons text-base">add</span>
-            Add Product
+            {studio ? 'New product' : 'Add Product'}
           </Link>
         }
       />
@@ -255,7 +273,12 @@ export default function ProductsListPage() {
           <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
         </div>
       ) : products.length === 0 ? (
-        <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center text-center">
+        <EmptyState
+          title={filtered ? 'Nothing matches those filters.' : 'Your first product is one form away.'}
+          body={filtered ? 'Loosen the search or status filter to see more.' : 'Add a name, a price and a photo — it lands in the storefront the moment it is active.'}
+          cta={filtered ? undefined : { label: 'New product', href: `/portal/websites/${siteId}/store/products/new`, icon: 'add' }}
+          ghostLabel="Products"
+          legacy={<div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center text-center">
           <span className="material-icons text-4xl text-muted-foreground/40 mb-2">inventory_2</span>
           <h2 className="font-semibold text-foreground mb-1">No products found</h2>
           <p className="text-sm text-muted-foreground mb-4">
@@ -272,7 +295,18 @@ export default function ProductsListPage() {
               Add Product
             </Link>
           )}
-        </div>
+        </div>}
+        />
+      ) : studio ? (
+        <ProductsStudioTable
+          rows={products}
+          lowStockThreshold={lowStock}
+          selected={selected}
+          onToggle={toggleSelect}
+          onToggleAll={toggleAll}
+          onOpen={(p) => router.push(`/portal/websites/${siteId}/store/products/${p.id}`)}
+          footer={`${products.length} ${products.length === 1 ? 'product' : 'products'} on this page`}
+        />
       ) : (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">

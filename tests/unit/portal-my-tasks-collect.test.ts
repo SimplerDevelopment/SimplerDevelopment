@@ -8,7 +8,7 @@
  * collectKanbanTasks (staff path) query sequence:
  *   1. kanbanCardAssignees → [{cardId}]
  *   2. kanbanCards leftJoin kanbanColumns → visible cards
- *   3. kanbanColumns where isDone=true → done column rows
+ *   3. kanbanColumns for the projects → column rows (isDone picks the done map; PUX-154 uses the rest for defaultColumnId)
  *   4. projects leftJoin clients → project rows
  *   5. kanbanCardLabels innerJoin kanbanLabels → label rows
  *   6. kanbanCardChecklistItems → checklist rows
@@ -179,7 +179,7 @@ describe('collectKanbanTasks — staff path', () => {
     const card = makeCard();
     pushSelect([{ cardId: 10 }]);         // assignments
     pushSelect([card]);                    // visibleCards
-    pushSelect([{ projectId: 100, id: 50, order: 0 }]); // doneColumns
+    pushSelect([{ projectId: 100, id: 50, order: 0, isDone: true }]); // columns (done)
     pushSelect([makeProject()]);           // projectRows
     pushSelect([]);                        // labels
     pushSelect([]);                        // checklist
@@ -198,7 +198,7 @@ describe('collectKanbanTasks — staff path', () => {
     const card = makeCard({ id: 10, projectId: 100, number: 7 });
     pushSelect([{ cardId: 10 }]);
     pushSelect([card]);
-    pushSelect([{ projectId: 100, id: 55, order: 0 }]); // done column id=55
+    pushSelect([{ projectId: 100, id: 55, order: 0, isDone: true }]); // done column id=55
     pushSelect([makeProject()]);
     pushSelect([]);
     pushSelect([]);
@@ -274,8 +274,8 @@ describe('collectKanbanTasks — staff path', () => {
     pushSelect([card]);
     // Two done columns — order 5 and order 2; lowest-order (2) wins → id=99
     pushSelect([
-      { projectId: 100, id: 88, order: 5 },
-      { projectId: 100, id: 99, order: 2 },
+      { projectId: 100, id: 88, order: 5, isDone: true },
+      { projectId: 100, id: 99, order: 2, isDone: true },
     ]);
     pushSelect([makeProject()]);
     pushSelect([]);

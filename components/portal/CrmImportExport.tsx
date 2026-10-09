@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { sBtnGhost } from '@/components/portal/portal-ui';
 
 interface CrmImportExportProps {
   entityType: 'contact' | 'company' | 'deal';
   currentFilters?: Record<string, string>;
   onImportComplete?: () => void;
+  /** PUX-169: studio ghost buttons under the portal-redesign flag. */
+  studio?: boolean;
 }
 
 interface PreviewData {
@@ -48,7 +51,7 @@ const FIELD_OPTIONS: Record<string, { value: string; label: string }[]> = {
   ],
 };
 
-export default function CrmImportExport({ entityType, currentFilters, onImportComplete }: CrmImportExportProps) {
+export default function CrmImportExport({ entityType, currentFilters, onImportComplete, studio = false }: CrmImportExportProps) {
   const [showImport, setShowImport] = useState(false);
   const [step, setStep] = useState<'upload' | 'map' | 'importing' | 'done'>('upload');
   const [preview, setPreview] = useState<PreviewData | null>(null);
@@ -165,7 +168,7 @@ export default function CrmImportExport({ entityType, currentFilters, onImportCo
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+          className={studio ? `${sBtnGhost} disabled:opacity-50` : "flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"}
         >
           {exporting ? (
             <span className="material-icons animate-spin text-base">refresh</span>
@@ -176,7 +179,7 @@ export default function CrmImportExport({ entityType, currentFilters, onImportCo
         </button>
         <button
           onClick={() => setShowImport(true)}
-          className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors"
+          className={studio ? sBtnGhost : "flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors"}
         >
           <span className="material-icons text-base">upload</span>
           Import

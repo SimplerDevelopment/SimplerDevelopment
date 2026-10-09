@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import EmailTabs from '@/components/portal/email/EmailTabs';
+import { relativeTime } from '@/lib/notifications/feed';
 
 interface Segment {
   id: number;
@@ -50,6 +53,7 @@ export default function EmailSegmentsPage() {
 
   // Segment form
   const [showCreateSegment, setShowCreateSegment] = useState(false);
+  const studio = useFeatureFlag('portal-redesign'); // PUX-204
   const [segName, setSegName] = useState('');
   const [segDesc, setSegDesc] = useState('');
   const [segMatch, setSegMatch] = useState('all');
@@ -135,6 +139,8 @@ export default function EmailSegmentsPage() {
         subtitle="Segment and tag your subscribers for targeted campaigns"
       />
 
+      {studio && <EmailTabs active="/portal/email/segments" />}
+
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border mb-6">
         <button onClick={() => setTab('segments')} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === 'segments' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -151,9 +157,9 @@ export default function EmailSegmentsPage() {
       {tab === 'segments' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateSegment(!showCreateSegment)} className={`flex items-center gap-2 ${pBtnPrimary}`}>
+            <button onClick={() => setShowCreateSegment(!showCreateSegment)} className={studio ? `${sBtn} flex items-center gap-2` : `flex items-center gap-2 ${pBtnPrimary}`}>
               <span className="material-icons text-lg">add</span>
-              New Segment
+              {studio ? 'Create segment' : 'New Segment'}
             </button>
           </div>
 
@@ -224,6 +230,7 @@ export default function EmailSegmentsPage() {
                     <span>{seg.rules.length} rule{seg.rules.length !== 1 ? 's' : ''}</span>
                     <span>Match: {seg.matchType}</span>
                     <span>{seg.subscriberCount} subscribers</span>
+                    {studio && <span>{seg.lastCalculatedAt ? `counted ${relativeTime(seg.lastCalculatedAt)}` : 'count updates after save'}</span>}
                   </div>
                 </div>
                 <button onClick={() => handleDeleteSegment(seg.id)} className="p-1 text-muted-foreground hover:text-red-500">

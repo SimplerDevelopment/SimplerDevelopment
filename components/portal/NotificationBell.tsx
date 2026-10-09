@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useFeatureFlag } from './FeatureFlagsProvider';
+import StudioNotificationList from './StudioNotificationList';
+import { crmEntityUrl, pmEntityUrl, relativeTime } from '@/lib/notifications/feed';
 
 // Raw shapes returned by the two backing feeds.
 interface PmRow {
@@ -30,10 +33,12 @@ interface CrmItem {
 }
 
 // Unified shape both feeds are normalized into for shared rendering/merging.
-interface UnifiedNotif {
+export interface UnifiedNotif {
   source: 'pm' | 'crm';
   id: number;
   title: string;
+  /** who did it — PM rows resolve it (users join); the CRM table carries no actor */
+  actor: string | null;
   body: string | null;
   read: boolean;
   createdAt: string;
@@ -144,29 +149,9 @@ export function toastableCrmRows(latest: CrmTickRow[], lastSeenId: number | null
     .sort((a, b) => a.id - b.id);
 }
 
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = Math.max(0, now - then);
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
-}
 
 // --- PM feed helpers ---
 
-function pmEntityUrl(cardId: number | null, projectId: number | null): string | null {
-  if (cardId && projectId) return `/portal/projects/${projectId}?card=${cardId}`;
-  if (projectId) return `/portal/projects/${projectId}`;
-  return null;
-}
 
 function pmTypeIcon(kind: string): string {
   switch (kind) {
@@ -191,6 +176,7 @@ function normalizePm(row: PmRow): UnifiedNotif {
     source: 'pm',
     id: row.id,
     title: row.title,
+    actor: row.actorName,
     body: row.body,
     read: row.readAt !== null,
     createdAt: row.createdAt,
@@ -202,19 +188,6 @@ function normalizePm(row: PmRow): UnifiedNotif {
 
 // --- CRM feed helpers (copied verbatim from CrmNotificationBell.tsx) ---
 
-function crmEntityUrl(entityType: string | null, entityId: number | null): string | null {
-  if (!entityType || !entityId) return null;
-  const base = '/portal/crm';
-  switch (entityType) {
-    case 'contact': return `${base}/contacts/${entityId}`;
-    case 'deal': return `${base}/deals/${entityId}`;
-    case 'company': return `${base}/companies/${entityId}`;
-    case 'proposal': return `${base}/deals/${entityId}`;
-    case 'mcp_approval': return `/portal/approvals?id=${entityId}`;
-    case 'document': return `/portal/brain/notes/${entityId}`;
-    default: return null;
-  }
-}
 
 function crmTypeIcon(type: string): string {
   switch (type) {
@@ -255,6 +228,7 @@ function normalizeCrm(item: CrmItem): UnifiedNotif {
     source: 'crm',
     id: item.id,
     title: item.title,
+    actor: null,
     body: item.body,
     read: item.read,
     createdAt: item.createdAt,
@@ -286,6 +260,7 @@ function groupNotifications(items: UnifiedNotif[]): NotificationGroup[] {
 
 export default function NotificationBell() {
   const router = useRouter();
+  const studio = useFeatureFlag('portal-redesign'); // PUX-148: Today/Earlier, actor-led rows
   const { data: session } = useSession();
   // Only the CRM feed is tenant-client scoped: it queries (clientId, userId)
   // and 404s for a session with no portal client. The PM feed is NOT — it
@@ -733,6 +708,9 @@ export default function NotificationBell() {
             </div>
           )}
 
+          {studio ? (
+            <StudioNotificationList notifications={notifications} loaded={listLoaded} loading={loading} filterUnread={filterUnread} unreadCount={unreadCount} onItemClick={handleItemClick} onMarkAllRead={markAllRead} />
+          ) : (
           <div className="max-h-96 overflow-y-auto">
             {!listLoaded ? (
               <div className="px-4 py-10 text-center text-sm text-muted-foreground">Loading…</div>
@@ -807,6 +785,7 @@ export default function NotificationBell() {
               ))
             )}
           </div>
+          )}
         </div>
       )}
     </div>

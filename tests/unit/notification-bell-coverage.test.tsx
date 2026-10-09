@@ -837,7 +837,10 @@ describe('NotificationBell — item click (CRM source)', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/portal/approvals?id=8');
   });
 
-  it('does not navigate when a CRM item has no entityType/entityId', async () => {
+  // PUX-148 (design doc screen 04, "every row deep-links"): a CRM row with no
+  // entity used to be a dead end — click, mark read, go nowhere. It now lands on
+  // the full feed page. See lib/notifications/feed.ts crmEntityUrl().
+  it('navigates to the full feed when a CRM item has no entityType/entityId', async () => {
     stubFetch({
       crm: {
         rows: [makeCrmItem({ id: 58, entityType: null, entityId: null, read: true, type: 'unknown_type' })],
@@ -852,7 +855,7 @@ describe('NotificationBell — item click (CRM source)', () => {
       fireEvent.click(item);
       await Promise.resolve();
     });
-    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(mockRouterPush).toHaveBeenCalledWith('/portal/notifications');
   });
 
   it('does not PATCH for an already-read CRM item', async () => {

@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pCard } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pCard, sBtn, sBtnGhost } from '@/components/portal/portal-ui';
+import { DiffViewer } from '@/components/portal/approvals/DiffViewer';
+import { EmptyState } from '@/components/portal/EmptyState';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 
 interface PendingItem {
   id: number;
@@ -74,82 +77,6 @@ async function safeJson<TData = unknown, TMeta = unknown>(
 
 /** Compute a shallow diff between two JSON-serializable objects.
  * Each row is a top-level key with before/after values and a change kind. */
-type DiffKind = 'added' | 'removed' | 'changed' | 'unchanged';
-interface DiffRow { key: string; before: unknown; after: unknown; kind: DiffKind }
-
-function diffObjects(before: unknown, after: unknown): DiffRow[] {
-  const b = (before && typeof before === 'object' && !Array.isArray(before)) ? before as Record<string, unknown> : {};
-  const a = (after && typeof after === 'object' && !Array.isArray(after)) ? after as Record<string, unknown> : {};
-  const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(a)])).sort();
-  return keys.map(key => {
-    const hasBefore = key in b;
-    const hasAfter = key in a;
-    if (!hasBefore) return { key, before: undefined, after: a[key], kind: 'added' as const };
-    if (!hasAfter) return { key, before: b[key], after: undefined, kind: 'removed' as const };
-    const bJson = JSON.stringify(b[key]);
-    const aJson = JSON.stringify(a[key]);
-    return { key, before: b[key], after: a[key], kind: bJson === aJson ? 'unchanged' as const : 'changed' as const };
-  });
-}
-
-function formatValue(v: unknown): string {
-  if (v === undefined) return '';
-  if (v === null) return 'null';
-  if (typeof v === 'string') return v;
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-  try { return JSON.stringify(v, null, 2); } catch { return String(v); }
-}
-
-function DiffViewer({ before, after }: { before: unknown; after: unknown }) {
-  const rows = diffObjects(before, after);
-  const changedCount = rows.filter(r => r.kind !== 'unchanged').length;
-  if (rows.length === 0) {
-    return <p className="text-xs text-muted-foreground italic">No fields to compare.</p>;
-  }
-  return (
-    <div className="space-y-2">
-      <div className="text-[11px] text-muted-foreground">
-        {changedCount} of {rows.length} field{rows.length === 1 ? '' : 's'} changed.
-      </div>
-      <div className="border border-border rounded-md overflow-hidden divide-y divide-border">
-        {rows.map(row => {
-          const rowBg =
-            row.kind === 'added' ? 'bg-emerald-50 dark:bg-emerald-900/10' :
-            row.kind === 'removed' ? 'bg-destructive/5' :
-            row.kind === 'changed' ? 'bg-amber-50 dark:bg-amber-900/10' :
-            'bg-transparent';
-          return (
-            <div key={row.key} className={`${rowBg} px-3 py-2 text-xs`}>
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <code className="font-semibold text-foreground">{row.key}</code>
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{row.kind}</span>
-              </div>
-              {row.kind === 'unchanged' ? (
-                <pre className="text-muted-foreground whitespace-pre-wrap break-words line-clamp-3">{formatValue(row.before)}</pre>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <div className="text-[10px] text-muted-foreground mb-0.5">before</div>
-                    <pre className="bg-muted/40 rounded px-2 py-1 whitespace-pre-wrap break-words max-h-40 overflow-auto">
-                      {row.kind === 'added' ? <span className="text-muted-foreground italic">(not set)</span> : formatValue(row.before)}
-                    </pre>
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-muted-foreground mb-0.5">after</div>
-                    <pre className="bg-muted/40 rounded px-2 py-1 whitespace-pre-wrap break-words max-h-40 overflow-auto">
-                      {row.kind === 'removed' ? <span className="text-muted-foreground italic">(removed)</span> : formatValue(row.after)}
-                    </pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 const MAX_BULK = 25;
 
 interface BulkResultItem { id: number; status: 'applied' | 'failed' | 'rejected' | 'skipped'; error?: string }
@@ -170,6 +97,23 @@ export default function PortalApprovalsPage() {
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [bulkAction, setBulkAction] = useState<'approve' | 'reject' | null>(null);
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+  // PUX-157 (design doc screen 16): "Anything waiting on your yes, in one
+  // place." Under the redesign the page is called Approvals, the longest-
+  // waiting item comes first and carries the one teal Approve; every other row
+  // gets ghost Approve / Reject inline. The diff pane and the bulk flow are
+  // untouched. The API always returns newest-first, so the sort is local.
+  const studio = useFeatureFlag('portal-redesign');
+  const shown = studio ? [...items].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)) : items;
+  const firstPendingId = studio ? shown.find(i => i.status === 'pending')?.id : undefined;
+  const decide = async (id: number, action: 'approve' | 'reject') => {
+    if (action === 'reject' && !confirm('Reject this pending change? It will NOT be applied.')) return;
+    setBusy(true);
+    const res = await safeJson(`/api/portal/approvals/${id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    setBusy(false);
+    if (!res.success) alert(res.message ?? `${action === 'approve' ? 'Apply' : 'Reject'} failed`);
+    if (selected?.change.id === id) setSelected(null);
+    fetchList();
+  };
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -311,8 +255,8 @@ export default function PortalApprovalsPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <PortalPageHeader
-        eyebrow="REVIEW"
-        title="MCP Approvals"
+        eyebrow={studio ? 'Work' : 'REVIEW'}
+        title={studio ? 'Approvals' : 'MCP Approvals'}
         subtitle={<>Review AI-agent-initiated CMS changes before they go live. Keys flagged with{' '}<code className="text-xs">require_cms_approval</code> stage writes here instead of applying directly.</>}
       />
 
@@ -438,12 +382,20 @@ export default function PortalApprovalsPage() {
                 Loading...
               </div>
             ) : items.length === 0 ? (
+              <EmptyState
+                className="p-5"
+                title={filter === 'pending' ? 'Nothing is waiting on your yes.' : `No ${filter === 'all' ? '' : filter + ' '}changes.`}
+                body="When an AI agent stages a change to your site, or a publish needs your approval, it lands here with what it wants to change and one button to say yes."
+                ghostLabel="Approve · Reject"
+                legacy={(
               <div className="p-8 text-center text-muted-foreground">
                 <span className="material-icons text-4xl mb-2 block">check_circle</span>
                 No {filter === 'all' ? '' : filter + ' '}changes.
               </div>
+                )}
+              />
             ) : (
-              items.map(item => {
+              shown.map(item => {
                 const isPending = item.status === 'pending';
                 const isChecked = checkedIds.has(item.id);
                 return (
@@ -496,6 +448,12 @@ export default function PortalApprovalsPage() {
                         )}
                       </div>
                     </button>
+                    {studio && canManage && isPending && (
+                      <span className="flex shrink-0 gap-1.5 self-center">
+                        <button type="button" disabled={busy} onClick={() => decide(item.id, 'approve')} className={`${item.id === firstPendingId ? sBtn : sBtnGhost} px-2.5 py-1 text-xs disabled:opacity-50`}>Approve</button>
+                        <button type="button" disabled={busy} onClick={() => decide(item.id, 'reject')} className={`${sBtnGhost} px-2.5 py-1 text-xs disabled:opacity-50`}>Reject</button>
+                      </span>
+                    )}
                   </div>
                 );
               })

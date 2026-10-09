@@ -19,6 +19,9 @@ import CopyableSiteId from '@/components/portal/CopyableSiteId';
 import RepoConnectionManager from '@/components/portal/RepoConnectionManager';
 import TrackingSettingsCard from '@/components/portal/TrackingSettingsCard';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { hasFlag } from '@/lib/feature-flags';
+import SettingsTabs from '@/components/portal/websites/SettingsTabs';
+import { GhostCard } from '@/components/portal/EmptyState';
 
 export default async function WebsiteSettingsPage({
   params,
@@ -67,20 +70,13 @@ export default async function WebsiteSettingsPage({
       }
     : null;
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header — site identity + back lives in WebsiteSubNav, this is just the
-          page title. */}
-      <PortalPageHeader
-        eyebrow="Website"
-        title="Settings"
-        subtitle="Manage deployment, domain, repository access, and general settings."
-      />
-
-      {/* Site ID */}
+  // PUX-190: the same sections, hoisted so the flag-off stack and the tabbed
+  // studio layout render identical nodes (no duplicate JSX, no remounting).
+  const studio = hasFlag(client, 'portal-redesign');
+  const siteIdNode = (
       <CopyableSiteId siteId={site.id} />
-
-      {/* General Settings */}
+  );
+  const generalNode = (
       <WebsiteSettingsForm
         siteId={site.id}
         initialName={site.name}
@@ -89,32 +85,29 @@ export default async function WebsiteSettingsPage({
         initialPublicAccess={site.publicAccess}
         initialPreviewCode={site.previewCode || null}
       />
-
-      {/* Custom Domains */}
+  );
+  const domainsNode = (
       <CustomDomainForm siteId={site.id} initialDomains={domains} />
-
-      {/* Repository Connection */}
+  );
+  const repoNode = (
       <RepoConnectionManager
         siteId={site.id}
         initialRepoName={site.githubRepoName}
         initialRepoUrl={site.githubRepoUrl}
         initialBranch={site.deployBranch}
       />
-
-      {/* Environments (env vars, backups, copy) */}
-      {environments.length > 0 && (
+  );
+  const envNode = (environments.length > 0 && (
         <EnvironmentPanel siteId={site.id} environments={environments} />
-      )}
-
-      {/* Infrastructure / Deployments / Logs */}
+      ));
+  const infraNode = (
       <InfrastructureTabs
         infrastructure={<ProvisioningStatus siteId={site.id} />}
         deployments={<DeploymentList siteId={site.id} />}
         logs={<HttpLogViewer siteId={site.id} />}
       />
-
-      {/* Integrations — GitHub/Google genuinely need a live deployment/domain. */}
-      {site.deploymentStatus === 'active' && (
+  );
+  const integrationsNode = (site.deploymentStatus === 'active' && (
         <>
           <GitHubConnectButton siteId={site.id} />
           <GoogleConnectionCard
@@ -123,18 +116,15 @@ export default async function WebsiteSettingsPage({
             websiteName={site.name}
           />
         </>
-      )}
-
-      {/* Tracking & Analytics — QAD-034: editable BEFORE deploy. Config saves now
-          and the public renderer applies it automatically when the site goes live. */}
+      ));
+  const trackingNode = (
       <TrackingSettingsCard
         siteId={site.id}
         initialConfig={trackingInitial}
         deployed={site.deploymentStatus === 'active'}
       />
-
-      {/* Automations & Notifications link */}
-      {site.deploymentStatus === 'active' && (
+  );
+  const automationsNode = (site.deploymentStatus === 'active' && (
         <Link
           href={`/portal/websites/${site.id}/automations`}
           className="flex items-center justify-between bg-card border border-border rounded-2xl p-5 hover:border-primary/30 transition-colors group"
@@ -148,10 +138,46 @@ export default async function WebsiteSettingsPage({
           </div>
           <span className="material-icons text-muted-foreground text-base group-hover:text-foreground transition-colors">chevron_right</span>
         </Link>
-      )}
-
-      {/* Danger Zone */}
+      ));
+  const dangerNode = (
       <DeleteWebsiteButton siteId={site.id} siteName={site.name} />
+  );
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header — site identity + back lives in WebsiteSubNav, this is just the
+          page title. */}
+      <PortalPageHeader
+        eyebrow="Website"
+        title="Settings"
+        subtitle="Manage deployment, domain, repository access, and general settings."
+      />
+
+      {studio ? (
+        <SettingsTabs
+          panes={[
+            { id: 'general', label: 'General', icon: 'tune', node: <>{siteIdNode}{generalNode}{trackingNode}</> },
+            { id: 'domains', label: 'Domains', icon: 'language', node: domainsNode },
+            { id: 'redirects', label: 'Redirects', icon: 'alt_route', node: <GhostCard icon="alt_route" title="Redirects are set through Claude today" body="Ask your assistant to list, add or remove redirects for this site — the website_redirects tools do it now; a form here is on the way." /> },
+            { id: 'code', label: 'Code', icon: 'code', node: <><GhostCard icon="code" title="Custom CSS and JS are edited through Claude today" body="The sites custom-code tools stage and publish site-wide code; the editor for it lands here." />{repoNode}{envNode}{infraNode}{integrationsNode}</> },
+            { id: 'emails', label: 'Emails', icon: 'mail', node: <><GhostCard icon="mail" title="Transactional email for this site" body="Sender name, templates and notification settings will live here. Automations and event alerts are already one tap away." />{automationsNode}</> },
+            { id: 'danger', label: 'Danger', icon: 'warning', node: dangerNode },
+          ]}
+        />
+      ) : (
+        <>
+      {siteIdNode}
+      {generalNode}
+      {domainsNode}
+      {repoNode}
+      {envNode}
+      {infraNode}
+      {integrationsNode}
+      {trackingNode}
+      {automationsNode}
+      {dangerNode}
+        </>
+      )}
     </div>
   );
 }

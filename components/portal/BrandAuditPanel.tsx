@@ -4,6 +4,8 @@ import { useCallback, useState } from 'react';
 import type { AuditIssue, AuditReport, AuditSeverity } from '@/lib/branding/audit';
 
 interface Props {
+  /** PUX-189: one-line summary with the issues behind a disclosure (studio). */
+  compact?: boolean;
   profileId: number;
 }
 
@@ -13,7 +15,7 @@ const SEVERITY_STYLES: Record<AuditSeverity, { bg: string; fg: string; icon: str
   info: { bg: 'bg-blue-50 border-blue-200', fg: 'text-blue-700', icon: 'info', label: 'Info' },
 };
 
-export function BrandAuditPanel({ profileId }: Props) {
+export function BrandAuditPanel({ compact = false, profileId }: Props) {
   const [report, setReport] = useState<AuditReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +63,15 @@ export function BrandAuditPanel({ profileId }: Props) {
         </div>
       )}
 
-      {report && (
+      {report && compact && (
+        <details className="text-sm" data-testid="brand-audit-compact">
+          <summary className="cursor-pointer text-foreground">
+            {report.issues.length === 0 ? 'No issues found' : Object.entries(report.counts).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k}`).join(' · ')}
+          </summary>
+          <ul className="mt-2 space-y-2">{report.issues.map((issue) => <AuditIssueRow key={issue.id} issue={issue} />)}</ul>
+        </details>
+      )}
+      {report && !compact && (
         <>
           <AuditSummary counts={report.counts} />
           {report.issues.length === 0 ? (

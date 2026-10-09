@@ -12,6 +12,8 @@ import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { loadUserApps } from '@/lib/plugins/load-user-apps';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { hasFlag } from '@/lib/feature-flags';
+import AppsStudio from './_components/AppsStudio';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +26,7 @@ export default async function PortalAppsIndex() {
   if (!client) redirect('/portal/dashboard');
 
   const apps = await loadUserApps(client.id);
+  const studio = hasFlag(client, 'portal-redesign'); // PUX-197
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -33,7 +36,7 @@ export default async function PortalAppsIndex() {
         subtitle="Installed plugins available to your account."
       />
 
-      {apps.length === 0 ? (
+      {studio ? <AppsStudio apps={apps} /> : apps.length === 0 ? (
         <div className="border border-border rounded-2xl p-10 text-center bg-card">
           <span className="material-icons text-5xl text-muted-foreground mb-3 block">
             extension_off

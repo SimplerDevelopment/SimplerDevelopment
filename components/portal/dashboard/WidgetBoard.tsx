@@ -22,6 +22,8 @@ import { CSS } from '@dnd-kit/utilities';
 import type { DashboardWidgetPrefs } from '@/lib/dashboard/widgets';
 import { SOLUTION_LABELS } from '@/lib/dashboard/widgets';
 import WidgetShell from './WidgetShell';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { EmptyState } from '@/components/portal/EmptyState';
 
 interface WidgetMeta {
   id: string;
@@ -52,6 +54,7 @@ function SortableWidgetItem({
   onRemove,
   isCustomizing,
   slot,
+  tone,
 }: {
   widget: WidgetMeta;
   collapsed: boolean;
@@ -59,6 +62,7 @@ function SortableWidgetItem({
   onRemove: (id: string) => void;
   isCustomizing: boolean;
   slot: ReactNode;
+  tone?: 'gold';
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: widget.id,
@@ -83,6 +87,7 @@ function SortableWidgetItem({
         onRemove={onRemove}
         dragHandleAttributes={attributes}
         dragHandleListeners={listeners}
+        tone={tone}
       >
         {slot}
       </WidgetShell>
@@ -125,6 +130,15 @@ export default function WidgetBoard({
   const visibleWidgets = order
     .map((id) => widgets.find((w) => w.id === id))
     .filter((w): w is WidgetMeta => !!w && !hidden.has(w.id));
+
+  // PUX-145 (design doc screen 01): under the redesign the four number tiles
+  // "move to the bottom" — same widgets, same prefs, same drag/hide/collapse,
+  // just rendered after the cards in their own row. Off = one grid, as today.
+  const studio = useFeatureFlag('portal-redesign');
+  const isMetric = (w: WidgetMeta) => w.id.startsWith('metric-');
+  const cards = studio ? visibleWidgets.filter((w) => !isMetric(w)) : visibleWidgets;
+  const metrics = studio ? visibleWidgets.filter(isMetric) : [];
+  const toneFor = (w: WidgetMeta) => (studio && w.id.startsWith('brain-') ? 'gold' as const : undefined);
 
   async function persistPrefs(nextOrder: string[], nextHidden: Set<string>, nextCollapsed: Set<string>) {
     setSaving(true);
@@ -365,7 +379,7 @@ export default function WidgetBoard({
       <DndContext id="dashboard-widget-board" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
           <div className="grid lg:grid-cols-2 gap-4 items-start">
-            {visibleWidgets.map((w) => (
+            {cards.map((w) => (
               <SortableWidgetItem
                 key={w.id}
                 widget={w}
@@ -374,23 +388,49 @@ export default function WidgetBoard({
                 onRemove={(id) => handleToggleVisibility(id, false)}
                 isCustomizing={screenOptionsOpen}
                 slot={slots[w.id]}
+                tone={toneFor(w)}
               />
             ))}
           </div>
+          {metrics.length > 0 && (
+            <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+              {metrics.map((w) => (
+                <SortableWidgetItem
+                  key={w.id}
+                  widget={w}
+                  collapsed={collapsed.has(w.id)}
+                  onToggleCollapse={handleToggleCollapse}
+                  onRemove={(id) => handleToggleVisibility(id, false)}
+                  isCustomizing={screenOptionsOpen}
+                  slot={slots[w.id]}
+                />
+              ))}
+            </div>
+          )}
         </SortableContext>
       </DndContext>
 
       {visibleWidgets.length === 0 && (
-        <div className="bg-card border border-border rounded-xl p-10 text-center">
-          {/* Empty icon container */}
-          <div className="w-11 h-11 rounded-[11px] border border-border bg-[var(--portal-surface-2)] flex items-center justify-center mx-auto mb-3">
-            <span className="material-icons text-[22px] leading-none text-muted-foreground">dashboard_customize</span>
-          </div>
-          <p className="text-[14px] font-semibold text-foreground">No widgets visible</p>
-          <p className="mt-1 text-[12.5px] text-muted-foreground max-w-[240px] mx-auto leading-relaxed">
-            Use Customize to enable widgets on your dashboard.
-          </p>
-        </div>
+        // PUX-144: an empty surface is a preview with a button (design doc screens 01/05).
+        <EmptyState
+          className="bg-card border border-border rounded-xl p-5"
+          title="Nothing on your home yet."
+          body="Turn on the cards you check most — what's unpaid, who's waiting on a reply, how your site is doing."
+          cta={{ label: 'Choose cards', icon: 'tune', onClick: () => setScreenOptionsOpen(true) }}
+          ghostLabel="Home · 4 cards"
+          legacy={(
+            <div className="bg-card border border-border rounded-xl p-10 text-center">
+              {/* Empty icon container */}
+              <div className="w-11 h-11 rounded-[11px] border border-border bg-[var(--portal-surface-2)] flex items-center justify-center mx-auto mb-3">
+                <span className="material-icons text-[22px] leading-none text-muted-foreground">dashboard_customize</span>
+              </div>
+              <p className="text-[14px] font-semibold text-foreground">No widgets visible</p>
+              <p className="mt-1 text-[12.5px] text-muted-foreground max-w-[240px] mx-auto leading-relaxed">
+                Use Customize to enable widgets on your dashboard.
+              </p>
+            </div>
+          )}
+        />
       )}
     </div>
   );

@@ -17,6 +17,11 @@ import { WidgetSkeleton } from '@/components/portal/dashboard/skeletons';
 import GetStartedChecklist from '@/components/portal/onboarding/GetStartedChecklist';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnGhost } from '@/components/portal/portal-ui';
+import { hasFlag } from '@/lib/feature-flags';
+import { collectNeedsYou } from '@/lib/portal/needs-you';
+import { needsYouSummary } from '@/lib/portal/needs-you-shape';
+import NeedsYouCard from '@/components/portal/dashboard/NeedsYouCard';
+import { Greeting, TodayLine } from '@/components/portal/dashboard/HomeGreeting';
 
 // A first-impression page must never crash on a single optional data load.
 // Each widget count / pref lookup degrades to its natural fallback (and logs)
@@ -68,10 +73,16 @@ export default async function PortalDashboardPage() {
   const brainProfile = await safe(getBrainProfile(client.id), null, 'brainProfile');
   const brainEnabled = brainProfile?.enabled ?? false;
 
+  // PUX-145: under the redesign Home opens with "Needs you" — the cross-room
+  // list of what only this client can do — and the greeting is written around
+  // its count. Off = today's header + board, untouched.
+  const studio = hasFlag(client, 'portal-redesign');
+  const firstName = session.user.name?.trim().split(/\s+/)[0] || null;
+
   // Only the data the surviving dashboard needs: the service list + this
   // client's subscriptions (to gate which widgets are on the board) and the
   // user's saved widget prefs. Every item degrades independently (see `safe`).
-  const [allServices, mySubscriptions, dashboardPrefsRow] = await Promise.all([
+  const [allServices, mySubscriptions, dashboardPrefsRow, needs] = await Promise.all([
     safe(db.select().from(services).where(eq(services.active, true)).orderBy(services.name), [], 'services'),
     safe(db.select({ serviceId: clientServices.serviceId, status: clientServices.status })
       .from(clientServices).where(eq(clientServices.clientId, client.id)), [], 'subscriptions'),
@@ -82,6 +93,7 @@ export default async function PortalDashboardPage() {
         eq(userDashboardPreferences.clientId, client.id),
       ))
       .limit(1), [], 'dashboardPrefs'),
+    studio ? safe(collectNeedsYou(client.id), { items: [], total: 0 }, 'needsYou') : Promise.resolve(null),
   ]);
 
   const activeIds = new Set(mySubscriptions.filter(s => s.status === 'active').map(s => s.serviceId));
@@ -109,14 +121,14 @@ export default async function PortalDashboardPage() {
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Header */}
       <PortalPageHeader
-        eyebrow="Workspace"
-        title={
+        eyebrow={studio ? <TodayLine tail={needs && needs.total > 0 ? `${needs.total} open` : undefined} /> : 'Workspace'}
+        title={studio ? <Greeting name={firstName} /> : (
           <span className="flex items-center gap-2">
             {brainEnabled && <span className="material-icons text-primary">psychology</span>}
             Welcome back{client.company ? `, ${client.company}` : ''}!
           </span>
-        }
-        subtitle="Here's what's happening across your business."
+        )}
+        subtitle={needs ? needsYouSummary(needs.total) : "Here's what's happening across your business."}
         actions={brainEnabled ? (
           <Link href="/portal/brain/settings" className={`${pBtnGhost} shrink-0`}>
             <span className="material-icons text-base">settings</span>
@@ -129,6 +141,9 @@ export default async function PortalDashboardPage() {
       <GetStartedChecklist />
 
       {/* AI Credits moved to the sidebar badge + /portal/settings/ai — VEQA-003 */}
+
+      {/* PUX-145: "Needs you" is the page. Top five; the full list is screen 57, not yet built. */}
+      {needs && <NeedsYouCard items={needs.items} total={needs.total} />}
 
 
       {/* Widget Board — the customizable dashboard (drag/hide/collapse, per-user) */}

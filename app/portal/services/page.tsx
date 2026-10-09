@@ -8,6 +8,10 @@ import Link from 'next/link';
 import BuyServiceButton from './_components/BuyServiceButton';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary } from '@/components/portal/portal-ui';
+import { hostedSites } from '@/lib/db/schema';
+import { hasFlag } from '@/lib/feature-flags';
+import { splitServices } from '@/lib/services/split';
+import { GhostCard } from '@/components/portal/EmptyState';
 
 const categoryIcon: Record<string, string> = {
   cms: 'web',
@@ -45,43 +49,8 @@ export default async function PortalServicesPage({
 
   const myServiceIds = new Set(myServices.filter(s => s.status === 'active').map(s => s.serviceId));
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <PortalPageHeader
-        eyebrow="Catalog"
-        title="Add a Service"
-        subtitle="Extend your workspace with powerful add-ons managed by Simpler Development."
-      />
-
-      {purchased === '1' && (
-        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
-          <span className="material-icons text-green-600">check_circle</span>
-          <div>
-            <p className="font-medium text-sm">Payment successful!</p>
-            <p className="text-xs mt-0.5">Your service is being activated. It will appear as active shortly.</p>
-          </div>
-        </div>
-      )}
-
-      {requested === '1' && (
-        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
-          <span className="material-icons text-blue-600">check_circle</span>
-          <div>
-            <p className="font-medium text-sm">Request submitted!</p>
-            <p className="text-xs mt-0.5">We&apos;ve received your request and will be in touch shortly.</p>
-          </div>
-        </div>
-      )}
-
-      {allServices.length === 0 ? (
-        <div className="bg-card border border-border rounded-2xl p-12 text-center">
-          <span className="material-icons text-5xl text-muted-foreground">storefront</span>
-          <h2 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No services available</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Check back soon or contact us about custom services.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {allServices.map((svc) => {
+  // PUX-193: one card renderer for both the legacy grid and the studio columns.
+  const renderCard = (svc: (typeof allServices)[number]) => {
             const owned = myServiceIds.has(svc.id);
             const hasSurvey = (svc.surveyFields as unknown[])?.length > 0;
             const icon = categoryIcon[svc.category] ?? 'category';
@@ -188,8 +157,91 @@ export default async function PortalServicesPage({
                 </div>
               </div>
             );
-          })}
+  };
+
+  const studio = hasFlag(client, 'portal-redesign');
+  const { active, available } = splitServices(allServices, myServiceIds);
+  // Hosting detail is only what hosted_sites actually stores (plan, status,
+  // renewal). No region / uptime / last-deploy column exists anywhere, so none is drawn.
+  const hosting = studio
+    ? await db.select({ id: hostedSites.id, name: hostedSites.name, plan: hostedSites.plan, status: hostedSites.status, renewalDate: hostedSites.renewalDate })
+        .from(hostedSites).where(eq(hostedSites.clientId, client.id)).orderBy(hostedSites.createdAt)
+    : [];
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <PortalPageHeader
+        eyebrow="Catalog"
+        title="Add a Service"
+        subtitle="Extend your workspace with powerful add-ons managed by Simpler Development."
+      />
+
+      {purchased === '1' && (
+        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+          <span className="material-icons text-green-600">check_circle</span>
+          <div>
+            <p className="font-medium text-sm">Payment successful!</p>
+            <p className="text-xs mt-0.5">Your service is being activated. It will appear as active shortly.</p>
+          </div>
         </div>
+      )}
+
+      {requested === '1' && (
+        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
+          <span className="material-icons text-blue-600">check_circle</span>
+          <div>
+            <p className="font-medium text-sm">Request submitted!</p>
+            <p className="text-xs mt-0.5">We&apos;ve received your request and will be in touch shortly.</p>
+          </div>
+        </div>
+      )}
+
+      {studio ? (
+        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+          <section className="space-y-4" aria-label="Active services">
+            <h2 className="font-display text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">On your plan</h2>
+            {active.length === 0
+              ? <GhostCard icon="storefront" title="Nothing added yet" body="Everything you add from the right lands here with its status." />
+              : active.map(renderCard)}
+            {hosting.length > 0 && (
+              <section className="rounded-2xl border border-border bg-card p-5" aria-label="Hosting">
+                <h3 className="text-sm font-semibold text-foreground">Hosting</h3>
+                <ul className="mt-3 space-y-2 text-sm">
+                  {hosting.map((h) => (
+                    <li key={h.id} className="flex items-center gap-3">
+                      <span className="material-icons text-base text-muted-foreground">cloud</span>
+                      <Link href={`/portal/hosting/${h.id}`} className="font-medium text-foreground hover:underline">{h.name}</Link>
+                      <span className="text-xs text-muted-foreground capitalize">{h.plan}</span>
+                      <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium capitalize ${h.status === 'active' ? 'bg-[var(--portal-ok-bg)] text-[var(--portal-ok)]' : 'bg-[var(--portal-warn-bg)] text-[var(--portal-warn)]'}`}>{h.status}</span>
+                      {h.renewalDate && <span className="text-xs tabular-nums text-muted-foreground">renews {new Date(h.renewalDate).toLocaleDateString()}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </section>
+          <section className="space-y-4" aria-label="Add to your plan">
+            <h2 className="font-display text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">Add to your plan</h2>
+            {available.length === 0
+              ? <GhostCard icon="check_circle" title="You have everything in the catalogue" body="New services appear here as Simpler Development adds them." />
+              : available.map(renderCard)}
+            <p className="text-xs text-muted-foreground">Live chat for visitors has no price of its own — it bills under Projects &amp; Tickets. Feature modules (CRM, Brain, Email, SEO…) are priced on the <Link href="/portal/settings/billing/plans" className="underline hover:text-foreground">plans page</Link>.</p>
+          </section>
+        </div>
+      ) : (
+        <>
+      {allServices.length === 0 ? (
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
+          <span className="material-icons text-5xl text-muted-foreground">storefront</span>
+          <h2 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No services available</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Check back soon or contact us about custom services.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {allServices.map(renderCard)}
+        </div>
+      )}
+        </>
       )}
 
       <div className="flex items-center gap-3 p-4 bg-muted/40 border border-border rounded-2xl">

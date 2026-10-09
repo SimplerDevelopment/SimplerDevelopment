@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { VariantBlockEditor } from './VariantBlockEditor';
+import { SignificanceTable } from '@/components/portal/experiments/SignificanceTable';
 
 interface ExperimentRow {
   id: number;
@@ -70,11 +71,7 @@ interface Props {
   siteName: string | null;
 }
 
-// v1 heuristic: a p-value alone is not enough — require at least this many
-// visitors per arm before we promote a "significant" comparison to the green
-// check. Below the threshold we render an hourglass instead so users don't
-// chase noisy early reads. The 100 floor is arbitrary but reasonable for v1.
-const MIN_SAMPLE_PER_ARM = 100;
+// The sample-size floor (MIN_SAMPLE_PER_ARM) moved with the significance table to lib/ab/confidence.ts (PUX-212).
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   draft: ['running', 'archived'],
@@ -717,56 +714,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
             {results.comparisons.length > 0 ? (
               <div>
                 <h3 className="text-xs uppercase text-muted-foreground mt-4 mb-2">Significance vs control</h3>
-                <table className="w-full text-sm">
-                  <thead className="text-xs uppercase text-muted-foreground">
-                    <tr>
-                      <th className="text-left py-2">Variant</th>
-                      <th className="text-right py-2">Lift</th>
-                      <th className="text-right py-2">z</th>
-                      <th className="text-right py-2">p</th>
-                      <th className="text-right py-2">Sig.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {results.comparisons.map(c => {
-                      // Server flags significant on `p < 0.05` alone. Layer
-                      // a sample-size guard on top: both arms need at least
-                      // MIN_SAMPLE_PER_ARM views before we trust the call.
-                      const controlViews = results.stats.find(s => s.key === c.controlKey)?.views ?? 0;
-                      const variantViews = results.stats.find(s => s.key === c.variantKey)?.views ?? 0;
-                      const minViews = Math.min(controlViews, variantViews);
-                      const enoughData = minViews >= MIN_SAMPLE_PER_ARM;
-                      const showSignificant = c.significant && enoughData;
-                      const tooSmall = c.significant && !enoughData;
-                      const icon = showSignificant
-                        ? 'check_circle'
-                        : tooSmall
-                          ? 'hourglass_top'
-                          : 'remove_circle_outline';
-                      const colorClass = showSignificant
-                        ? 'text-green-600 dark:text-green-500'
-                        : tooSmall
-                          ? 'text-amber-500 dark:text-amber-400'
-                          : 'text-muted-foreground/50';
-                      const title = tooSmall
-                        ? `Not enough data — need at least ${MIN_SAMPLE_PER_ARM} visitors per arm`
-                        : undefined;
-                      return (
-                        <tr key={c.variantKey} className="border-t border-border">
-                          <td className="py-2 font-mono">{c.variantKey} vs {c.controlKey}</td>
-                          <td className="py-2 text-right">{(c.lift * 100).toFixed(2)}%</td>
-                          <td className="py-2 text-right">{c.z.toFixed(3)}</td>
-                          <td className="py-2 text-right">{c.p.toFixed(4)}</td>
-                          <td className="py-2 text-right">
-                            <span className={`material-icons text-base ${colorClass}`} title={title}>
-                              {icon}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <SignificanceTable comparisons={results.comparisons} stats={results.stats} />
               </div>
             ) : null}
           </div>

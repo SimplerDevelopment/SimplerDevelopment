@@ -24,6 +24,9 @@ import {
 import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
 import KanbanBoard from '@/components/portal/KanbanBoard';
 import { getPublishingSession } from '@/lib/publishing/active-client';
+import { getPortalClient } from '@/lib/portal-client';
+import { hasFlag } from '@/lib/feature-flags';
+import { cardChannel, cardTitle } from '@/lib/publishing/channel-chip';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +34,8 @@ export const dynamic = 'force-dynamic';
 export default async function PublishingBoardPage() {
   const session = await getPublishingSession();
   const projectId = session.project.id;
+  // PUX-176 (design doc screen 35): under the flag the channel is a chip on the card, not a title prefix.
+  const studio = hasFlag(await getPortalClient(session.userId), 'portal-redesign');
   const canEdit =
     session.isStaff || session.role === 'owner' || session.role === 'admin';
 
@@ -241,18 +246,9 @@ export default async function PublishingBoardPage() {
       .map((c) => {
         const linkedCampaign = c.campaignId != null ? campaignsById.get(c.campaignId) ?? null : null;
         const artifacts = artifactsByCard[c.id] ?? [];
-        // KanbanBoard's Card interface doesn't carry these yet — we sneak the
-        // primary artifact's channel label into the description prefix so it
-        // shows on the card chrome without the component changing. PUB-11
-        // will replace this by widening the Card interface and adding a
-        // dedicated chip slot.
-        const channelHint =
-          artifacts.length === 1
-            ? `[${artifacts[0].artifactType.replace(/_/g, ' ')}] `
-            : artifacts.length > 1
-              ? `[${artifacts.length} artifacts] `
-              : '';
-        const campaignHint = linkedCampaign ? `{${linkedCampaign.name}} ` : '';
+        // Flag off: the primary artifact's channel and the campaign are spliced into the title
+        // (PUB-11's original workaround, kept verbatim in cardTitle()). Flag on (PUX-176): the
+        // channel rides as a structured chip and the card keeps its own title.
         const synthDescription = c.description ?? null;
         return {
           ...c,
@@ -266,8 +262,11 @@ export default async function PublishingBoardPage() {
           unreadAlerts: unreadAlertsByCard[c.id] ?? 0,
           isWatching: watchedCardIds.has(c.id),
           // hint prefixes only affect the title row in card chrome
-          title: `${campaignHint}${channelHint}${c.title}`,
+          title: studio ? c.title : cardTitle(c.title, artifacts, linkedCampaign?.name ?? null),
           description: synthDescription,
+          channel: studio ? cardChannel(artifacts) : null,
+          campaignName: studio ? linkedCampaign?.name ?? null : null,
+          scheduledFor: studio ? c.scheduledFor : null,
         };
       }),
   }));

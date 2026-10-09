@@ -54,6 +54,11 @@ export async function GET(req: NextRequest) {
       lineItems: crmProposals.lineItems,
       fees: crmProposals.fees,
       sentAt: crmProposals.sentAt,
+      // PUX-173: the list never projected these, so the page's "last viewed" cell was always empty;
+      // the Views column and the sent → viewed → signed timeline read them (design doc screen 32).
+      firstViewedAt: crmProposals.firstViewedAt,
+      lastViewedAt: crmProposals.lastViewedAt,
+      signedAt: crmProposals.signedAt,
       viewCount: crmProposals.viewCount,
       acceptedAt: crmProposals.acceptedAt,
       declinedAt: crmProposals.declinedAt,

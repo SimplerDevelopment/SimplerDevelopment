@@ -12,7 +12,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { CardDetailModalProps, FileAttachment } from './_lib/types';
+import type { CardDetail, CardDetailModalProps, FileAttachment } from './_lib/types';
 import { useCardDetail } from './_hooks/useCardDetail';
 import { CardActivity } from './_sections/CardActivity';
 import { CardArtifacts } from './_sections/CardArtifacts';
@@ -27,11 +27,16 @@ import { CardHeader } from './_sections/CardHeader';
 import { CardLabels } from './_sections/CardLabels';
 import { CardSidebar } from './_sections/CardSidebar';
 import { CardTimeLogs } from './_sections/CardTimeLogs';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 
 export default function CardDetailModal({
   cardId, projectId, isStaff, canEdit, currentUserId, onClose, onDeleted, onUpdated,
 }: CardDetailModalProps) {
   const s = useCardDetail({ cardId, onClose, onDeleted, onUpdated });
+  // PUX-153 (design doc screen 12): checklist and comments are what a person
+  // opens a card to DO, so under the redesign they lead the left column and
+  // Labels join the meta column. Same sections, same props — only the order.
+  const studio = useFeatureFlag('portal-redesign');
   // Deep-link to this card. Prefer the project from props; fall back to the
   // card bundle once loaded. Mirrors the addressable route /portal/projects/<id>/<cardId>.
   const linkProjectId = projectId ?? s.card?.projectId ?? null;
@@ -45,6 +50,101 @@ export default function CardDetailModal({
     : null;
   const parentCandidates = s.projectCards.filter(c => c.id !== cardId && c.id !== s.card?.parentCardId);
   const children = s.projectCards.filter(c => c.parentCardId === cardId);
+
+
+  // Sections, keyed, built once the card is loaded so the two orders below
+  // can share them (the JSX used to live inside the `s.card` branch).
+  const sections = (card: CardDetail) => ({
+    labels: (
+                <CardLabels key="labels"
+                  labels={s.labels} projectLabels={s.projectLabels} canEdit={canEdit}
+                  showLabelMenu={s.showLabelMenu} setShowLabelMenu={s.setShowLabelMenu}
+                  newLabelName={s.newLabelName} setNewLabelName={s.setNewLabelName}
+                  newLabelColor={s.newLabelColor} setNewLabelColor={s.setNewLabelColor}
+                  toggleLabel={s.toggleLabel} createAndAttachLabel={s.createAndAttachLabel}
+                />
+  ),
+    deps: (
+                <CardDependencies key="deps"
+                  cardId={cardId} canEdit={canEdit}
+                  blockers={s.blockers} blocking={s.blocking} projectCards={s.projectCards}
+                  showDepMenu={s.showDepMenu} setShowDepMenu={s.setShowDepMenu}
+                  openDepMenu={s.openDepMenu}
+                  addBlocker={s.addBlocker} removeBlocker={s.removeBlocker}
+                />
+  ),
+    childrenSection: (
+                <CardChildren key="children">{children}</CardChildren>
+  ),
+    custom: (
+                <CardCustomFields key="custom" cardId={cardId} canEdit={canEdit} initialFields={s.customFields} />
+  ),
+    checklist: (
+                <CardChecklist key="checklist"
+                  checklist={s.checklist} canEdit={canEdit}
+                  newChecklistText={s.newChecklistText} setNewChecklistText={s.setNewChecklistText}
+                  addChecklist={s.addChecklist}
+                  toggleChecklistItem={s.toggleChecklistItem} removeChecklistItem={s.removeChecklistItem}
+                />
+  ),
+    description: (
+                <CardDescription key="description"
+                  card={card} canEdit={canEdit} savingField={s.savingField}
+                  editingDesc={s.editingDesc} descDraft={s.descDraft}
+                  setDescDraft={s.setDescDraft} setEditingDesc={s.setEditingDesc}
+                  saveDesc={s.saveDesc}
+                />
+  ),
+    files: (
+                <CardFiles key="files"
+                  cardFiles={s.cardFiles} canDeleteFile={canDeleteFile}
+                  uploadFile={s.uploadFile} deleteFile={s.deleteFile}
+                  uploadingFile={s.uploadingFile}
+                  isDragOver={s.isDragOver} setIsDragOver={s.setIsDragOver}
+                  handleFileInput={s.handleFileInput}
+                />
+  ),
+    artifacts: (
+                <CardArtifacts key="artifacts"
+                  canEdit={canEdit}
+                  artifacts={s.artifacts} artifactsLoaded={s.artifactsLoaded}
+                  availableArtifacts={s.availableArtifacts}
+                  showArtifactPicker={s.showArtifactPicker} setShowArtifactPicker={s.setShowArtifactPicker}
+                  artifactTypeFilter={s.artifactTypeFilter} setArtifactTypeFilter={s.setArtifactTypeFilter}
+                  addArtifact={s.addArtifact}
+                  toggleArtifactPin={s.toggleArtifactPin} removeArtifact={s.removeArtifact}
+                />
+  ),
+    comments: (
+                <CardComments key="comments"
+                  comments={s.comments} currentUserId={currentUserId} canEdit={canEdit}
+                  canDeleteFile={canDeleteFile} mentionUsers={s.mentionUsers}
+                  commentBody={s.commentBody} setCommentBody={s.setCommentBody}
+                  pendingCommentFiles={s.pendingCommentFiles} setPendingCommentFiles={s.setPendingCommentFiles}
+                  submittingComment={s.submittingComment}
+                  uploadFile={s.uploadFile} deleteFile={s.deleteFile}
+                  submitComment={s.submitComment} removeComment={s.removeComment}
+                />
+  ),
+    timeLogs: isStaff ? (
+                  <CardTimeLogs key="timeLogs"
+                    timeLogs={s.timeLogs} totalMinutes={totalMinutes}
+                    showTimeForm={s.showTimeForm} setShowTimeForm={s.setShowTimeForm}
+                    timeHours={s.timeHours} setTimeHours={s.setTimeHours}
+                    timeMinutesInput={s.timeMinutesInput} setTimeMinutesInput={s.setTimeMinutesInput}
+                    timeNote={s.timeNote} setTimeNote={s.setTimeNote}
+                    loggingTime={s.loggingTime}
+                    logTime={s.logTime} removeTimeLog={s.removeTimeLog}
+                  />
+  ) : null,
+    activity: (
+                <CardActivity key="activity"
+                  activities={s.activities}
+                  showActivity={s.showActivity} setShowActivity={s.setShowActivity}
+                />
+  ),
+  });
+  const sec = s.card ? sections(s.card) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4">
@@ -103,87 +203,13 @@ export default function CardDetailModal({
 
             <div className="flex flex-col sm:flex-row flex-1 overflow-hidden min-h-0">
               <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-card">
-                <CardLabels
-                  labels={s.labels} projectLabels={s.projectLabels} canEdit={canEdit}
-                  showLabelMenu={s.showLabelMenu} setShowLabelMenu={s.setShowLabelMenu}
-                  newLabelName={s.newLabelName} setNewLabelName={s.setNewLabelName}
-                  newLabelColor={s.newLabelColor} setNewLabelColor={s.setNewLabelColor}
-                  toggleLabel={s.toggleLabel} createAndAttachLabel={s.createAndAttachLabel}
-                />
-
-                <CardDependencies
-                  cardId={cardId} canEdit={canEdit}
-                  blockers={s.blockers} blocking={s.blocking} projectCards={s.projectCards}
-                  showDepMenu={s.showDepMenu} setShowDepMenu={s.setShowDepMenu}
-                  openDepMenu={s.openDepMenu}
-                  addBlocker={s.addBlocker} removeBlocker={s.removeBlocker}
-                />
-
-                <CardChildren>{children}</CardChildren>
-
-                <CardCustomFields cardId={cardId} canEdit={canEdit} initialFields={s.customFields} />
-
-                <CardChecklist
-                  checklist={s.checklist} canEdit={canEdit}
-                  newChecklistText={s.newChecklistText} setNewChecklistText={s.setNewChecklistText}
-                  addChecklist={s.addChecklist}
-                  toggleChecklistItem={s.toggleChecklistItem} removeChecklistItem={s.removeChecklistItem}
-                />
-
-                <CardDescription
-                  card={s.card} canEdit={canEdit} savingField={s.savingField}
-                  editingDesc={s.editingDesc} descDraft={s.descDraft}
-                  setDescDraft={s.setDescDraft} setEditingDesc={s.setEditingDesc}
-                  saveDesc={s.saveDesc}
-                />
-
-                <CardFiles
-                  cardFiles={s.cardFiles} canDeleteFile={canDeleteFile}
-                  uploadFile={s.uploadFile} deleteFile={s.deleteFile}
-                  uploadingFile={s.uploadingFile}
-                  isDragOver={s.isDragOver} setIsDragOver={s.setIsDragOver}
-                  handleFileInput={s.handleFileInput}
-                />
-
-                <CardArtifacts
-                  canEdit={canEdit}
-                  artifacts={s.artifacts} artifactsLoaded={s.artifactsLoaded}
-                  availableArtifacts={s.availableArtifacts}
-                  showArtifactPicker={s.showArtifactPicker} setShowArtifactPicker={s.setShowArtifactPicker}
-                  artifactTypeFilter={s.artifactTypeFilter} setArtifactTypeFilter={s.setArtifactTypeFilter}
-                  addArtifact={s.addArtifact}
-                  toggleArtifactPin={s.toggleArtifactPin} removeArtifact={s.removeArtifact}
-                />
-
-                <CardComments
-                  comments={s.comments} currentUserId={currentUserId} canEdit={canEdit}
-                  canDeleteFile={canDeleteFile} mentionUsers={s.mentionUsers}
-                  commentBody={s.commentBody} setCommentBody={s.setCommentBody}
-                  pendingCommentFiles={s.pendingCommentFiles} setPendingCommentFiles={s.setPendingCommentFiles}
-                  submittingComment={s.submittingComment}
-                  uploadFile={s.uploadFile} deleteFile={s.deleteFile}
-                  submitComment={s.submitComment} removeComment={s.removeComment}
-                />
-
-                {isStaff && (
-                  <CardTimeLogs
-                    timeLogs={s.timeLogs} totalMinutes={totalMinutes}
-                    showTimeForm={s.showTimeForm} setShowTimeForm={s.setShowTimeForm}
-                    timeHours={s.timeHours} setTimeHours={s.setTimeHours}
-                    timeMinutesInput={s.timeMinutesInput} setTimeMinutesInput={s.setTimeMinutesInput}
-                    timeNote={s.timeNote} setTimeNote={s.setTimeNote}
-                    loggingTime={s.loggingTime}
-                    logTime={s.logTime} removeTimeLog={s.removeTimeLog}
-                  />
-                )}
-
-                <CardActivity
-                  activities={s.activities}
-                  showActivity={s.showActivity} setShowActivity={s.setShowActivity}
-                />
+                {sec && (studio
+                  ? [sec.checklist, sec.comments, sec.description, sec.files, sec.artifacts, sec.deps, sec.childrenSection, sec.custom, sec.timeLogs, sec.activity]
+                  : [sec.labels, sec.deps, sec.childrenSection, sec.custom, sec.checklist, sec.description, sec.files, sec.artifacts, sec.comments, sec.timeLogs, sec.activity])}
               </div>
 
               <CardSidebar
+                top={studio && sec ? sec.labels : null}
                 card={s.card} canEdit={canEdit}
                 assignees={s.assignees} mentionUsers={s.mentionUsers}
                 showAssigneeMenu={s.showAssigneeMenu} setShowAssigneeMenu={s.setShowAssigneeMenu}

@@ -1,10 +1,13 @@
 'use client';
 
+import { sBtn } from '@/components/portal/portal-ui';
 import CrmCustomFieldFilters from '@/components/portal/CrmCustomFieldFilters';
 import { statusFilters } from '../_lib/ui';
 import type { Pipeline } from '../_lib/types';
 
 interface DealFiltersProps {
+  /** PUX-171: the one teal, labelled New deal. */
+  studio?: boolean;
   pipelines: Pipeline[];
   selectedPipelineId: number | null;
   onSelectPipeline: (id: number) => void;
@@ -29,8 +32,7 @@ export default function DealFilters({
   customFilters,
   onChangeCustomFilters,
   showForm,
-  onToggleForm,
-}: DealFiltersProps) {
+  onToggleForm, studio = false }: DealFiltersProps) {
   return (
     <div className="flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-3 flex-wrap">
@@ -69,10 +71,10 @@ export default function DealFilters({
       </div>
       <button
         onClick={onToggleForm}
-        className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+        className={studio ? `${sBtn} shrink-0` : "flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"}
       >
         <span className="material-icons text-base">{showForm ? 'close' : 'add_circle'}</span>
-        {showForm ? 'Cancel' : 'Add Deal'}
+        {showForm ? 'Cancel' : studio ? 'New deal' : 'Add Deal'}
       </button>
     </div>
   );

@@ -48,6 +48,13 @@ vi.mock('bcryptjs', () => ({
   hash: (...args: unknown[]) => hashMock(...(args as [string, number])),
 }));
 
+// The accept route rate-limits 5/15min per IP with a process-wide in-memory
+// store; more than five accept cases in one file would 429 on their own — so
+// the limiter is mocked open here and tested where it lives.
+vi.mock('@/lib/security/rate-limit', () => ({
+  checkRateLimit: async () => true,
+  getClientIp: () => '127.0.0.1',
+}));
 const hashTokenMock = vi.fn((t: string) => `H(${t})`);
 vi.mock('@/lib/security/token-hash', () => ({
   hashToken: (...args: unknown[]) => hashTokenMock(...(args as [string])),
@@ -362,6 +369,36 @@ describe('POST /api/portal/invite/accept', () => {
     expect(updateCalls[0].patch.inviteToken).toBeNull();
     expect(updateCalls[0].patch.inviteExpiresAt).toBeNull();
     expect(updateCalls[0].patch.updatedAt).toBeInstanceOf(Date);
+    expect('name' in updateCalls[0].patch).toBe(false); // no name posted → users.name untouched
+  });
+
+  // PUX-149: the accept page asks for the person's name.
+  it('writes a trimmed name when one is posted', async () => {
+    selectQueue.push([{ id: 42, email: 'newuser@example.com' }]);
+    const res = await inviteAcceptRoute.POST(
+      makeReq('http://x', { method: 'POST', body: JSON.stringify({ token: 'tok', password: 'longenough', name: '  Marta Ellison ' }) }),
+    );
+    expect(res.status).toBe(200);
+    expect(updateCalls[0].patch.name).toBe('Marta Ellison');
+  });
+
+  it('ignores a blank name and rejects an over-long or non-string one', async () => {
+    selectQueue.push([{ id: 42, email: 'newuser@example.com' }]);
+    const blank = await inviteAcceptRoute.POST(
+      makeReq('http://x', { method: 'POST', body: JSON.stringify({ token: 'tok', password: 'longenough', name: '   ' }) }),
+    );
+    expect(blank.status).toBe(200);
+    expect('name' in updateCalls[0].patch).toBe(false);
+
+    const long = await inviteAcceptRoute.POST(
+      makeReq('http://x', { method: 'POST', body: JSON.stringify({ token: 'tok', password: 'longenough', name: 'x'.repeat(121) }) }),
+    );
+    expect(long.status).toBe(400);
+    const notString = await inviteAcceptRoute.POST(
+      makeReq('http://x', { method: 'POST', body: JSON.stringify({ token: 'tok', password: 'longenough', name: 7 }) }),
+    );
+    expect(notString.status).toBe(400);
+    expect(updateCalls).toHaveLength(1); // neither bad request reached the update
   });
 });
 

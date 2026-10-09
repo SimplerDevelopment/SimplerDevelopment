@@ -36,7 +36,7 @@ export function PortalPageHeader({
   className,
 }: {
   /** Optional mono uppercase category label above the title. */
-  eyebrow?: string;
+  eyebrow?: ReactNode;
   title: ReactNode;
   subtitle?: ReactNode;
   /** Right-aligned controls (buttons, filters). */

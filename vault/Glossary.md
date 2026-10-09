@@ -105,6 +105,9 @@ Our attribution rule, and deliberately *not* the same as first touch. A visit wi
 
 ## G
 
+### Ghost / GhostCard
+A studio-only preview of a surface that has no data yet (or no data source at all): a dashed card with a title, one line of body and, when there is a real destination, one button. Draws where a thing will live rather than inventing a value — the design doc's "an empty surface is a preview with a button". Lives in `components/portal/EmptyState.tsx`; the `legacy` prop carries the flag-off markup verbatim.
+
 ### Glossary (Brain)
 A Company Brain sub-feature that stores canonical term definitions for a tenant's domain vocabulary. Supports bulk import and lookup. MCP tools: `brain_glossary_list`, `brain_glossary_get`, `brain_glossary_create`, `brain_glossary_update`, `brain_glossary_delete`, `brain_glossary_lookup`, `brain_glossary_bulk_import`.
 
@@ -169,6 +172,9 @@ The authentication library (v5 beta) used for session management. Strategy: JWT 
 
 ## O
 
+### One teal
+The portal-redesign rule that each page has exactly one primary action, drawn with `sBtn` (teal); every other action is `sBtnGhost`. When nothing on a page is primary (Apps, Automations hub) there is no teal at all. See `ADR portal-redesign-flag-gated-implementation`.
+
 ### OAuth 2.1 Server
 The platform's own authorization server at `lib/oauth/server.ts`. Issues scoped `sd_oauth_` tokens to MCP clients via the standard auth-code flow with PKCE (RFC 7636) and resource indicators (RFC 8707). The consent screen is at `app/oauth/authorize/`. Admin OAuth client management at `app/admin/oauth-clients/`.
 
@@ -216,6 +222,12 @@ A Company Brain inbound email or content item that has been routed to a human re
 ---
 
 ## S
+
+### Studio
+The portal-redesign visual system (design doc PUX-134): navy rail, porcelain ground, one teal action per page, gold reserved for the Brain. Rendered only for clients carrying the `portal-redesign` feature flag; the flag-off DOM stays byte-identical. Tokens in `components/portal/portal-ui.ts` (`sBtn`, `sBtnGhost`) and `app/globals.css` (`--studio-*`).
+
+### StudioTable
+The one list idiom of the redesign (`components/portal/StudioTable.tsx`, PUX-169): ink header row, hairline rows, tabular numerals right-aligned, optional selection column, footer count. Contacts, Deals, Proposals, Email, Surveys, Pages, Products, Orders, Companies and Discounts all render it under the flag.
 
 ### Scope Guard
 A per-tool access check inside each MCP tool registrar: `hasScope(ctx.scopes, '<domain>:<permission>')`. A scope guard confirms the caller's token includes the required scope before the handler executes. Missing a scope guard on a new tool is a tenancy/security bug and will be caught by the baseline test. ~50 named scopes exist; `*` grants all.
