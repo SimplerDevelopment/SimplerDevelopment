@@ -16,6 +16,13 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     labels: ["dependencies"]
+    ignore:
+      # The @types/node major must track the runtime Node major (22, see
+      # package.json engines.node and CI node-version). A newer types major
+      # would let code call Node APIs that production does not have. Bump this
+      # by hand, together with the runtime, never via Dependabot.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
