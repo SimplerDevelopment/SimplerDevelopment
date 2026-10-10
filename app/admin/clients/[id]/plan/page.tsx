@@ -59,7 +59,7 @@ function formatLimit(value: number | string | undefined): string {
   if (value === undefined || value === null) return '—';
   if (typeof value === 'string') return value;
   if (value >= 9_000) return 'Unlimited';
-  return value.toLocaleString();
+  return value.toLocaleString('en-US');
 }
 
 export default function ClientPlanPage({ params }: { params: Promise<{ id: string }> }) {
@@ -351,7 +351,7 @@ export default function ClientPlanPage({ params }: { params: Promise<{ id: strin
             <p className="text-lg font-semibold text-foreground">{active ? active.name : 'No tier assigned'}</p>
             {active?.startDate && (
               <p className="text-xs text-muted-foreground">
-                Started {new Date(active.startDate).toLocaleDateString()}
+                Started {new Date(active.startDate).toLocaleDateString('en-US')}
               </p>
             )}
           </div>

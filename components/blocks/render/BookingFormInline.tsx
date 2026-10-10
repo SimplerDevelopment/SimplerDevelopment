@@ -241,7 +241,7 @@ export function BookingFormInline({
         const mapped: TimeSlot[] = (data.data as SlotData[]).map((slot) => {
           const start = new Date(slot.time);
           const end = new Date(start.getTime() + pageInfo.duration * 60 * 1000);
-          const display = start.toLocaleTimeString(undefined, {
+          const display = start.toLocaleTimeString('en-US', {
             hour: 'numeric', minute: '2-digit', hour12: true,
           });
           return { start: slot.time, end: end.toISOString(), display, remainingCapacity: slot.remainingCapacity };
@@ -1055,7 +1055,7 @@ export function BookingFormInline({
               <div className="flex items-center gap-3">
                 <span className="material-icons text-gray-400 text-lg">schedule</span>
                 <span className="text-sm text-gray-900 dark:text-gray-100">
-                  {selectedSlot.display} - {new Date(selectedSlot.end).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} ({pageInfo.duration} min)
+                  {selectedSlot.display} - {new Date(selectedSlot.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} ({pageInfo.duration} min)
                 </span>
               </div>
               <div className="flex items-center gap-3">

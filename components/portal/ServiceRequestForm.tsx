@@ -269,9 +269,9 @@ export default function ServiceRequestForm({ serviceId, serviceName, serviceDesc
             return (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">${min.toLocaleString()}</span>
-                  <span className="text-lg font-bold text-primary">${current.toLocaleString()}</span>
-                  <span className="text-xs text-muted-foreground">${max.toLocaleString()}</span>
+                  <span className="text-xs text-muted-foreground">${min.toLocaleString('en-US')}</span>
+                  <span className="text-lg font-bold text-primary">${current.toLocaleString('en-US')}</span>
+                  <span className="text-xs text-muted-foreground">${max.toLocaleString('en-US')}</span>
                 </div>
                 <div className="relative py-2">
                   <div className="h-2 bg-muted rounded-full">
@@ -291,7 +291,7 @@ export default function ServiceRequestForm({ serviceId, serviceName, serviceDesc
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Drag to set your budget</span>
-                  <span>Step: ${step.toLocaleString()}</span>
+                  <span>Step: ${step.toLocaleString('en-US')}</span>
                 </div>
               </div>
             );

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, relative, sep } from 'node:path';
 
 /**
  * Regression guard for the paid-module billing bypass fixed in 8d0df3bf (MCP)
@@ -24,6 +24,13 @@ import { join, resolve } from 'node:path';
  * write route not on that list, without a gate, fails this test.
  */
 const ROOT = resolve(__dirname, '..', '..');
+
+/** Repo-relative path with forward slashes on every platform. `String.replace
+ *  (ROOT + '/', '')` silently fails on Windows (backslashes), which made the
+ *  allow-lists below miss and flagged intentional routes as offenders. */
+function rel(f: string): string {
+  return relative(ROOT, f).split(sep).join('/');
+}
 
 function walkRouteFiles(dir: string): string[] {
   const out: string[] = [];
@@ -62,12 +69,12 @@ describe('paid-module entitlement guards', () => {
   it('every CRM write route is entitlement-gated (or explicitly allow-listed)', () => {
     const offenders = walkRouteFiles(resolve(ROOT, 'app/api/portal/crm'))
       .filter((f) => {
-        const rel = f.replace(ROOT + '/', '');
-        if (CRM_WRITE_UNGATED.has(rel)) return false;
+        const relPath = rel(f);
+        if (CRM_WRITE_UNGATED.has(relPath)) return false;
         const src = readFileSync(f, 'utf8');
         return hasWriteHandler(src) && !(hasEntitlementCall(src) || src.includes('crmEntitlementError'));
       })
-      .map((f) => f.replace(ROOT + '/', ''));
+      .map((f) => rel(f));
     expect(
       offenders,
       `ungated CRM write routes (call crmEntitlementError from @/lib/crm/entitlement, or add to CRM_WRITE_UNGATED with a reason):\n${offenders.join('\n')}`,
@@ -89,20 +96,20 @@ describe('paid-module entitlement guards', () => {
         const src = readFileSync(f, 'utf8');
         return hasWriteHandler(src) && !(hasEntitlementCall(src) && src.includes("'pitch-decks'"));
       })
-      .map((f) => f.replace(ROOT + '/', ''));
+      .map((f) => rel(f));
     expect(offenders, `ungated pitch-deck write routes:\n${offenders.join('\n')}`).toEqual([]);
   });
 
   it('every store write route is entitlement-gated (or explicitly allow-listed)', () => {
     const offenders = walkRouteFiles(resolve(ROOT, 'app/api/portal/websites'))
-      .filter((f) => f.replace(ROOT + '/', '').includes('/store/'))
+      .filter((f) => rel(f).includes('/store/'))
       .filter((f) => {
-        const rel = f.replace(ROOT + '/', '');
-        if (STORE_WRITE_UNGATED.has(rel)) return false;
+        const relPath = rel(f);
+        if (STORE_WRITE_UNGATED.has(relPath)) return false;
         const src = readFileSync(f, 'utf8');
         return hasWriteHandler(src) && !hasEntitlementCall(src);
       })
-      .map((f) => f.replace(ROOT + '/', ''));
+      .map((f) => rel(f));
     expect(
       offenders,
       `ungated store write routes (gate via resolveStoreSite, or add to STORE_WRITE_UNGATED with a reason):\n${offenders.join('\n')}`,

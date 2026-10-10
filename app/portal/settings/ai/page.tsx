@@ -64,7 +64,7 @@ function relativeTime(dateStr: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
+  return new Date(dateStr).toLocaleDateString('en-US');
 }
 
 function getChannel(title: string): 'email' | 'chat' {
@@ -184,7 +184,7 @@ export default function AISettingsPage() {
         </div>
         <div className={`${pCard} p-4`}>
           <span className="material-icons text-lg text-green-500">token</span>
-          <p className="mt-2 text-xl font-bold text-foreground">{credits ? credits.balance.toLocaleString() : '---'}</p>
+          <p className="mt-2 text-xl font-bold text-foreground">{credits ? credits.balance.toLocaleString('en-US') : '---'}</p>
           <p className="text-xs text-muted-foreground">Credits Remaining</p>
         </div>
         <div className={`${pCard} p-4`}>
@@ -194,7 +194,7 @@ export default function AISettingsPage() {
             AI Images today
             {imageUsage && (
               <span className="ml-1 text-foreground/60">
-                · {imageUsage.monthCount.toLocaleString()} this month
+                · {imageUsage.monthCount.toLocaleString('en-US')} this month
               </span>
             )}
           </p>
@@ -288,7 +288,7 @@ export default function AISettingsPage() {
             <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Token Receipts</h2>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span>This month: <span className="font-medium text-foreground">{monthlyUsage.toLocaleString()}</span> tokens</span>
+            <span>This month: <span className="font-medium text-foreground">{monthlyUsage.toLocaleString('en-US')}</span> tokens</span>
             {ledger.length > 5 && (
               <button onClick={() => setShowAllReceipts(v => !v)} className="text-primary hover:underline">
                 {showAllReceipts ? 'Show less' : `View all (${ledger.length})`}
@@ -319,7 +319,7 @@ export default function AISettingsPage() {
                   return (
                     <tr key={entry.id} className="hover:bg-accent/30 transition-colors">
                       <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(entry.createdAt).toLocaleDateString()} {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(entry.createdAt).toLocaleDateString('en-US')} {new Date(entry.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${typeColor[entry.type] || 'text-gray-600 bg-gray-100'}`}>
@@ -331,10 +331,10 @@ export default function AISettingsPage() {
                         {entry.description || (entry.serviceCategory ? `${entry.serviceCategory} service` : '---')}
                       </td>
                       <td className={`px-4 py-2.5 text-xs text-right font-mono font-medium ${isDebit ? 'text-red-600' : 'text-green-600'}`}>
-                        {isDebit ? '' : '+'}{entry.amount.toLocaleString()}
+                        {isDebit ? '' : '+'}{entry.amount.toLocaleString('en-US')}
                       </td>
                       <td className="px-4 py-2.5 text-xs text-right font-mono text-muted-foreground">
-                        {entry.balanceAfter.toLocaleString()}
+                        {entry.balanceAfter.toLocaleString('en-US')}
                       </td>
                     </tr>
                   );
@@ -483,7 +483,7 @@ export default function AISettingsPage() {
                     <span className="text-sm font-medium text-foreground">{cleanTitle(selectedConv.title)}</span>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-0.5 ml-6">
-                    {new Date(selectedConv.createdAt).toLocaleString()} - {(selectedConv.totalInputTokens + selectedConv.totalOutputTokens).toLocaleString()} tokens
+                    {new Date(selectedConv.createdAt).toLocaleString('en-US')} - {(selectedConv.totalInputTokens + selectedConv.totalOutputTokens).toLocaleString('en-US')} tokens
                   </p>
                 </div>
 
@@ -499,10 +499,10 @@ export default function AISettingsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium text-foreground">{msg.role === 'user' ? 'Request' : 'AI Response'}</span>
-                          <span className="text-[10px] text-muted-foreground">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                          <span className="text-[10px] text-muted-foreground">{new Date(msg.createdAt).toLocaleTimeString('en-US')}</span>
                           {(msg.inputTokens > 0 || msg.outputTokens > 0) && (
                             <span className="text-[10px] text-muted-foreground bg-accent px-1.5 py-0.5 rounded">
-                              {msg.inputTokens.toLocaleString()} in / {msg.outputTokens.toLocaleString()} out
+                              {msg.inputTokens.toLocaleString('en-US')} in / {msg.outputTokens.toLocaleString('en-US')} out
                             </span>
                           )}
                         </div>
@@ -528,9 +528,9 @@ export default function AISettingsPage() {
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                       <span className="font-medium">Token Receipt</span>
                       <div className="flex items-center gap-3">
-                        <span>Input: {selectedConv.totalInputTokens.toLocaleString()}</span>
-                        <span>Output: {selectedConv.totalOutputTokens.toLocaleString()}</span>
-                        <span className="font-medium text-foreground">Total: {(selectedConv.totalInputTokens + selectedConv.totalOutputTokens).toLocaleString()}</span>
+                        <span>Input: {selectedConv.totalInputTokens.toLocaleString('en-US')}</span>
+                        <span>Output: {selectedConv.totalOutputTokens.toLocaleString('en-US')}</span>
+                        <span className="font-medium text-foreground">Total: {(selectedConv.totalInputTokens + selectedConv.totalOutputTokens).toLocaleString('en-US')}</span>
                       </div>
                     </div>
                   </div>
