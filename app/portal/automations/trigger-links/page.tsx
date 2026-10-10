@@ -5,7 +5,7 @@
 // All API calls go to /api/portal/trigger-links (auth + tenant scoping done
 // server-side); we just render and forward.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary, pCard, pInput } from '@/components/portal/portal-ui';
 
@@ -52,6 +52,12 @@ export default function PortalTriggerLinksPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<DetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // Latest openDetail wins: stale responses never paint into another row.
+  const detailReqId = useRef(0);
+  // First load owns the full-table spinner; later refreshes update in place
+  // instead of unmounting the table (flicker on every create/delete).
+  const firstLoadDone = useRef(false);
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   const goOrigin = useMemo(() => {
     if (typeof window === 'undefined') return '';
@@ -59,7 +65,7 @@ export default function PortalTriggerLinksPage() {
   }, []);
 
   async function refresh() {
-    setLoading(true);
+    if (!firstLoadDone.current) setLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/portal/trigger-links');
@@ -70,6 +76,7 @@ export default function PortalTriggerLinksPage() {
       setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
       setLoading(false);
+      firstLoadDone.current = true;
     }
   }
 
@@ -104,10 +111,15 @@ export default function PortalTriggerLinksPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Delete this trigger link? Past click history will also be removed.')) return;
-    const res = await fetch(`/api/portal/trigger-links/${id}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (!data.success) {
-      alert(data.error || 'Delete failed');
+    try {
+      const res = await fetch(`/api/portal/trigger-links/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || 'Delete failed');
+        return;
+      }
+    } catch {
+      alert('Delete failed');
       return;
     }
     if (selectedId === id) {
@@ -121,19 +133,26 @@ export default function PortalTriggerLinksPage() {
     setSelectedId(id);
     setDetail(null);
     setDetailLoading(true);
+    const myId = ++detailReqId.current;
     try {
       const res = await fetch(`/api/portal/trigger-links/${id}`);
       const data = await res.json();
-      if (data.success) setDetail(data.data);
+      if (detailReqId.current === myId && data.success) setDetail(data.data);
     } finally {
-      setDetailLoading(false);
+      if (detailReqId.current === myId) setDetailLoading(false);
     }
   }
 
   function copySlug(slug: string) {
     const url = `${goOrigin}/go/${slug}`;
     if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(url).catch(() => {});
+      navigator.clipboard.writeText(url).then(
+        () => {
+          setCopiedSlug(slug);
+          setTimeout(() => setCopiedSlug((prev) => (prev === slug ? null : prev)), 2000);
+        },
+        () => {},
+      );
     }
   }
 
@@ -240,9 +259,9 @@ export default function PortalTriggerLinksPage() {
                       type="button"
                       onClick={(e) => { e.stopPropagation(); copySlug(link.slug); }}
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded"
-                      title="Copy /go URL"
+                      title={copiedSlug === link.slug ? 'Copied!' : 'Copy /go URL'}
                     >
-                      <span className="material-icons text-base">content_copy</span>
+                      <span className="material-icons text-base">{copiedSlug === link.slug ? 'check' : 'content_copy'}</span>
                     </button>
                     <button
                       type="button"

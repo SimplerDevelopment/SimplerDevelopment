@@ -218,9 +218,11 @@ export function EmailAbConfig({ campaign, onChange }: Props) {
                       type="button"
                       key={m}
                       onClick={() => {
+                        if (saving) return;
                         setMetric(m);
                         patchAb({ abWinnerMetric: m });
                       }}
+                      disabled={saving}
                       className={`px-3 py-1.5 text-sm border rounded-md transition-colors ${
                         metric === m
                           ? 'border-primary bg-primary text-primary-foreground'
@@ -251,6 +253,18 @@ export function EmailAbConfig({ campaign, onChange }: Props) {
                   }}
                   onTouchEnd={() => {
                     if (pct !== (campaign.abTestSizePct ?? 10)) {
+                      patchAb({ abTestSizePct: pct });
+                    }
+                  }}
+                  // Mouse/touch commit above never fires for keyboard users
+                  // (arrow keys): commit on blur and on arrow-key release.
+                  onBlur={() => {
+                    if (pct !== (campaign.abTestSizePct ?? 10)) {
+                      patchAb({ abTestSizePct: pct });
+                    }
+                  }}
+                  onKeyUp={e => {
+                    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && pct !== (campaign.abTestSizePct ?? 10)) {
                       patchAb({ abTestSizePct: pct });
                     }
                   }}

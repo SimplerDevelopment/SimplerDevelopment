@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { formatMoney } from '@/lib/utils/money';
 
@@ -99,6 +99,7 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [cartMessage, setCartMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch product
   useEffect(() => {
@@ -197,8 +198,6 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
       const json = await res.json();
       if (json.success) {
         setCartMessage({ type: 'success', text: 'Added to cart!' });
-        // Dispatch custom event for cart icon widgets to update
-        window.dispatchEvent(new CustomEvent('cart-updated'));
       } else {
         setCartMessage({ type: 'error', text: json.message || 'Failed to add to cart' });
       }
@@ -206,9 +205,16 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
       setCartMessage({ type: 'error', text: 'Something went wrong' });
     } finally {
       setAddingToCart(false);
-      setTimeout(() => setCartMessage(null), 4000);
+      // Track the timer so a second add resets (not shortens) the first
+      // message's lifetime, and unmount clears it (no setState after unmount).
+      if (messageTimer.current) clearTimeout(messageTimer.current);
+      messageTimer.current = setTimeout(() => setCartMessage(null), 4000);
     }
   }, [product, siteId, matchedVariant, quantity]);
+
+  useEffect(() => () => {
+    if (messageTimer.current) clearTimeout(messageTimer.current);
+  }, []);
 
   if (loading) {
     return (

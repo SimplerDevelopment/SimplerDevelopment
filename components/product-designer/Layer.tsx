@@ -16,6 +16,7 @@ export const Layer = memo(function Layer({ layer, side }: { layer: any; side: an
   const {
     layers,
     updateLayer,
+    removeLayer,
     setSelectedLayer,
     selectedLayers,
     setSelectedLayers,
@@ -222,16 +223,10 @@ export const Layer = memo(function Layer({ layer, side }: { layer: any; side: an
         <div
           className="layerDelete"
           onClick={() => {
-            setTimeout(() => {
-              if (
-                window.confirm("Are you sure you want to delete this layer?")
-              ) {
-                setControlMode("welcome");
-                setSelectedLayer(null);
-                const filteredLayers = layers.filter((l) => l.id !== layer.id);
-                setLayers(filteredLayers);
-              }
-            }, 100);
+            if (!window.confirm("Are you sure you want to delete this layer?")) return;
+            // Single choke point: removeLayer clears selection, style refs
+            // and mode. The old inline copy bypassed it (stale plural + styles).
+            removeLayer(layer);
           }}
         >
           <BsX color={"red"} size={15} />

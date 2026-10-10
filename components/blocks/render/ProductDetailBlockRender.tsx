@@ -121,7 +121,6 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
       const json = await res.json();
       if (json.success) {
         setCartMessage({ type: 'success', text: 'Added to cart!' });
-        window.dispatchEvent(new CustomEvent('cart-updated'));
       } else {
         setCartMessage({ type: 'error', text: json.message || 'Failed to add to cart' });
       }

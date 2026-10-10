@@ -88,10 +88,15 @@ export function useBlockHistory(
 
   /**
    * Update blocks with history tracking
-   * This replaces the current blocks and creates a history entry
+   * This replaces the current blocks and creates a history entry.
+   *
+   * The history stack holds successive STATES (including the current one),
+   * so we push the NEW state: undo() pops it back off and reveals the
+   * previous entry. Pushing the pre-change state instead would make undo
+   * skip a step (S0→S1→S2 would jump back to S0).
    *
    * @param newBlocks - New block state
-   * @param action - Description of the action
+   * @param action - Description of the action being performed
    */
   // Drag/batch session tracking — only one history entry per rapid sequence
   const batchActiveRef = useRef(false);
@@ -105,14 +110,14 @@ export function useBlockHistory(
         // Only push history on the first call of a batch sequence
         if (!batchActiveRef.current) {
           batchActiveRef.current = true;
-          history.push(blocks, action, undefined, pageSettingsRef.current);
+          history.push(newBlocks, action, undefined, pageSettingsRef.current);
         }
         // Reset batch after a quiet period
         if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
         batchTimerRef.current = setTimeout(() => { batchActiveRef.current = false; }, 300);
       } else {
-        // Push current state to history BEFORE updating
-        history.push(blocks, action, undefined, pageSettingsRef.current);
+        // Push the NEW state to history (see the stack-of-states note above)
+        history.push(newBlocks, action, undefined, pageSettingsRef.current);
       }
 
       // Update state
@@ -126,15 +131,17 @@ export function useBlockHistory(
       setLastAction(history.getLastAction());
       setNextAction(history.getNextAction());
     },
-    [blocks]
+    []
   );
 
   const setPageSettings = useCallback(
     (newPageSettings: PageSettings, action: HistoryAction) => {
       const history = historyRef.current;
 
-      // Push current state to history BEFORE updating
-      history.push(blocks, action, undefined, pageSettingsRef.current);
+      // Post-change snapshot (same convention as setBlocks above): the entry
+      // carries the current blocks plus the NEW settings, so undo reveals the
+      // previous entry with both fields intact.
+      history.push(blocks, action, undefined, newPageSettings);
 
       // Update state
       setPageSettingsState(newPageSettings);

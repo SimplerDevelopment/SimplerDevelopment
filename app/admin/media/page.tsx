@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import MediaGrid from '@/components/admin/MediaGrid';
 import MediaUploadModal from '@/components/admin/MediaUploadModal';
 
@@ -22,16 +22,31 @@ export default function MediaLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [search, setSearch] = useState('');
+  // Debounced input: the fetch effect below keys off `search`, so typing
+  // must not fan out one request per keystroke (last-response-wins races).
+  const [searchInput, setSearchInput] = useState('');
   const [filter, setFilter] = useState('all');
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const limit = 20;
+  // Latest fetch wins (search + filter + paging can overlap).
+  const fetchSeq = useRef(0);
+
+  useEffect(() => {
+    if (searchInput === search) return;
+    const t = setTimeout(() => {
+      setSearch(searchInput);
+      setOffset(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput, search]);
 
   useEffect(() => {
     fetchMedia();
   }, [search, filter, offset]);
 
   const fetchMedia = async () => {
+    const my = ++fetchSeq.current;
     setLoading(true);
     const params = new URLSearchParams({
       limit: limit.toString(),
@@ -44,6 +59,7 @@ export default function MediaLibraryPage() {
     const response = await fetch(`/api/media?${params}`);
     const data = await response.json();
 
+    if (fetchSeq.current !== my) return;
     if (data.success) {
       setMedia(data.data);
       setTotal(data.pagination.total);
@@ -74,10 +90,11 @@ export default function MediaLibraryPage() {
           <input
             type="text"
             placeholder="Search by filename, alt text, or caption..."
-            value={search}
+            value={searchInput}
             onChange={(e) => {
-              setSearch(e.target.value);
-              setOffset(0);
+              // Offset reset rides with the debounced search commit below
+              // (a single effect run instead of two overlapping fetches).
+              setSearchInput(e.target.value);
             }}
             className="block w-full rounded-md border border-border bg-background px-3 py-2 text-foreground"
           />

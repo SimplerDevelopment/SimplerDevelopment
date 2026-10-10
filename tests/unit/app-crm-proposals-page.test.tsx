@@ -692,7 +692,7 @@ describe('ProposalsPage', () => {
       expect(screen.queryByText('Proposal Sent')).toBeNull();
     });
 
-    it('send failure closes the dialog', async () => {
+    it('send failure keeps the dialog open with an error', async () => {
       setFetchHandler((url, init) => {
         if (/^\/api\/portal\/crm\/proposals\/\d+\/send$/.test(url)) {
           return jsonResponse({ success: false });
@@ -704,8 +704,9 @@ describe('ProposalsPage', () => {
       fireEvent.click(sendButtons[0]);
       fireEvent.click(screen.getByText('Send Now'));
       await waitFor(() => {
-        expect(screen.queryByText('Send Proposal')).toBeNull();
+        expect(screen.getByText('Send Proposal')).toBeTruthy();
       });
+      expect(screen.getByText('Failed to send proposal.')).toBeTruthy();
     });
   });
 

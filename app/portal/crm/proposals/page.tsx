@@ -136,6 +136,7 @@ export default function ProposalsPage() {
   const [sendDialogId, setSendDialogId] = useState<number | null>(null);
   const [sendingUrl, setSendingUrl] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
 
   // ─── Data fetching ─────────────────────────────────────────────────────────
 
@@ -251,16 +252,22 @@ export default function ProposalsPage() {
 
   async function handleSend(proposalId: number) {
     setSending(true);
-    const res = await fetch(`/api/portal/crm/proposals/${proposalId}/send`, { method: 'POST' });
-    const d = await res.json();
-    setSending(false);
-    if (!d.success) {
-      setSendDialogId(null);
-      return;
+    setSendError('');
+    try {
+      const res = await fetch(`/api/portal/crm/proposals/${proposalId}/send`, { method: 'POST' });
+      const d = await res.json();
+      if (!d.success) {
+        setSendError(d.message ?? 'Failed to send proposal.');
+        return;
+      }
+      const url = `${window.location.origin}${d.data.proposalUrl}`;
+      setSendingUrl(url);
+      fetchProposals();
+    } catch {
+      setSendError('Failed to send proposal.');
+    } finally {
+      setSending(false);
     }
-    const url = `${window.location.origin}${d.data.proposalUrl}`;
-    setSendingUrl(url);
-    fetchProposals();
   }
 
   // ─── Stats ─────────────────────────────────────────────────────────────────
@@ -501,7 +508,7 @@ export default function ProposalsPage() {
                         </button>
                         {(p.status === 'draft' || p.status === 'sent') && (
                           <button
-                            onClick={() => { setSendDialogId(p.id); setSendingUrl(''); }}
+                            onClick={() => { setSendDialogId(p.id); setSendingUrl(''); setSendError(''); }}
                             className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-blue-600 transition-colors"
                             title="Send"
                           >
@@ -564,6 +571,9 @@ export default function ProposalsPage() {
                 <p className="text-sm text-muted-foreground">
                   This will mark the proposal as &quot;Sent&quot; and generate a unique link for your client.
                 </p>
+                {sendError && (
+                  <p className="text-sm text-destructive" role="alert">{sendError}</p>
+                )}
                 {(() => {
                   const p = proposals.find(pr => pr.id === sendDialogId);
                   const contact = p?.contactFirstName

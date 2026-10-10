@@ -380,10 +380,18 @@ function PortalPostFormInner({
                 previewMode={previewMode}
                 onBlocksChange={setBlocks}
                 onSelectBlock={() => {}}
-                onAddBlock={(type) => {
-                  let newBlock = createDefaultBlock(type as BlockType, { order: blocks.length });
+                onAddBlock={(type, afterBlockId) => {
+                  let newBlock = createDefaultBlock(type as BlockType, { order: 0 });
                   if (brandDefaults) newBlock = applyBrandDefaults(newBlock, brandDefaults);
-                  setBlocks([...blocks, newBlock]);
+                  // Functional update: rapid double-adds must chain off the
+                  // latest list (not a stale closure), or orders duplicate.
+                  // Honors afterBlockId when the caller passes one.
+                  setBlocks((prev) => {
+                    const at = afterBlockId ? prev.findIndex((b) => b.id === afterBlockId) : -1;
+                    const next = [...prev];
+                    next.splice(at >= 0 ? at + 1 : next.length, 0, newBlock);
+                    return next.map((b, i) => ({ ...b, order: i + 1 }));
+                  });
                 }}
                 onDeleteBlock={(blockId) => setBlocks(removeBlockById(blocks, blockId))}
                 onUndoRedoChange={setUndoRedo}
