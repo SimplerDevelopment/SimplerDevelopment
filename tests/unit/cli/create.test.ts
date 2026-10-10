@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve as resolveCwd } from 'node:path';
 import {
   resolveTargetDir,
   targetDirState,
@@ -11,7 +11,10 @@ import {
 
 describe('resolveTargetDir', () => {
   it('resolves the dir arg against cwd', () => {
-    expect(resolveTargetDir(['create', 'my-app'], '/home/x')).toBe('/home/x/my-app');
+    // Platform-aware expectation: resolveTargetDir uses node:path resolution,
+    // which yields backslashes + drive letter on Windows. Asserting against
+    // resolve() keeps the "honours cwd" contract without assuming POSIX.
+    expect(resolveTargetDir(['create', 'my-app'], '/home/x')).toBe(resolveCwd('/home/x', 'my-app'));
   });
 
   it('throws when no dir is given', () => {
