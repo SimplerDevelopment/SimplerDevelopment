@@ -155,8 +155,13 @@ export default function EmailSequencesPanel({ surveyId, surveyFields }: Props) {
         setEditDraft(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setSequences(before);
+      const message = err instanceof Error ? err.message : String(err);
+      // Reconcile with the server instead of blindly restoring `before` —
+      // with two deletes in flight, a naive restore resurrects the row the
+      // other (successful) request just deleted. refresh() clears the error
+      // banner first, so re-set it afterwards.
+      await refresh();
+      setError(message);
     }
   }
 

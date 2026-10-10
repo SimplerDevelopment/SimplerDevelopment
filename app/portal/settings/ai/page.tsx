@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { pBtnPrimary, pCard, pInput } from '@/components/portal/portal-ui';
 import CreditPurchaseControls from '@/components/portal/CreditPurchaseControls';
 
@@ -146,13 +146,22 @@ export default function AISettingsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Latest openConversation wins: clicking A→B fast must not let A's late
+  // response overwrite B's messages.
+  const convReqId = useRef(0);
+
   async function openConversation(conv: Conversation) {
+    const myId = ++convReqId.current;
     setSelectedConv(conv);
     setMessagesLoading(true);
-    const res = await fetch(`/api/portal/ai/conversations/${conv.id}`);
-    const d = await res.json();
-    setMessages(d.data?.messages ?? []);
-    setMessagesLoading(false);
+    try {
+      const res = await fetch(`/api/portal/ai/conversations/${conv.id}`);
+      const d = await res.json();
+      if (convReqId.current !== myId) return;
+      setMessages(d.data?.messages ?? []);
+    } finally {
+      if (convReqId.current === myId) setMessagesLoading(false);
+    }
   }
 
   const filtered = conversations.filter(c => {

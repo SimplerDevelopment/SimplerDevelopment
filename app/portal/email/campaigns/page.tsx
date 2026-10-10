@@ -29,22 +29,37 @@ const statusColor: Record<string, string> = {
 export default function PortalCampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/portal/email/campaigns')
       .then(r => r.json())
-      .then(d => { setCampaigns(d.data ?? []); setLoading(false); });
+      .then(d => { setCampaigns(d.data ?? []); setLoading(false); })
+      .catch(() => { setLoading(false); setError('Could not load campaigns.'); });
   }, []);
 
   async function deleteCampaign(id: number, status: string) {
     if (status === 'sending') { alert('Cannot delete a campaign that is sending.'); return; }
     if (!confirm('Delete this campaign?')) return;
-    await fetch(`/api/portal/email/campaigns/${id}`, { method: 'DELETE' });
+    try {
+      const res = await fetch(`/api/portal/email/campaigns/${id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => null);
+      if (!data?.success) { alert(data?.message ?? 'Delete failed'); return; }
+    } catch {
+      alert('Delete failed');
+      return;
+    }
     setCampaigns(prev => prev.filter(c => c.id !== id));
   }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {error && (
+        <div className="bg-card border border-border rounded-lg px-5 py-4 text-sm text-destructive">
+          <span className="material-icons text-base align-middle mr-1">error_outline</span>
+          {error}
+        </div>
+      )}
       <PortalPageHeader
         eyebrow="Email"
         title="Campaigns"

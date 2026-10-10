@@ -63,7 +63,9 @@ export const MainView = memo(function MainView({ overRideSide = null }: { overRi
         }
       });
       setSelectedLayers(hits);
-      setSelectedLayer(null);
+      // Single hit behaves like a normal click (opens the layer editor);
+      // multi-hit keeps the bulk (plural-only) selection.
+      setSelectedLayer(hits.length === 1 ? layers.find((l: any) => l.id === hits[0]) ?? null : null);
       setSelecting(false);
       setSelectionBox(null);
     };

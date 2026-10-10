@@ -309,9 +309,12 @@ export function BlockEditorProvider({
         type: 'delete',
         description: `Deleted ${blockToDelete?.type} block`,
       });
+      // Drop a deleted id from selection — panels otherwise keep pointing
+      // at a ghost block (same class of bug as the shell wrapper).
+      if (selectedBlockId === id) setSelectedBlockId(null);
       setHasUnsavedChanges(true);
     },
-    [blocks, setBlocksWithHistory]
+    [blocks, setBlocksWithHistory, selectedBlockId]
   );
 
   const reorderBlocks = useCallback(

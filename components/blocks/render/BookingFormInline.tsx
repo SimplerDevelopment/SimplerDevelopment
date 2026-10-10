@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BookingPaymentForm } from './BookingPaymentForm';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -155,7 +155,13 @@ export function BookingFormInline({
 
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+  // Latest staff/date fetch wins — rapid staff toggles must not paint
+  // a previous staff member's slots.
+  const slotsReqId = useRef(0);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  // Shared guard for discount + gift validation (no overlapping validates).
+  const [validatingCode, setValidatingCode] = useState(false);
 
   // Add-ons
   const [addOns, setAddOns] = useState<AddOnItem[]>([]);
@@ -230,13 +236,16 @@ export function BookingFormInline({
   // ─── Fetch slots ────────────────────────────────────────────────────────
 
   const fetchSlots = useCallback(async (date: string) => {
+    const myId = ++slotsReqId.current;
     setSlotsLoading(true);
+    setSlotsError(null);
     setSlots([]);
     try {
       const params = new URLSearchParams({ date });
       if (selectedStaff) params.set('staffId', String(selectedStaff));
       const res = await fetch(`/api/public/booking/${slug}/slots?${params}`);
       const data = await res.json();
+      if (slotsReqId.current !== myId) return;
       if (data.success && pageInfo) {
         const mapped: TimeSlot[] = (data.data as SlotData[]).map((slot) => {
           const start = new Date(slot.time);
@@ -247,9 +256,16 @@ export function BookingFormInline({
           return { start: slot.time, end: end.toISOString(), display, remainingCapacity: slot.remainingCapacity };
         });
         setSlots(mapped);
+      } else {
+        setSlotsError('No available times on this day');
       }
-    } catch { /* ignore */ }
-    finally { setSlotsLoading(false); }
+    } catch {
+      if (slotsReqId.current !== myId) return;
+      setSlotsError('Could not load times. Check your connection and retry.');
+    }
+    finally {
+      if (slotsReqId.current === myId) setSlotsLoading(false);
+    }
   }, [slug, pageInfo, selectedStaff]);
 
   // Refetch slots when staff changes
@@ -315,7 +331,8 @@ export function BookingFormInline({
   }
 
   async function validateDiscount() {
-    if (!discountCode.trim()) return;
+    if (!discountCode.trim() || validatingCode) return;
+    setValidatingCode(true);
     setDiscountError('');
     setDiscountResult(null);
     try {
@@ -328,10 +345,12 @@ export function BookingFormInline({
       if (data.success) setDiscountResult(data.data);
       else setDiscountError(data.message);
     } catch { setDiscountError('Failed to validate code'); }
+    finally { setValidatingCode(false); }
   }
 
   async function validateGiftCert() {
-    if (!giftCertCode.trim()) return;
+    if (!giftCertCode.trim() || validatingCode) return;
+    setValidatingCode(true);
     setGiftCertError('');
     setGiftCertResult(null);
     try {
@@ -344,6 +363,7 @@ export function BookingFormInline({
       if (data.success) setGiftCertResult(data.data);
       else setGiftCertError(data.message);
     } catch { setGiftCertError('Failed to validate certificate'); }
+    finally { setValidatingCode(false); }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -707,7 +727,7 @@ export function BookingFormInline({
                     <span className="material-icons text-sm">remove</span>
                   </button>
                   <span className="w-8 text-center text-sm font-medium">{groupSize}</span>
-                  <button onClick={() => setGroupSize(groupSize + 1)}
+                  <button onClick={() => setGroupSize(groupSize + 1)} disabled={pageInfo.maxGuests != null && groupSize >= pageInfo.maxGuests}
                     className="w-8 h-8 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300">
                     <span className="material-icons text-sm">add</span>
                   </button>
@@ -727,7 +747,17 @@ export function BookingFormInline({
             ) : slots.length === 0 ? (
               <div className="text-center py-12">
                 <span className="material-icons text-3xl text-gray-300 dark:text-gray-600 mb-2 block">event_busy</span>
-                <p className="text-sm text-gray-500 dark:text-gray-400">No available times on this day</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{slotsError ?? 'No available times on this day'}</p>
+                {slotsError && selectedDate && (
+                  <button
+                    type="button"
+                    onClick={() => fetchSlots(selectedDate)}
+                    className="mt-3 px-4 py-2 rounded-xl text-sm font-medium text-white"
+                    style={{ backgroundColor: accent }}
+                  >
+                    Retry
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
@@ -911,7 +941,7 @@ export function BookingFormInline({
                         Clear
                       </button>
                     ) : (
-                      <button type="button" onClick={validateDiscount} disabled={!discountCode.trim()}
+                      <button type="button" onClick={validateDiscount} disabled={!discountCode.trim() || validatingCode}
                         className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                         style={{ backgroundColor: accent }}>
                         Apply
@@ -943,7 +973,7 @@ export function BookingFormInline({
                         Clear
                       </button>
                     ) : (
-                      <button type="button" onClick={validateGiftCert} disabled={!giftCertCode.trim()}
+                      <button type="button" onClick={validateGiftCert} disabled={!giftCertCode.trim() || validatingCode}
                         className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                         style={{ backgroundColor: accent }}>
                         Apply

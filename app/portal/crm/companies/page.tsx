@@ -82,9 +82,10 @@ export default function CrmCompaniesPage() {
     notes: '',
   });
 
-  const fetchCompanies = async () => {
+  const fetchCompanies = async (pageOverride?: number) => {
+    const p = pageOverride ?? page;
     setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+    const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
     if (search) params.set('search', search);
     for (const [fid, val] of Object.entries(customFilters)) {
       if (val) params.append('cf', `${fid}:${val}`);
@@ -143,8 +144,10 @@ export default function CrmCompaniesPage() {
     }
     setShowForm(false);
     setForm({ name: '', domain: '', industry: '', size: '', phone: '', website: '', address: '', latitude: '', longitude: '', logoUrl: '', notes: '' });
-    setPage(1);
-    fetchCompanies();
+    // Refresh page 1 exactly once: if already there, fetch directly (the
+    // effect won't refire); otherwise setPage triggers the effect fetch.
+    if (page === 1) await fetchCompanies(1);
+    else setPage(1);
   }
 
   return (

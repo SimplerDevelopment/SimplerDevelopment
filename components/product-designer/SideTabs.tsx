@@ -13,7 +13,7 @@ import {
 } from "react-icons/bs";
 
 export const SideTabs = memo(function SideTabs({ setZoom, setTop, setLeft }: { setZoom: any; setTop: any; setLeft: any }) {
-  const { side, style, setSide, layers, setSelectedLayer, controlMode } =
+  const { side, style, setSide, layers, setSelectedLayer, setSelectedLayers, controlMode } =
     useContext(EditorContext);
 
   const prettyText = useMemo(() => ({
@@ -57,6 +57,7 @@ export const SideTabs = memo(function SideTabs({ setZoom, setTop, setLeft }: { s
             className="w-20 h-10 bg-gray-200 flex items-center justify-center cursor-pointer"
             onClick={() => {
               setSelectedLayer(null);
+              setSelectedLayers([]);
               setSide(sideOption);
             }}
           >
