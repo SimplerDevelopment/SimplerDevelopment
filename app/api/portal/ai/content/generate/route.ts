@@ -2,7 +2,8 @@
  * AI Content Engine — POST /api/portal/ai/content/generate
  *
  * Body: { siteId: number, brief: { topic, audience?, tone?, language?, keywords?, context? },
- *         createPost?: boolean (default true), createLinkedin?: boolean (default true) }
+ *         createPost?: boolean (default true), createLinkedin?: boolean (default true),
+ *         generateImage?: boolean (default false — billable, slower; best-effort) }
  *
  * Draft-only: crea posts.published=false + linkedin_posts.status='draft'.
  * Publicar/programar sigue siendo paso humano (Publishing UI / cron).
@@ -22,6 +23,7 @@ import {
   buildPostContent,
   generateContentPack,
 } from '@/lib/ai/content-engine';
+import { generateContentImage } from '@/lib/ai/images';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +32,9 @@ const bodySchema = z.object({
   brief: ContentBriefSchema,
   createPost: z.boolean().optional().default(true),
   createLinkedin: z.boolean().optional().default(true),
+  // Opt-in: also render a cover image with the AI image call-site (billable,
+  // slower). Best-effort — a failed render never fails the pack.
+  generateImage: z.boolean().optional().default(false),
 });
 
 async function uniqueSlug(websiteId: number, base: string): Promise<string> {
@@ -61,7 +66,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const { siteId, brief, createPost, createLinkedin } = parsed.data;
+  const { siteId, brief, createPost, createLinkedin, generateImage } = parsed.data;
 
   const site = await resolveClientSite(sessionUserId, siteId);
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
@@ -77,6 +82,23 @@ export async function POST(request: Request) {
   }
 
   let postId: number | null = null;
+  let coverImage: string | null = null;
+  let mediaId: number | null = null;
+  if (generateImage) {
+    try {
+      const img = await generateContentImage({
+        clientId: site.clientId,
+        prompt: pack.imagePrompt,
+        websiteId: site.id,
+        uploadedBy: sessionUserId,
+        alt: pack.title,
+      });
+      coverImage = img.url;
+      mediaId = img.mediaId;
+    } catch (err) {
+      console.warn('[ai-content] cover render failed, continuing without image:', err);
+    }
+  }
   if (createPost) {
     const slug = await uniqueSlug(site.id, pack.slug);
     const [post] = await db.insert(posts).values({
@@ -85,7 +107,7 @@ export async function POST(request: Request) {
       postType: 'blog',
       excerpt: pack.excerpt || null,
       content: buildPostContent(pack),
-      coverImage: null,
+      coverImage,
       published: false,
       publishedAt: null,
       seoTitle: pack.seoTitle || null,
@@ -101,8 +123,8 @@ export async function POST(request: Request) {
       clientId: site.clientId,
       userId: sessionUserId,
       text: pack.linkedinText,
-      mediaType: 'none',
-      mediaUrl: null,
+      mediaType: coverImage ? 'image' : 'none',
+      mediaUrl: coverImage,
       linkInComment: pack.linkInComment ?? null,
       status: 'draft',
       createdByUserId: sessionUserId,
@@ -120,6 +142,8 @@ export async function POST(request: Request) {
         slug: pack.slug,
         adVariants: pack.adVariants,
         imagePrompt: pack.imagePrompt,
+        coverImage,
+        mediaId,
       },
     },
     { status: 201 },
