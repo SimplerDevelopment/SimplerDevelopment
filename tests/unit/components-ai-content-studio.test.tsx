@@ -32,9 +32,11 @@ describe('AiContentStudio click paths', () => {
   });
 
   it('clears a pack-tab error when switching tabs', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      throw new Error('boom');
-    }));
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({ success: false, message: 'boom' }),
+    })));
     render(<AiContentStudio sites={SITES} />);
     fireEvent.change(screen.getByPlaceholderText(/how to choose/i), { target: { value: 'CRM tips' } });
     await act(async () => {

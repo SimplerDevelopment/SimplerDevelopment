@@ -36,6 +36,7 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR booking-bookings-category-alias-at-entitlement-gate]]
 - [[ADR role-based-agent-personas]]
 - [[ADR workflow-designer-single-table-graph]]
+- [[ADR ui-formatting-pinned-en-us]]
 
 ```dataview
 TABLE domain, status, date

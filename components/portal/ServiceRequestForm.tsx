@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SurveyField } from '@/lib/db/schema';
+import { formatNumber } from '@/lib/portal-utils';
 
 interface Props {
   serviceId: number;
@@ -269,9 +270,9 @@ export default function ServiceRequestForm({ serviceId, serviceName, serviceDesc
             return (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">${min.toLocaleString('en-US')}</span>
-                  <span className="text-lg font-bold text-primary">${current.toLocaleString('en-US')}</span>
-                  <span className="text-xs text-muted-foreground">${max.toLocaleString('en-US')}</span>
+                  <span className="text-xs text-muted-foreground">${formatNumber(min)}</span>
+                  <span className="text-lg font-bold text-primary">${formatNumber(current)}</span>
+                  <span className="text-xs text-muted-foreground">${formatNumber(max)}</span>
                 </div>
                 <div className="relative py-2">
                   <div className="h-2 bg-muted rounded-full">
@@ -291,7 +292,7 @@ export default function ServiceRequestForm({ serviceId, serviceName, serviceDesc
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Drag to set your budget</span>
-                  <span>Step: ${step.toLocaleString('en-US')}</span>
+                  <span>Step: ${formatNumber(step)}</span>
                 </div>
               </div>
             );

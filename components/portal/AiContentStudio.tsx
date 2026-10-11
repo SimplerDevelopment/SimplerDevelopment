@@ -5,9 +5,11 @@
 // job) / Ads lead test (portal-authenticated intake probe). All server output
 // stays draft; links point at the human review surfaces.
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { formatNumber } from '@/lib/portal-utils';
+import { useAsyncAction } from '@/lib/hooks/useAsyncAction';
+import { fetchJson } from '@/lib/api/fetch-json';
 
 interface SiteOption {
   id: number;
@@ -54,16 +56,24 @@ interface RenderJobResult {
 type Tab = 'pack' | 'video' | 'ads';
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
+  const json = await fetchJson<{ success?: boolean; data?: T; message?: string }>(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const json = (await res.json().catch(() => null)) as { success?: boolean; data?: T; message?: string } | null;
-  if (!res.ok || !json?.success) {
-    throw new Error(json?.message ?? `Request failed (${res.status})`);
+  if (!json?.success) {
+    throw new Error(json?.message ?? 'Request failed');
   }
   return json.data as T;
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div className="bg-card border border-border rounded-lg px-5 py-4 text-sm text-destructive" role="alert">
+      <span className="material-icons text-base align-middle mr-1">error_outline</span>
+      {message}
+    </div>
+  );
 }
 
 const inputCls =
@@ -75,11 +85,26 @@ const btnGhost =
 
 export default function AiContentStudio({ sites }: { sites: SiteOption[] }) {
   const [tab, setTab] = useState<Tab>('pack');
-  const [busy, setBusy] = useState(false);
-  // Synchronous guard: setBusy (state) lands after re-render, so two clicks
-  // in the same tick would both pass a `busy` check and double-submit.
-  const busyRef = useRef(false);
-  const [error, setError] = useState<string | null>(null);
+
+  // One action per operation: busy/error are tab-local, and concurrent work
+  // across tabs is harmless (independent endpoints). This is the shared
+  // useAsyncAction discipline — no hand-rolled busy refs here.
+  const packAction = useAsyncAction(async (body: {
+    siteId: number | '';
+    brief: { topic: string; audience?: string; tone?: string; language: string };
+    generateImage: boolean;
+  }) => postJson<PackResult>('/api/portal/ai/content/generate', body));
+  const planAction = useAsyncAction(async (body: { title: string; blogMarkdown: string }) =>
+    postJson<PlanResult>('/api/portal/ai/video/plan', body),
+  );
+  const jobAction = useAsyncAction(async (body: { plan: PlanResult }) =>
+    postJson<RenderJobResult>('/api/portal/ai/video/render', body),
+  );
+  const leadAction = useAsyncAction(async (body: {
+    provider: string;
+    campaignRef?: string;
+    contact: { email: string; displayName?: string };
+  }) => postJson<{ contactId: number; created: boolean }>('/api/portal/ads/leads', body));
 
   const [siteId, setSiteId] = useState<number | ''>(sites[0]?.id ?? '');
   const [topic, setTopic] = useState('');
@@ -98,19 +123,37 @@ export default function AiContentStudio({ sites }: { sites: SiteOption[] }) {
   const [leadCampaign, setLeadCampaign] = useState('');
   const [leadResult, setLeadResult] = useState<{ contactId: number; created: boolean } | null>(null);
 
-  async function run<T>(fn: () => Promise<T>, done: (v: T) => void) {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    setBusy(true);
-    setError(null);
-    try {
-      done(await fn());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Request failed');
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
+  async function handleGeneratePack() {
+    if (!siteId) return;
+    const pack = await packAction.run({
+      siteId,
+      brief: { topic, audience: audience || undefined, tone: tone || undefined, language: 'en' },
+      generateImage: withImage,
+    });
+    if (pack) setPack(pack);
+  }
+
+  async function handleBuildPlan() {
+    const p = await planAction.run({ title: videoTitle, blogMarkdown: videoMarkdown });
+    if (p) {
+      setPlan(p);
+      setJob(null);
     }
+  }
+
+  async function handleRenderJob() {
+    if (!plan) return;
+    const j = await jobAction.run({ plan });
+    if (j) setJob(j);
+  }
+
+  async function handleSendLead() {
+    const r = await leadAction.run({
+      provider: 'mock',
+      campaignRef: leadCampaign || undefined,
+      contact: { email: leadEmail, displayName: leadName || undefined },
+    });
+    if (r) setLeadResult(r);
   }
 
   const tabs: Array<{ key: Tab; label: string; icon: string }> = [
@@ -125,7 +168,7 @@ export default function AiContentStudio({ sites }: { sites: SiteOption[] }) {
         {tabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setError(null); }}
+            onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               tab === t.key
                 ? 'border-primary text-primary'
@@ -138,15 +181,9 @@ export default function AiContentStudio({ sites }: { sites: SiteOption[] }) {
         ))}
       </div>
 
-      {error && (
-        <div className="bg-card border border-border rounded-lg px-5 py-4 text-sm text-destructive">
-          <span className="material-icons text-base align-middle mr-1">error_outline</span>
-          {error}
-        </div>
-      )}
-
       {tab === 'pack' && (
         <section className="bg-card border border-border rounded-lg p-5 space-y-4">
+          {packAction.error && <ErrorBanner message={packAction.error} />}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block text-sm">
               <span className="font-medium">Website</span>
@@ -179,13 +216,11 @@ export default function AiContentStudio({ sites }: { sites: SiteOption[] }) {
           </label>
           <button
             className={btnPrimary}
-            disabled={busy || !siteId || topic.trim().length < 3}
-            onClick={() => run(() => postJson<PackResult>('/api/portal/ai/content/generate', {
-              siteId, brief: { topic, audience: audience || undefined, tone: tone || undefined, language: 'en' }, generateImage: withImage,
-            }), setPack)}
+            disabled={packAction.busy || !siteId || topic.trim().length < 3}
+            onClick={handleGeneratePack}
           >
             <span className="material-icons text-base">auto_awesome</span>
-            {busy ? 'Generating…' : 'Generate pack'}
+            {packAction.busy ? 'Generating…' : 'Generate pack'}
           </button>
 
           {pack && (
@@ -219,6 +254,9 @@ export default function AiContentStudio({ sites }: { sites: SiteOption[] }) {
 
       {tab === 'video' && (
         <section className="bg-card border border-border rounded-lg p-5 space-y-4">
+          {(planAction.error || jobAction.error) && (
+            <ErrorBanner message={(planAction.error ?? jobAction.error) as string} />
+          )}
           <label className="block text-sm">
             <span className="font-medium">Title *</span>
             <input className={inputCls} value={videoTitle} onChange={(e) => setVideoTitle(e.target.value)} />
@@ -230,20 +268,17 @@ export default function AiContentStudio({ sites }: { sites: SiteOption[] }) {
           <div className="flex gap-2">
             <button
               className={btnPrimary}
-              disabled={busy || videoTitle.trim().length < 3 || videoMarkdown.trim().length < 20}
-              onClick={() => run(
-                () => postJson<PlanResult>('/api/portal/ai/video/plan', { title: videoTitle, blogMarkdown: videoMarkdown }),
-                (p) => { setPlan(p); setJob(null); },
-              )}
+              disabled={planAction.busy || videoTitle.trim().length < 3 || videoMarkdown.trim().length < 20}
+              onClick={handleBuildPlan}
             >
               <span className="material-icons text-base">videocam</span>
-              {busy ? 'Planning…' : 'Build plan'}
+              {planAction.busy ? 'Planning…' : 'Build plan'}
             </button>
             {plan && (
               <button
                 className={btnGhost}
-                disabled={busy}
-                onClick={() => run(() => postJson<RenderJobResult>('/api/portal/ai/video/render', { plan }), setJob)}
+                disabled={jobAction.busy}
+                onClick={handleRenderJob}
               >
                 Create render job
               </button>
@@ -277,6 +312,7 @@ export default function AiContentStudio({ sites }: { sites: SiteOption[] }) {
 
       {tab === 'ads' && (
         <section className="bg-card border border-border rounded-lg p-5 space-y-4">
+          {leadAction.error && <ErrorBanner message={leadAction.error} />}
           <p className="text-sm text-muted-foreground">
             Probe the portal-authenticated lead intake (same validation as the signed provider webhook).
           </p>
@@ -296,14 +332,11 @@ export default function AiContentStudio({ sites }: { sites: SiteOption[] }) {
           </div>
           <button
             className={btnPrimary}
-            disabled={busy || !leadEmail.includes('@')}
-            onClick={() => run(() => postJson<{ contactId: number; created: boolean }>('/api/portal/ads/leads', {
-              provider: 'mock', campaignRef: leadCampaign || undefined,
-              contact: { email: leadEmail, displayName: leadName || undefined },
-            }), setLeadResult)}
+            disabled={leadAction.busy || !leadEmail.includes('@')}
+            onClick={handleSendLead}
           >
             <span className="material-icons text-base">ads_click</span>
-            {busy ? 'Sending…' : 'Send test lead'}
+            {leadAction.busy ? 'Sending…' : 'Send test lead'}
           </button>
           {leadResult && (
             <p className="text-sm">

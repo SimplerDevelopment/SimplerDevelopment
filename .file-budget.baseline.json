@@ -54,7 +54,7 @@
   "components/admin/SurveyBuilder.tsx": 554,
   "components/admin/SurveyRecommendationEditor.tsx": 560,
   "components/blocks/VisualBlockEditorEnhanced.tsx": 953,
-  "components/blocks/render/BookingFormInline.tsx": 1010,
+  "components/blocks/render/BookingFormInline.tsx": 1011,
   "components/blocks/render/EditableBlockRenderer.tsx": 776,
   "components/blocks/render/SurveyFormInline.tsx": 620,
   "components/blocks/visual/ColumnsBlockPreview.tsx": 774,
