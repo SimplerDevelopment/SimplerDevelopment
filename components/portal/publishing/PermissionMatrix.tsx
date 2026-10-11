@@ -264,6 +264,7 @@ export default function PermissionMatrix({
                             disabled={disabled}
                             onChange={() => toggle(m.userId, key)}
                             aria-label={`${key} for ${m.name || m.email}`}
+                            title={key === 'manage_permissions' && !canGrantManagePermissions ? 'Only owners can grant this permission' : undefined}
                           />
                         </label>
                       </td>

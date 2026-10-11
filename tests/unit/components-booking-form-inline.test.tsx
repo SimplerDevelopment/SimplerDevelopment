@@ -522,7 +522,7 @@ describe('BookingFormInline — date → time flow', () => {
     });
   });
 
-  it('swallows fetch errors on the slots endpoint', async () => {
+  it('shows a retryable error (not an empty day) when the slots endpoint fails', async () => {
     const { container } = await renderWithInfo(
       {},
       {
@@ -538,8 +538,10 @@ describe('BookingFormInline — date → time flow', () => {
       fireEvent.click(dayBtn);
       await flushPromises();
     });
-    // Catch branch should produce "No available times" (slots remained empty).
-    expect(container.textContent).toContain('No available times');
+    // A fetch failure must be distinguishable from a genuinely empty day,
+    // with a way back (Retry re-fires the slots request).
+    expect(container.textContent).toContain('Could not load times');
+    expect(container.textContent).toContain('Retry');
   });
 
   it('navigates back from the time step to the date step', async () => {

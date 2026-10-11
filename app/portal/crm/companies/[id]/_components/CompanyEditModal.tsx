@@ -144,21 +144,28 @@ export default function CompanyEditModal({ companyId, company, onClose, onSaved 
     if (editForm.latitude.trim() !== '') payload.latitude = editForm.latitude.trim();
     if (editForm.longitude.trim() !== '') payload.longitude = editForm.longitude.trim();
 
-    const res = await fetch(`/api/portal/crm/companies/${companyId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const d = await res.json();
-    if (!d.success) {
+    try {
+      const res = await fetch(`/api/portal/crm/companies/${companyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const d = await res.json();
+      if (!d.success) {
+        setError(d.message ?? 'Failed to save company.');
+        return;
+      }
+      const cfOk = await (customFieldsRef.current?.save() ?? Promise.resolve(true));
+      if (!cfOk) {
+        setError('Company saved, but custom fields failed to save. Please retry.');
+        return;
+      }
+      await onSaved();
+    } catch {
+      setError('Failed to save company.');
+    } finally {
       setSaving(false);
-      setError(d.message ?? 'Failed to save company.');
-      return;
     }
-    const cfOk = await (customFieldsRef.current?.save() ?? Promise.resolve(true));
-    setSaving(false);
-    if (!cfOk) return;
-    await onSaved();
   }
 
   function setField<K extends keyof CompanyEditFormState>(key: K, value: CompanyEditFormState[K]) {

@@ -545,7 +545,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 {(billingUsage?.liveTotals ?? []).map(t => (
                   <li key={t.resource} className="flex items-center justify-between px-5 py-3 text-sm">
                     <span className="font-mono text-xs text-muted-foreground">{t.resource}</span>
-                    <span className="font-medium text-foreground">{t.total.toLocaleString()}</span>
+                    <span className="font-medium text-foreground">{t.total.toLocaleString('en-US')}</span>
                   </li>
                 ))}
               </ul>
@@ -663,7 +663,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       <td className="px-5 py-2 font-mono text-xs">{it.resource}</td>
                       <td className="px-5 py-2 font-mono text-xs text-muted-foreground">{it.stripeSubscriptionItemId}</td>
                       <td className="px-5 py-2 text-right">{it.unitPriceCents}</td>
-                      <td className="px-5 py-2 text-right">{parseFloat(it.includedQuantity).toLocaleString()}</td>
+                      <td className="px-5 py-2 text-right">{parseFloat(it.includedQuantity).toLocaleString('en-US')}</td>
                       <td className="px-5 py-2">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           it.status === 'active' ? 'bg-green-100 text-green-700'
@@ -749,10 +749,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   {(billingUsage?.dryRun ?? []).map(r => (
                     <tr key={r.resource}>
                       <td className="px-5 py-2 font-mono text-xs">{r.resource}</td>
-                      <td className="px-5 py-2 text-right">{r.total.toLocaleString()}</td>
-                      <td className="px-5 py-2 text-right">{r.included.toLocaleString()}</td>
-                      <td className="px-5 py-2 text-right">{r.billable.toLocaleString()}</td>
-                      <td className="px-5 py-2 text-right">{r.billedCents.toLocaleString()}</td>
+                      <td className="px-5 py-2 text-right">{r.total.toLocaleString('en-US')}</td>
+                      <td className="px-5 py-2 text-right">{r.included.toLocaleString('en-US')}</td>
+                      <td className="px-5 py-2 text-right">{r.billable.toLocaleString('en-US')}</td>
+                      <td className="px-5 py-2 text-right">{r.billedCents.toLocaleString('en-US')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -785,13 +785,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     <tr key={h.id}>
                       <td className="px-5 py-2 font-mono text-xs">{h.period}</td>
                       <td className="px-5 py-2 font-mono text-xs">{h.resource}</td>
-                      <td className="px-5 py-2 text-right">{parseFloat(h.billableQuantity).toLocaleString()}</td>
-                      <td className="px-5 py-2 text-right">{h.billedAmountCents.toLocaleString()}</td>
+                      <td className="px-5 py-2 text-right">{parseFloat(h.billableQuantity).toLocaleString('en-US')}</td>
+                      <td className="px-5 py-2 text-right">{h.billedAmountCents.toLocaleString('en-US')}</td>
                       <td className="px-5 py-2 font-mono text-xs text-muted-foreground">
                         {h.stripeUsageRecordId ?? <span className="text-red-500">—</span>}
                       </td>
                       <td className="px-5 py-2 text-xs text-muted-foreground">
-                        {h.reportedAt ? new Date(h.reportedAt).toLocaleString() : '—'}
+                        {h.reportedAt ? new Date(h.reportedAt).toLocaleString('en-US') : '—'}
                       </td>
                     </tr>
                   ))}

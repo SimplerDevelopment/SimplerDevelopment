@@ -18,6 +18,7 @@ export const LayerScreen = () => {
     setControlMode,
     addLayer,
     setSelectedLayer,
+    setSelectedLayers,
     style,
   } = useContext(EditorContext);
   if (!selectedLayer) return <WelcomeScreen />;
@@ -33,6 +34,7 @@ export const LayerScreen = () => {
         onClick={() => {
           setControlMode("layerList");
           setSelectedLayer(null);
+          setSelectedLayers([]);
         }}
         className="flex items-center gap-0 text-blue-500 font-medium mb-3 cursor-pointer p-0 bg-transparent border-none"
       >

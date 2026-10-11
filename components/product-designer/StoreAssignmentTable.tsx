@@ -152,7 +152,6 @@ const CarouselItemMainView = ({
       sessionId: 'mock-session'
     }),
     loadDesign: () => Promise.resolve(true),
-    createNewDesign: () => Promise.resolve(),
     autoSave: () => Promise.resolve()
   }), [styleOption, overRideSide, originalContext, setLayerControlsStyle, setLastClickedCarouselStyle, setLayerClickFocusedStyleId]);
 

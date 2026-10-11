@@ -15,7 +15,7 @@
 // out of scope for PUB-5; that flows through the per-channel artifact's own
 // schedule endpoint and is tracked separately).
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
@@ -262,8 +262,12 @@ export default function PublishingCalendar(_props: PublishingCalendarProps) {
   const [loading, setLoading] = useState(true);
   const [filterChannel, setFilterChannel] = useState<string>('all');
   const [filterStage, setFilterStage] = useState<string>('all');
+  // Latest fetch wins: navigating fast must never let an older response
+  // overwrite newer entries.
+  const fetchSeq = useRef(0);
 
   const fetchEntries = useCallback(async () => {
+    const my = ++fetchSeq.current;
     setLoading(true);
     const start =
       view === 'month'
@@ -281,6 +285,7 @@ export default function PublishingCalendar(_props: PublishingCalendarProps) {
 
     try {
       const res = await fetch(`/api/portal/publishing/calendar?${params}`);
+      if (fetchSeq.current !== my) return;
       const json = (await res.json()) as
         | { success: true; data: PublishingCalendarEntry[] }
         | { success: false; message?: string };
@@ -290,46 +295,16 @@ export default function PublishingCalendar(_props: PublishingCalendarProps) {
         setEntries([]);
       }
     } catch {
+      if (fetchSeq.current !== my) return;
       setEntries([]);
     } finally {
-      setLoading(false);
+      if (fetchSeq.current === my) setLoading(false);
     }
   }, [currentDate, view]);
 
   useEffect(() => {
-    void (async () => {
-      setLoading(true);
-      const start =
-        view === 'month'
-          ? new Date(currentDate.getFullYear(), currentDate.getMonth(), -6)
-          : startOfWeek(currentDate);
-      const end =
-        view === 'month'
-          ? new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 7)
-          : endOfWeek(currentDate);
-
-      const params = new URLSearchParams({
-        start: start.toISOString(),
-        end: end.toISOString(),
-      });
-
-      try {
-        const res = await fetch(`/api/portal/publishing/calendar?${params}`);
-        const json = (await res.json()) as
-          | { success: true; data: PublishingCalendarEntry[] }
-          | { success: false; message?: string };
-        if (json.success) {
-          setEntries(json.data);
-        } else {
-          setEntries([]);
-        }
-      } catch {
-        setEntries([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [currentDate, view]);
+    void fetchEntries();
+  }, [fetchEntries]);
 
   const navigate = (dir: -1 | 1) => {
     setCurrentDate((prev) => {

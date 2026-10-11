@@ -97,6 +97,8 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   const [showPreview, setShowPreview] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
+  // Guards the useBlockEditor PATCH against double-click overlap.
+  const [togglingEditor, setTogglingEditor] = useState(false);
 
   useEffect(() => {
     fetch(`/api/portal/email/campaigns/${id}`)
@@ -204,8 +206,12 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    setEditSaving(false);
+    let data;
+    try {
+      data = await res.json();
+    } finally {
+      setEditSaving(false);
+    }
     if (!data.success) { setEditError(data.message ?? 'Save failed'); return; }
     setCampaign(prev => prev ? {
       ...prev,
@@ -217,16 +223,21 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   }
 
   async function toggleUseBlockEditor() {
-    if (!campaign) return;
-    const next = !campaign.useBlockEditor;
-    const res = await fetch(`/api/portal/email/campaigns/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ useBlockEditor: next }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      setCampaign(prev => prev ? { ...prev, useBlockEditor: next } : prev);
+    if (!campaign || togglingEditor) return;
+    setTogglingEditor(true);
+    try {
+      const next = !campaign.useBlockEditor;
+      const res = await fetch(`/api/portal/email/campaigns/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ useBlockEditor: next }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCampaign(prev => prev ? { ...prev, useBlockEditor: next } : prev);
+      }
+    } finally {
+      setTogglingEditor(false);
     }
   }
 
@@ -234,37 +245,41 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
     if (!campaign) return;
     setSendingTest(true);
     setTestResult(null);
-    const blocks = hasBlockContent && editBlocks.length > 0
-      ? editBlocks
-      : campaign.contentBlocks ?? campaign.blockContent?.blocks ?? [];
-    if (!blocks || blocks.length === 0) {
-      setTestResult('No blocks to render');
+    try {
+      const blocks = hasBlockContent && editBlocks.length > 0
+        ? editBlocks
+        : campaign.contentBlocks ?? campaign.blockContent?.blocks ?? [];
+      if (!blocks || blocks.length === 0) {
+        setTestResult('No blocks to render');
+        return;
+      }
+      const res = await fetch('/api/portal/email/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaignId: campaign.id,
+          subject: editing ? editForm.subject : campaign.subject,
+          preheader: editing ? editForm.previewText : campaign.previewText,
+          blocks,
+          sendTest: true,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!data?.success) {
+        setTestResult(data?.message ?? 'Failed to send test');
+        return;
+      }
+      if (data.data?.testSent?.ok) {
+        setTestResult(`Test sent to ${data.data.testSent.to}`);
+      } else if (data.data?.testSent) {
+        setTestResult(`Test failed to send to ${data.data.testSent.to}`);
+      } else {
+        setTestResult('Test rendered (no recipient)');
+      }
+    } catch {
+      setTestResult('Failed to send test');
+    } finally {
       setSendingTest(false);
-      return;
-    }
-    const res = await fetch('/api/portal/email/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        campaignId: campaign.id,
-        subject: editing ? editForm.subject : campaign.subject,
-        preheader: editing ? editForm.previewText : campaign.previewText,
-        blocks,
-        sendTest: true,
-      }),
-    });
-    const data = await res.json();
-    setSendingTest(false);
-    if (!data.success) {
-      setTestResult(data.message ?? 'Failed to send test');
-      return;
-    }
-    if (data.data?.testSent?.ok) {
-      setTestResult(`Test sent to ${data.data.testSent.to}`);
-    } else if (data.data?.testSent) {
-      setTestResult(`Test failed to send to ${data.data.testSent.to}`);
-    } else {
-      setTestResult('Test rendered (no recipient)');
     }
   }
 
@@ -272,13 +287,18 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
     if (!campaign) return;
     if (!confirm(`Send "${campaign.name}" to all active subscribers now?`)) return;
     setSending(true);
-    const res = await fetch(`/api/portal/email/campaigns/${id}/send`, { method: 'POST' });
-    const data = await res.json();
-    setSending(false);
-    if (!data.success) { alert(data.message); return; }
-    // Route queues the send + flips status server-side; the poll catches the end.
-    setSendResult(data.data);
-    setCampaign(prev => prev ? { ...prev, status: 'sending' } : prev);
+    try {
+      const res = await fetch(`/api/portal/email/campaigns/${id}/send`, { method: 'POST' });
+      const data = await res.json().catch(() => null);
+      if (!data?.success) { alert(data?.message ?? 'Send failed'); return; }
+      // Route queues the send + flips status server-side; the poll catches the end.
+      setSendResult(data.data);
+      setCampaign(prev => prev ? { ...prev, status: 'sending' } : prev);
+    } catch {
+      alert('Send failed');
+    } finally {
+      setSending(false);
+    }
   }
 
   if (loading) return <div className="p-6 text-muted-foreground text-sm">Loading…</div>;

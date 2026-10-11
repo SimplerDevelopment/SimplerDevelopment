@@ -16,21 +16,57 @@
  */
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
+
+/** Pure-Node fallback for machines without a `grep` binary (e.g. Windows
+ *  dev boxes without Git Bash on PATH). Produces the same
+ *  `{ file, line, text }` shape as the grep fast path, with forward-slash
+ *  relative paths so assertions stay platform-stable. */
+function dndContextSitesFallback(): { file: string; line: number; text: string }[] {
+  const out: { file: string; line: number; text: string }[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (!entry.endsWith('.tsx')) continue;
+      const lines = readFileSync(full, 'utf8').split('\n');
+      lines.forEach((text, i) => {
+        if (text.includes('<DndContext')) {
+          out.push({ file: relative(process.cwd(), full).split(sep).join('/'), line: i + 1, text });
+        }
+      });
+    }
+  };
+  walk(join(process.cwd(), 'components'));
+  walk(join(process.cwd(), 'app'));
+  return out;
+}
 
 /** Every `<DndContext` occurrence in app/ and components/, with its file. */
 function dndContextSites(): { file: string; line: number; text: string }[] {
-  const out = execFileSync(
-    'grep',
-    ['-rn', '--include=*.tsx', '<DndContext', 'components', 'app'],
-    { cwd: process.cwd(), encoding: 'utf8' },
-  );
-  return out
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => {
-      const [file, line, ...rest] = l.split(':');
-      return { file, line: Number(line), text: rest.join(':') };
-    });
+  try {
+    const out = execFileSync(
+      'grep',
+      ['-rn', '--include=*.tsx', '<DndContext', 'components', 'app'],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    );
+    return out
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => {
+        const [file, line, ...rest] = l.split(':');
+        return { file, line: Number(line), text: rest.join(':') };
+      });
+  } catch (err) {
+    // ENOENT = no grep binary on this machine (Windows without Git Bash on
+    // PATH). Fall back to the pure-Node scan so the guard still runs instead
+    // of failing the whole suite on environment grounds.
+    if (err instanceof Error && 'code' in err && (err as { code?: string }).code === 'ENOENT') {
+      return dndContextSitesFallback();
+    }
+    throw err;
+  }
 }
 
 describe('every DndContext carries a stable id (QAD-033)', () => {

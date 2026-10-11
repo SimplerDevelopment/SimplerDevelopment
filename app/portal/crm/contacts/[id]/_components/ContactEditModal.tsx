@@ -139,22 +139,29 @@ export default function ContactEditModal({ contactId, contact, onClose, onSaved 
     // Same payload shape the inline form sent: every editForm field, with
     // companyId converted from the typeahead's string id to number|null.
     const body = { ...editForm, companyId: editForm.companyId ? Number(editForm.companyId) : null };
-    const res = await fetch(`/api/portal/crm/contacts/${contactId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const d = await res.json();
-    if (!d.success) {
+    try {
+      const res = await fetch(`/api/portal/crm/contacts/${contactId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await res.json();
+      if (!d.success) {
+        setError(d.message ?? 'Failed to save contact.');
+        return;
+      }
+      // Save also flushes any pending custom-field edits via the always-mounted ref.
+      const cfOk = await (customFieldsRef.current?.save() ?? Promise.resolve(true));
+      if (!cfOk) {
+        setError('Contact saved, but custom fields failed to save. Please retry.');
+        return;
+      }
+      await onSaved();
+    } catch {
+      setError('Failed to save contact.');
+    } finally {
       setSaving(false);
-      setError(d.message ?? 'Failed to save contact.');
-      return;
     }
-    // Save also flushes any pending custom-field edits via the always-mounted ref.
-    const cfOk = await (customFieldsRef.current?.save() ?? Promise.resolve(true));
-    setSaving(false);
-    if (!cfOk) return;
-    await onSaved();
   }
 
   function setField<K extends keyof ContactEditFormState>(key: K, value: ContactEditFormState[K]) {

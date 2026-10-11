@@ -71,6 +71,7 @@ export default function DealDetailDrawer({
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const [panelTab, setPanelTab] = useState<PanelTab>('details');
 
@@ -221,8 +222,19 @@ export default function DealDetailDrawer({
   async function handleDelete() {
     if (!confirm('Delete this deal? This cannot be undone.')) return;
     setDeleting(true);
-    await api.deleteDeal(deal.id);
-    setDeleting(false);
+    setDeleteError('');
+    try {
+      const res = await api.deleteDeal(deal.id);
+      if (!res.success) {
+        setDeleteError(res.message ?? 'Delete failed. The deal was not deleted.');
+        return;
+      }
+    } catch {
+      setDeleteError('Delete failed. The deal was not deleted.');
+      return;
+    } finally {
+      setDeleting(false);
+    }
     onDeleted();
   }
 
@@ -433,6 +445,7 @@ export default function DealDetailDrawer({
             >
               <span className="material-icons text-base">delete</span>
             </button>
+            {deleteError && <span className="text-xs text-destructive max-w-40">{deleteError}</span>}
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-accent transition-colors">
               <span className="material-icons text-xl text-muted-foreground">close</span>
             </button>

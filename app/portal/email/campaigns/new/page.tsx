@@ -67,21 +67,26 @@ export default function NewPortalCampaignPage() {
     setSaving(true);
     setError('');
 
-    const payload: Record<string, unknown> = { ...form };
-    if (editorMode === 'visual') {
-      payload.blockContent = { blocks, version: '1' };
-      if (!payload.htmlContent) payload.htmlContent = '';
-    }
+    try {
+      const payload: Record<string, unknown> = { ...form };
+      if (editorMode === 'visual') {
+        payload.blockContent = { blocks, version: '1' };
+        if (!payload.htmlContent) payload.htmlContent = '';
+      }
 
-    const res = await fetch('/api/portal/email/campaigns', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (!data.success) { setError(data.message ?? 'Failed to create campaign'); return; }
-    router.push(`/portal/email/campaigns/${data.data.id}`);
+      const res = await fetch('/api/portal/email/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!data.success) { setError(data.message ?? 'Failed to create campaign'); return; }
+      router.push(`/portal/email/campaigns/${data.data.id}`);
+    } catch {
+      setError('Failed to create campaign');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleBlocksChange(newBlocks: Block[]) {
@@ -92,6 +97,16 @@ export default function NewPortalCampaignPage() {
   const labelClass = 'block text-xs font-medium text-muted-foreground mb-1';
 
   const canSave = form.name.trim() && form.subject.trim() && form.fromName.trim() && form.fromEmail.trim() && form.listId && (editorMode === 'visual' ? blocks.length > 0 : form.htmlContent.trim());
+
+  // Tell the user WHAT is missing instead of a silently disabled button.
+  const missingFields = [
+    !form.name.trim() && 'name',
+    !form.subject.trim() && 'subject',
+    !form.fromName.trim() && 'sender name',
+    !form.fromEmail.trim() && 'sender email',
+    !form.listId && 'audience list',
+    !(editorMode === 'visual' ? blocks.length > 0 : form.htmlContent.trim()) && 'content',
+  ].filter(Boolean) as string[];
 
   return (
     <div className="w-full space-y-4 px-2">
@@ -167,6 +182,9 @@ export default function NewPortalCampaignPage() {
             )}
             {saving ? 'Saving...' : 'Save Campaign'}
           </button>
+          {!canSave && !saving && (
+            <span className="text-xs text-muted-foreground">Missing: {missingFields.join(', ')}</span>
+          )}
         </div>
       </div>
 

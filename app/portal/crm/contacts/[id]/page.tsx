@@ -205,15 +205,31 @@ export default function CrmContactDetailPage() {
     setNewTag('');
   }
 
+  // In-flight guard: two rapid removes would both compute nextTags from
+  // the same stale closure and one removal would be lost.
+  const removingTagRef = useRef(false);
+
   async function removeTag(tagId: number) {
-    if (!contact) return;
-    const nextTags = (contact.tags ?? []).filter(t => t.id !== tagId);
-    await fetch(`/api/portal/crm/contacts/${contactId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagIds: nextTags.map(t => t.id) }),
-    });
-    setContact(prev => prev ? { ...prev, tags: nextTags } : prev);
+    if (!contact || removingTagRef.current) return;
+    removingTagRef.current = true;
+    try {
+      const nextTags = (contact.tags ?? []).filter(t => t.id !== tagId);
+      const res = await fetch(`/api/portal/crm/contacts/${contactId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tagIds: nextTags.map(t => t.id) }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!d?.success) {
+        console.error('[contacts] removeTag failed');
+        return;
+      }
+      setContact(prev => prev ? { ...prev, tags: nextTags } : prev);
+    } catch (err) {
+      console.error('[contacts] removeTag failed:', err);
+    } finally {
+      removingTagRef.current = false;
+    }
   }
 
   async function logActivity(e: React.FormEvent) {

@@ -162,18 +162,31 @@ export default function CrmSettingsPage() {
 
   async function updatePipelineName(id: number) {
     if (!editPipelineName.trim()) return;
-    await fetch(`/api/portal/crm/pipelines/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: editPipelineName.trim() }),
-    });
+    try {
+      const res = await fetch(`/api/portal/crm/pipelines/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editPipelineName.trim() }),
+      });
+      if (!res.ok) throw new Error('Rename failed');
+    } catch (err) {
+      console.error('[settings] updatePipelineName failed:', err);
+      return;
+    }
     setPipelines(prev => prev.map(p => p.id === id ? { ...p, name: editPipelineName.trim() } : p));
     setEditingPipelineId(null);
   }
 
   async function deletePipeline(id: number) {
     if (!confirm('Delete this pipeline and all its stages? Deals will be unassigned.')) return;
-    await fetch(`/api/portal/crm/pipelines/${id}`, { method: 'DELETE' });
+    try {
+      const res = await fetch(`/api/portal/crm/pipelines/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
+    } catch (err) {
+      console.error('[settings] deletePipeline failed:', err);
+      alert('Delete failed. Please retry.');
+      return;
+    }
     setPipelines(prev => prev.filter(p => p.id !== id));
     if (expandedPipelineId === id) setExpandedPipelineId(null);
   }
@@ -212,7 +225,14 @@ export default function CrmSettingsPage() {
 
   async function deleteStage(pipelineId: number, stageId: number) {
     if (!confirm('Delete this stage? Deals in this stage will need to be reassigned.')) return;
-    await fetch(`/api/portal/crm/pipelines/${pipelineId}/stages/${stageId}`, { method: 'DELETE' });
+    try {
+      const res = await fetch(`/api/portal/crm/pipelines/${pipelineId}/stages/${stageId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
+    } catch (err) {
+      console.error('[settings] deleteStage failed:', err);
+      alert('Delete failed. Please retry.');
+      return;
+    }
     setPipelines(prev =>
       prev.map(p =>
         p.id === pipelineId
@@ -231,6 +251,8 @@ export default function CrmSettingsPage() {
     if (direction === 'down' && idx >= sorted.length - 1) return;
 
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    // Snapshot pre-swap orders for rollback (sorted shares object refs with state).
+    const prevStages = (pipeline.stages ?? []).map(s => ({ ...s }));
     const tempOrder = sorted[idx].order;
     sorted[idx].order = sorted[swapIdx].order;
     sorted[swapIdx].order = tempOrder;
@@ -240,14 +262,23 @@ export default function CrmSettingsPage() {
       prev.map(p => p.id === pipelineId ? { ...p, stages: [...sorted] } : p)
     );
 
-    // Persist
-    await fetch(`/api/portal/crm/pipelines/${pipelineId}/stages`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        stages: sorted.sort((a, b) => a.order - b.order).map((s, i) => ({ id: s.id, order: i + 1 })),
-      }),
-    });
+    // Persist — revert on failure so the board never shows an order the
+    // server rejected.
+    try {
+      const res = await fetch(`/api/portal/crm/pipelines/${pipelineId}/stages`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stages: sorted.sort((a, b) => a.order - b.order).map((s, i) => ({ id: s.id, order: i + 1 })),
+        }),
+      });
+      if (!res.ok) throw new Error('Move failed');
+    } catch (err) {
+      console.error('[settings] moveStage failed, rolled back:', err);
+      setPipelines(prev =>
+        prev.map(p => p.id === pipelineId ? { ...p, stages: prevStages } : p)
+      );
+    }
   }
 
   async function createTag(e: React.FormEvent) {

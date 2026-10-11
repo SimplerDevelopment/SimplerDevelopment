@@ -243,7 +243,18 @@ export function useRealtimeDoc(
     clientRef.current = c;
 
     const offStatus = c.onStatus(setStatus);
-    void c.connect().catch(() => {});
+    // connect() only creates the provider AFTER fetchToken resolves, so the
+    // snapshot below initially carries provider/awareness=null. Re-snapshot
+    // once connected — otherwise consumers keep the null snapshot forever
+    // and every useLocalAwareness setter stays a permanent no-op.
+    void c
+      .connect()
+      .then(() => {
+        if (clientRef.current === c) {
+          setDocSnapshot({ ydoc: c.doc, provider: c.wsProvider, awareness: c.awareness });
+        }
+      })
+      .catch(() => {});
 
     // Surface the new doc/provider/awareness to consumers via state so
     // useMemo below doesn't need to read the ref during render.

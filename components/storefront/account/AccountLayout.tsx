@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCustomerAuth } from './CustomerAuthContext';
 
 interface AccountLayoutProps {
@@ -21,7 +21,13 @@ const NAV_ITEMS = [
 
 export function AccountLayout({ siteId, domain, children }: AccountLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { customer, logout } = useCustomerAuth();
+
+  async function handleLogout() {
+    await logout();
+    router.push('/account/login');
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -60,7 +66,7 @@ export function AccountLayout({ siteId, domain, children }: AccountLayoutProps) 
             })}
 
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors w-full"
             >
               <span className="material-icons text-lg" style={{ fontSize: '20px' }}>logout</span>
@@ -90,6 +96,13 @@ export function AccountLayout({ siteId, domain, children }: AccountLayoutProps) 
                 </Link>
               );
             })}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap text-gray-500 hover:bg-gray-50 transition-colors"
+            >
+              <span className="material-icons" style={{ fontSize: '16px' }}>logout</span>
+              Sign Out
+            </button>
           </div>
         </div>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, use } from 'react';
 import { sanitizeHtml } from '@/lib/security/sanitize-html';
+import { formatCents } from '@/lib/portal-utils';
 
 interface ContractClause {
   id: string;
@@ -48,10 +49,6 @@ interface ContractData {
   companyName: string;
   signer: SignerInfo;
   allSigners: SignerInfo[];
-}
-
-function formatCents(cents: number): string {
-  return '$' + (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function ContractSigningPage({ params }: { params: Promise<{ token: string }> }) {

@@ -226,30 +226,51 @@ export default function ProposalEditorPage() {
   /* Send */
   async function handleSend() {
     setSending(true);
-    // Auto-save first
-    await fetch(`/api/portal/crm/proposals/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, summary, contactId: contactId ? Number(contactId) : null, companyId: companyId ? Number(companyId) : null, dealId: dealId ? Number(dealId) : null, accentColor, logoUrl: logoUrl || null, coverImageUrl: coverImageUrl || null, validUntil: validUntil || null, footerText: footerText || null, sections, lineItems, fees }),
-    });
-    const res = await fetch(`/api/portal/crm/proposals/${id}/send`, { method: 'POST' });
-    const d = await res.json();
-    setSending(false);
-    if (!d.success) {
-      setError(d.message ?? 'Failed to send');
-      setShowSendDialog(false);
-      return;
+    try {
+      // Auto-save first — abort the send if the draft won't persist.
+      const putRes = await fetch(`/api/portal/crm/proposals/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, summary, contactId: contactId ? Number(contactId) : null, companyId: companyId ? Number(companyId) : null, dealId: dealId ? Number(dealId) : null, accentColor, logoUrl: logoUrl || null, coverImageUrl: coverImageUrl || null, validUntil: validUntil || null, footerText: footerText || null, sections, lineItems, fees }),
+      });
+      const putData = await putRes.json().catch(() => null);
+      if (!putData?.success) {
+        setError(putData?.message ?? 'Failed to save draft before sending');
+        return;
+      }
+      const res = await fetch(`/api/portal/crm/proposals/${id}/send`, { method: 'POST' });
+      const d = await res.json().catch(() => null);
+      if (!d?.success) {
+        setError(d?.message ?? 'Failed to send');
+        setShowSendDialog(false);
+        return;
+      }
+      const url = `${window.location.origin}${d.data.proposalUrl}`;
+      setSendingUrl(url);
+      loadProposal();
+    } catch {
+      setError('Failed to send');
+    } finally {
+      setSending(false);
     }
-    const url = `${window.location.origin}${d.data.proposalUrl}`;
-    setSendingUrl(url);
-    loadProposal();
   }
 
   /* Delete */
   async function handleDelete() {
     setDeleting(true);
-    await fetch(`/api/portal/crm/proposals/${id}`, { method: 'DELETE' });
-    setDeleting(false);
+    try {
+      const res = await fetch(`/api/portal/crm/proposals/${id}`, { method: 'DELETE' });
+      const d = await res.json().catch(() => null);
+      if (!d?.success) {
+        setError(d?.message ?? 'Failed to delete');
+        return;
+      }
+    } catch {
+      setError('Failed to delete');
+      return;
+    } finally {
+      setDeleting(false);
+    }
     router.push('/portal/crm/proposals');
   }
 

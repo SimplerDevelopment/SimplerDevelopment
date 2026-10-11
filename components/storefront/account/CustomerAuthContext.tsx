@@ -58,21 +58,29 @@ export function CustomerAuthProvider({ siteId, children }: { siteId: number; chi
     const t = typeof window !== 'undefined' ? localStorage.getItem(storageKey(siteId)) : null;
     if (!t) { setLoading(false); return; }
 
-    const res = await fetch(`/api/storefront/${siteId}/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${t}` },
-      body: JSON.stringify({ action: 'me' }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      setCustomer(data.data);
-      setToken(t);
-    } else {
-      localStorage.removeItem(storageKey(siteId));
-      setToken(null);
-      setCustomer(null);
+    try {
+      const res = await fetch(`/api/storefront/${siteId}/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${t}` },
+        body: JSON.stringify({ action: 'me' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCustomer(data.data);
+        setToken(t);
+      } else if (res.status === 401) {
+        // Only a definitive 401 means the session is dead. Anything else
+        // (500, network HTML, bad JSON shape) keeps the session so a
+        // transient backend failure doesn't silently log the user out.
+        localStorage.removeItem(storageKey(siteId));
+        setToken(null);
+        setCustomer(null);
+      }
+    } catch {
+      // Network/parse failure: keep the session, just stop spinning.
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [siteId]);
 
   useEffect(() => { queueMicrotask(() => refreshCustomer()); }, [refreshCustomer]);
