@@ -194,13 +194,24 @@ export function usePostForm({ siteId, post, mode, editorMode, ydoc, realtimeStat
   const blocksRef = useRef(blocks);
   const formDataRef = useRef(formData);
   const isSavingRef = useRef(false);
+  // Publish requested while a save is in flight (queued, runs in finally).
+  const pendingPublishRef = useRef(false);
+  // Indirection for the queued publish: calling savePost from inside its own
+  // useCallback would make the callback self-referential and opt the file
+  // out of React Compiler memoization. The ref is assigned in an effect.
+  const savePostRef = useRef<(trigger?: 'autosave' | 'manual' | 'publish') => Promise<void>>(null);
   useLayoutEffect(() => {
     blocksRef.current = blocks;
     formDataRef.current = formData;
   });
 
   const savePost = useCallback(async (trigger: 'autosave' | 'manual' | 'publish' = 'manual') => {
-    if (mode !== 'edit' || !post?.id || isSavingRef.current) return;
+    // A publish arriving mid-autosave must not vanish silently: queue it and
+    // run it as soon as the in-flight save settles (see finally below).
+    if (mode !== 'edit' || !post?.id || isSavingRef.current) {
+      if (trigger === 'publish' && mode === 'edit' && post?.id) pendingPublishRef.current = true;
+      return;
+    }
     isSavingRef.current = true;
     if (trigger !== 'autosave') setLoading(true);
     setPostSaveStatus('saving');
@@ -231,8 +242,16 @@ export function usePostForm({ siteId, post, mode, editorMode, ydoc, realtimeStat
     } finally {
       isSavingRef.current = false;
       setLoading(false);
+      if (pendingPublishRef.current) {
+        pendingPublishRef.current = false;
+        void savePostRef.current?.('publish');
+      }
     }
   }, [mode, post, siteId, editorMode, router]);
+
+  useEffect(() => {
+    savePostRef.current = savePost;
+  }, [savePost]);
 
   // When the author switches the post type from the Page Details panel, save
   // immediately and bump the iframe so the new type's template wraps the

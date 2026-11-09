@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ReactFlow, {
@@ -174,6 +174,9 @@ export default function WorkflowEditorPage() {
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [runSteps, setRunSteps] = useState<RunStepRow[]>([]);
   const [stepsLoading, setStepsLoading] = useState(false);
+  // Guards handleSelectRun against out-of-order responses (run1 → run2 must
+  // never paint run1's steps into run2's panel).
+  const selectReqId = useRef(0);
   const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
@@ -273,11 +276,12 @@ export default function WorkflowEditorPage() {
     setSelectedRunId(runId);
     setRunSteps([]);
     setStepsLoading(true);
+    const myId = ++selectReqId.current;
     try {
       const res = await fetch(`/api/portal/workflows/runs/${runId}`).then((r) => r.json());
-      if (res?.success) setRunSteps(res.data?.steps ?? []);
+      if (selectReqId.current === myId && res?.success) setRunSteps(res.data?.steps ?? []);
     } finally {
-      setStepsLoading(false);
+      if (selectReqId.current === myId) setStepsLoading(false);
     }
   }, [selectedRunId]);
 
@@ -355,7 +359,7 @@ export default function WorkflowEditorPage() {
         <button
           type="button"
           onClick={handleTestRun}
-          disabled={testing}
+          disabled={testing || saving}
           className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border border-border hover:bg-muted disabled:opacity-60"
         >
           <span className="material-icons text-sm">play_arrow</span>
@@ -364,7 +368,7 @@ export default function WorkflowEditorPage() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || testing}
           className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
           <span className="material-icons text-sm">save</span>

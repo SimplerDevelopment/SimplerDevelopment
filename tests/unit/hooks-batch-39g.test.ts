@@ -460,9 +460,10 @@ describe('useBlockHistory', () => {
     act(() => {
       result.current.redo();
     });
-    // The BlockHistory contract is "push BEFORE change"; redo returns the
-    // entry that was popped, so we just verify the redo plumbing fires
-    // (canRedo flips off, lastAction reflects redone action).
+    // The BlockHistory contract is "push successive states" (post-change
+    // snapshots): redo returns the entry that was popped, so we just verify
+    // the redo plumbing fires (canRedo flips off, lastAction reflects
+    // redone action).
     expect(result.current.canRedo).toBe(false);
     expect(result.current.lastAction).toBe(addAction.description);
   });

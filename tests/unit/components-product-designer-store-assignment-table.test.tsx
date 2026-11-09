@@ -59,7 +59,6 @@ vi.mock('@/components/product-designer/EditorContext', () => {
     setDesignName: () => {},
     saveDesign: () => Promise.resolve(null),
     loadDesign: () => Promise.resolve(false),
-    createNewDesign: () => {},
     autoSave: () => Promise.resolve(),
   });
   return { EditorContext: ctx };

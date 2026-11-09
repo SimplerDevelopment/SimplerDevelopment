@@ -445,6 +445,12 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
     const nLayers = layers.filter((l) => l.id !== layer.id);
     setLayers(nLayers);
     setSelectedLayer(null);
+    setSelectedLayers([]);
+    // Drop style refs pointing at the deleted layer (the carousel wrapper
+    // only cleans these on selection change, which delete bypasses).
+    // lastClickedCarouselStyle is intentionally kept (see note above).
+    setLayerControlsStyle(null);
+    setLayerClickFocusedStyleId(null);
     setControlMode("welcome");
   }, [layers]);
 
@@ -664,6 +670,11 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       setLayers(layersToSet);
       setStyleOverrides(design.styleOverrides || {});
       setDesignName(design.name);
+      // A load replaces the whole canvas: drop any selection from the
+      // previous design, or panels keep editing a ghost layer.
+      setSelectedLayer(null);
+      setSelectedLayers([]);
+      setControlMode("welcome");
 
       setDesignState({
         isSaved: true,
@@ -687,23 +698,6 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       return false;
     }
   }, [product, setLayers, setStyleOverrides, setDesignName, setStyle]);
-
-  const createNewDesign = useCallback(() => {
-    setCurrentDesignId(null);
-    setLayers([]);
-    setStyleOverrides({});
-    setDesignName("Untitled Design");
-    setSelectedLayer(null);
-    setControlMode("welcome");
-    
-    setDesignState({
-      isSaved: false,
-      isAutoSaving: false,
-      lastSavedAt: null,
-      hasUnsavedChanges: false,
-      name: "Untitled Design",
-    });
-  }, [setLayers, setStyleOverrides, setDesignName, setSelectedLayer, setControlMode]);
 
   const autoSave = useCallback(async () => {
     if (currentDesignId && designState.hasUnsavedChanges && !designState.isAutoSaving) {
@@ -785,9 +779,8 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
     // Design management functions
     saveDesign,
     loadDesign,
-    createNewDesign,
     autoSave,
-  }), [websiteId, controlMode, product, side, style, addLayer, layers, selectedLayer, selectedLayers, updateLayer, removeLayer, showModal, styleOverrides, quantity, carouselMode, currentDesignId, designState, designName, saveDesign, loadDesign, createNewDesign, autoSave]);
+  }), [websiteId, controlMode, product, side, style, addLayer, layers, selectedLayer, selectedLayers, updateLayer, removeLayer, showModal, styleOverrides, quantity, carouselMode, currentDesignId, designState, designName, saveDesign, loadDesign, autoSave]);
 
   // Memoize sorted sizes calculation to avoid calling hooks conditionally  
   const sortedSizes = useMemo(() => {
@@ -914,6 +907,8 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       setLayers(layersToSet);
       setStyleOverrides(d.style_overrides || {});
       setDesignName(d.name || "");
+      setSelectedLayer(null);
+      setSelectedLayers([]);
       setControlMode("welcome");
       setPage("editor");
     });
@@ -934,6 +929,8 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       setLayers(layersToSet);
       setStyleOverrides(d.style_overrides || {});
       setDesignName(`${d.name || "Design"} (copy)`);
+      setSelectedLayer(null);
+      setSelectedLayers([]);
       setNameModalOpen(true);
       setControlMode("welcome");
       setPage("editor");
@@ -1230,6 +1227,8 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
                 // Handle both camelCase and snake_case formats
                 setStyleOverrides(d.styleOverrides || d.style_overrides || {});
                 setDesignName(d.name || "");
+                setSelectedLayer(null);
+                setSelectedLayers([]);
 
                 // Update design state
                 setDesignState({

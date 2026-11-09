@@ -54,12 +54,13 @@ import { LayoutContent } from '@/components/LayoutContent';
 // ---------------------------------------------------------------------------
 
 function makeFetch(
-  responder: (url: string, init: RequestInit) => { ok?: boolean; payload: any },
+  responder: (url: string, init: RequestInit) => { ok?: boolean; status?: number; payload: any },
 ) {
   return vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
     const out = responder(url, init);
     return {
       ok: out.ok ?? true,
+      status: out.status ?? 200,
       json: async () => out.payload,
     };
   });
@@ -159,10 +160,11 @@ describe('CustomerAuthContext', () => {
     expect(screen.getByTestId('token').textContent).toBe('cached-token');
   });
 
-  it('clears storage when "me" reports failure', async () => {
+  it('clears storage when "me" reports 401 (dead session)', async () => {
     localStorage.setItem('customer_token_7', 'bad-token');
 
     (globalThis as any).fetch = makeFetch(() => ({
+      status: 401,
       payload: { success: false, message: 'expired' },
     }));
 
@@ -188,6 +190,37 @@ describe('CustomerAuthContext', () => {
     });
     expect(screen.getByTestId('customer').textContent).toBe('no');
     expect(localStorage.getItem('customer_token_7')).toBeNull();
+  });
+
+  it('keeps the session when "me" fails transiently (500, no silent logout)', async () => {
+    localStorage.setItem('customer_token_7', 'good-token');
+
+    (globalThis as any).fetch = makeFetch(() => ({
+      status: 500,
+      payload: { success: false, message: 'boom' },
+    }));
+
+    function Probe() {
+      const { customer, token, loading } = useCustomerAuth();
+      return (
+        <div>
+          <span data-testid="customer">{customer ? 'yes' : 'no'}</span>
+          <span data-testid="token">{token ?? 'null'}</span>
+          <span data-testid="loading">{loading ? 'loading' : 'ready'}</span>
+        </div>
+      );
+    }
+
+    render(
+      <CustomerAuthProvider siteId={7}>
+        <Probe />
+      </CustomerAuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading').textContent).toBe('ready');
+    });
+    expect(localStorage.getItem('customer_token_7')).toBe('good-token');
   });
 
   it('login stores the token and customer on success', async () => {
@@ -373,8 +406,8 @@ describe('AccountLayout', () => {
       expect(matches.length).toBeGreaterThanOrEqual(1);
     }
 
-    // Sign Out is desktop-only
-    expect(screen.getByText('Sign Out')).toBeTruthy();
+    // Sign Out exists in desktop and mobile nav
+    expect(screen.getAllByText('Sign Out').length).toBe(2);
   });
 
   it('marks the Dashboard link as active when pathname is exactly /account', async () => {
@@ -474,7 +507,7 @@ describe('AccountLayout', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByText('Sign Out'));
+      fireEvent.click(screen.getAllByText('Sign Out')[0]);
     });
     expect(logoutFetchCalled).toBe(true);
     expect(localStorage.getItem('customer_token_1')).toBeNull();

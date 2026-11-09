@@ -43,6 +43,7 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
     typeof window !== 'undefined' ? !!localStorage.getItem('cart_session_id') : false
   );
   const [updating, setUpdating] = useState<number | null>(null);
+  const [cartError, setCartError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -59,31 +60,39 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
       .finally(() => setLoading(false));
   }, [siteId, sessionId]);
 
+  // Server is the source of truth for items + subtotal (stock caps, price
+  // changes, removals). Refetch after every mutation instead of patching
+  // local state — concurrent updates computed from a stale closure used to
+  // silently drop each other's changes (last-write-wins).
+  async function refreshCart() {
+    if (!sessionId) return;
+    const res = await fetch(`/api/storefront/${siteId}/cart?sessionId=${sessionId}`);
+    const json = await res.json();
+    if (json.success && json.data) {
+      setItems(json.data.items || []);
+      setSubtotal(json.data.subtotal || 0);
+    }
+  }
+
   async function updateQty(itemId: number, qty: number) {
     if (!sessionId) return;
     setUpdating(itemId);
+    setCartError(null);
     try {
       const res = await fetch(`/api/storefront/${siteId}/cart`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cartItemId: itemId, quantity: qty }),
       });
-      const json = await res.json();
-      if (json.success) {
-        if (qty <= 0) {
-          const next = items.filter(i => i.id !== itemId);
-          setItems(next);
-          setSubtotal(next.reduce((s, i) => s + i.unitPrice * i.quantity, 0));
-        } else {
-          const next = items.map(i =>
-            i.id === itemId ? { ...i, quantity: qty, lineTotal: i.unitPrice * qty } : i
-          );
-          setItems(next);
-          setSubtotal(next.reduce((s, i) => s + i.unitPrice * i.quantity, 0));
-        }
+      const json = await res.json().catch(() => null);
+      if (!json?.success) {
+        setCartError(json?.message ?? 'Could not update cart. Please retry.');
+        return;
       }
+      await refreshCart();
     } catch (e) {
       console.error(e);
+      setCartError('Could not update cart. Please retry.');
     } finally {
       setUpdating(null);
     }
@@ -119,6 +128,10 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
           <span className="text-base font-normal text-muted-foreground">({itemCount} items)</span>
         )}
       </h1>
+
+      {cartError && (
+        <p className="text-sm text-destructive mb-4" role="alert">{cartError}</p>
+      )}
 
       {items.length === 0 ? (
         <div className="text-center py-16 border border-border rounded-xl bg-card">
@@ -165,7 +178,7 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => updateQty(item.id, item.quantity - 1)}
-                    disabled={updating === item.id}
+                    disabled={updating !== null}
                     aria-label="Decrease quantity"
                     className="w-7 h-7 rounded border border-border flex items-center justify-center hover:bg-muted/50 transition-colors disabled:opacity-40"
                   >
@@ -174,7 +187,7 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
                   <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
                   <button
                     onClick={() => updateQty(item.id, item.quantity + 1)}
-                    disabled={updating === item.id}
+                    disabled={updating !== null}
                     aria-label="Increase quantity"
                     className="w-7 h-7 rounded border border-border flex items-center justify-center hover:bg-muted/50 transition-colors disabled:opacity-40"
                   >
@@ -186,7 +199,7 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
                   <p className="font-semibold">{formatMoney(item.unitPrice * item.quantity)}</p>
                   <button
                     onClick={() => updateQty(item.id, 0)}
-                    disabled={updating === item.id}
+                    disabled={updating !== null}
                     aria-label="Remove item"
                     className="text-xs text-muted-foreground hover:text-destructive transition-colors mt-0.5"
                   >

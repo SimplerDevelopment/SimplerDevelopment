@@ -38,6 +38,7 @@ export default function WorkflowsListPage() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [creatingTemplateId, setCreatingTemplateId] = useState<string | null>(null);
   const [creatingBlank, setCreatingBlank] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -53,6 +54,7 @@ export default function WorkflowsListPage() {
 
   const createBlank = async () => {
     setCreatingBlank(true);
+    setCreateError(null);
     try {
       const res = await fetch('/api/portal/workflows', {
         method: 'POST',
@@ -61,6 +63,9 @@ export default function WorkflowsListPage() {
       });
       const data = await res.json();
       if (data?.success && data.data?.id) router.push(`/portal/automations/workflows/${data.data.id}`);
+      else setCreateError(data?.message ?? 'Could not create workflow.');
+    } catch {
+      setCreateError('Could not create workflow.');
     } finally {
       setCreatingBlank(false);
     }
@@ -68,6 +73,7 @@ export default function WorkflowsListPage() {
 
   const createFromTemplate = async (templateId: string) => {
     setCreatingTemplateId(templateId);
+    setCreateError(null);
     try {
       const res = await fetch('/api/portal/workflows', {
         method: 'POST',
@@ -76,6 +82,9 @@ export default function WorkflowsListPage() {
       });
       const data = await res.json();
       if (data?.success && data.data?.id) router.push(`/portal/automations/workflows/${data.data.id}`);
+      else setCreateError(data?.message ?? 'Could not create workflow.');
+    } catch {
+      setCreateError('Could not create workflow.');
     } finally {
       setCreatingTemplateId(null);
     }
@@ -92,6 +101,10 @@ export default function WorkflowsListPage() {
           Use <strong>Automations</strong> (Rules) for live trigger-to-action rules today.
         </div>
       </div>
+
+      {createError && (
+        <p className="text-sm text-destructive" role="alert">{createError}</p>
+      )}
 
       <PortalPageHeader
         eyebrow="Automations"

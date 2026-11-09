@@ -205,6 +205,15 @@ export function VisualEditorShell({
     onSelectBlock(blockId);
   }, [onSelectBlock]);
 
+  // Deleting must also drop the id from selection — otherwise the shell keeps
+  // emitting select for a ghost id (effect below) and panels resolve
+  // findBlockById → null while believing something is selected.
+  const handleDeleteBlock = useCallback((blockId: string) => {
+    onDeleteBlock(blockId);
+    setInternalSelectedBlockId((prev) => (prev === blockId ? null : prev));
+    setSelectedBlockIds((prev) => prev.filter((id) => id !== blockId));
+  }, [onDeleteBlock]);
+
   const handleBlockHovered = useCallback(() => {}, []);
 
   // Bridge — iframe forwards Cmd+C/Cmd+V before the actual handlers exist in
@@ -509,7 +518,7 @@ export function VisualEditorShell({
           selectedBlockId={selectedBlockId}
           selectedBlockIds={selectedBlockIds}
           selectBlock={selectBlock}
-          onDeleteBlock={onDeleteBlock}
+          onDeleteBlock={handleDeleteBlock}
           handleUpdateBlock={handleUpdateBlock}
           setSelectedBlockIds={setSelectedBlockIds}
           setInternalSelectedBlockId={setInternalSelectedBlockId}
@@ -569,7 +578,7 @@ export function VisualEditorShell({
           currentViewport={currentViewport}
           onBlocksChange={onBlocksChange}
           handleUpdateBlock={handleUpdateBlock}
-          onDeleteBlock={onDeleteBlock}
+          onDeleteBlock={handleDeleteBlock}
           bulkDuplicate={bulkDuplicate}
           bulkGroup={bulkGroup}
           bulkDelete={bulkDelete}

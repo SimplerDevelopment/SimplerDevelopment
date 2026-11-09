@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useCustomerAuth } from '@/components/storefront/account/CustomerAuthContext';
@@ -13,8 +13,15 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Redirect after render, not during (render-phase router.push double-fires
+  // under StrictMode and triggers a React update-during-render warning).
+  // Must sit above the early returns: hooks run unconditionally.
+  useEffect(() => {
+    if (!loading && customer) router.push('/account');
+  }, [loading, customer, router]);
+
   if (loading) return <div className="flex justify-center py-20"><span className="material-icons animate-spin text-3xl text-gray-400">autorenew</span></div>;
-  if (customer) { router.push('/account'); return null; }
+  if (customer) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

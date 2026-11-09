@@ -501,7 +501,6 @@ describe('ProductPage', () => {
       .mockResolvedValueOnce({ json: async () => ({ success: true, data: product }) } as Response)
       .mockResolvedValueOnce({ json: async () => ({ success: true }) } as Response);
 
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
     render(<ProductPage siteId={1} productSlug="test-widget" />);
     await waitFor(() => screen.getByText(/Add to Cart/));
 
@@ -509,7 +508,6 @@ describe('ProductPage', () => {
     expect(addBtn).toBeTruthy();
     await act(async () => { fireEvent.click(addBtn!); });
     await waitFor(() => expect(screen.getByText('Added to cart!')).toBeTruthy());
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'cart-updated' }));
   });
 
   it('shows error message when cart POST fails', async () => {

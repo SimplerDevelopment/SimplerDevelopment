@@ -165,7 +165,10 @@ describe('ProjectMembersTab', () => {
       render(<ProjectMembersTab projectId={1} canManage={false} />);
       await waitFor(() =>
         expect(
-          screen.getByText(new Date('2025-01-15T10:00:00Z').toLocaleDateString()),
+          // Pinned en-US like the component (ProjectMembersTab renders
+          // toLocaleDateString('en-US')); the bare runtime-locale call drifts
+          // on non-en-US machines.
+          screen.getByText(new Date('2025-01-15T10:00:00Z').toLocaleDateString('en-US')),
         ).toBeTruthy(),
       );
     });

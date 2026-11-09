@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../_lib/api';
 import type { Company, Contact, Deal, Pipeline } from '../_lib/types';
 
@@ -42,6 +42,15 @@ export function useDeals(): UseDealsState {
   const [dealsLoading, setDealsLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState('open');
   const [customFilters, setCustomFilters] = useState<Record<number, string>>({});
+  // Synchronous mirror of `deals` for reading pre-move state inside the
+  // async moveDeal (setState updaters don't run synchronously). Synced in an
+  // effect, not during render (react-hooks/refs).
+  const dealsRef = useRef<Deal[]>([]);
+  useEffect(() => {
+    dealsRef.current = deals;
+  }, [deals]);
+  // In-flight move guard, one entry per deal id.
+  const movingRef = useRef<Set<number>>(new Set());
 
   // Initial load. We no longer bulk-fetch companies — the company pickers
   // inside NewDealModal/DealDetailDrawer use the typeahead endpoint
@@ -78,10 +87,28 @@ export function useDeals(): UseDealsState {
   }, [selectedPipelineId, statusFilter, customFilters, fetchDeals]);
 
   const moveDeal = useCallback(async (dealId: number, newStageId: number) => {
+    // One in-flight move per deal: concurrent drags would resolve out of
+    // order and leave the board on the wrong stage.
+    if (movingRef.current.has(dealId)) return;
+    movingRef.current.add(dealId);
+    const prevStage = dealsRef.current.find((d) => d.id === dealId)?.stageId ?? null;
     setDeals((prev) =>
       prev.map((d) => (d.id === dealId ? { ...d, stageId: newStageId } : d)),
     );
-    await api.moveDealStage(dealId, newStageId);
+    try {
+      const res = await api.moveDealStage(dealId, newStageId);
+      if (!res.success) throw new Error(res.message ?? 'Move failed');
+    } catch (err) {
+      // Roll back so the board never shows a stage the server rejected.
+      if (prevStage !== null) {
+        setDeals((prev) =>
+          prev.map((d) => (d.id === dealId ? { ...d, stageId: prevStage } : d)),
+        );
+      }
+      console.error('[deals] moveDeal failed, rolled back:', err);
+    } finally {
+      movingRef.current.delete(dealId);
+    }
   }, []);
 
   return {

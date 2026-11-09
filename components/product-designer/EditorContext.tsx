@@ -68,7 +68,6 @@ export interface EditorContextType {
   // Design management functions
   saveDesign: (name?: string) => Promise<Design | null>;
   loadDesign: (designId: number) => Promise<boolean>;
-  createNewDesign: () => void;
   autoSave: () => Promise<void>;
 }
 
@@ -115,7 +114,6 @@ export const EditorContext = createContext<EditorContextType>({
   // Design management functions
   saveDesign: async (_?: string) => null,
   loadDesign: async (_: number) => false,
-  createNewDesign: () => {},
   autoSave: async () => {},
 });
 

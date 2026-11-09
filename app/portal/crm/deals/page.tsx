@@ -68,6 +68,9 @@ function CrmDealsContent() {
   useEffect(() => {
     if (!dealId) return;
     if (editingDeal?.id === Number(dealId)) return;
+    // Never clobber an open drawer: replacing editingDeal mid-edit would
+    // silently discard the user's unsaved changes.
+    if (editingDeal) return;
     fetch(`/api/portal/crm/deals/${dealId}`)
       .then((res) => res.json())
       .then((json) => {
@@ -161,6 +164,7 @@ function CrmDealsContent() {
 
       {editingDeal && (
         <DealDetailDrawer
+          key={editingDeal.id}
           deal={editingDeal}
           pipelines={pipelines}
           contacts={contacts}

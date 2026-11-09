@@ -4,6 +4,27 @@ export function formatCents(cents: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 }
 
+/**
+ * Deterministic en-US formatting for UI numbers/dates/times. A bare
+ * runtime-locale `toLocaleString()` renders differently per machine (es-ES
+ * groups 4-digit numbers without separator and uses 24h / "p. m." markers),
+ * which broke unit tests on non-en-US boxes and would render inconsistently
+ * for users. Pinning en-US matches what production (en-US) already renders,
+ * so this changes nothing visible in prod — it only makes output identical
+ * everywhere. Prefer these over inline toLocale* calls.
+ */
+export function formatNumber(value: number): string {
+  return value.toLocaleString('en-US');
+}
+
+export function formatDate(value: Date | string | number): string {
+  return new Date(value).toLocaleDateString('en-US');
+}
+
+export function formatTime(value: Date | string | number, opts?: Intl.DateTimeFormatOptions): string {
+  return new Date(value).toLocaleTimeString('en-US', opts);
+}
+
 export function invoiceStatusColor(status: string): string {
   const map: Record<string, string> = {
     draft: 'bg-muted text-muted-foreground',

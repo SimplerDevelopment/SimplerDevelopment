@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { Stripe as StripeClient } from '@stripe/stripe-js';
 import Link from 'next/link';
 import type { CartItem, ShippingRate, CheckoutResult, ContactForm, CheckoutPageClientProps } from './checkout-types';
@@ -30,9 +30,14 @@ export function CheckoutPageClient({ siteId, domain }: CheckoutPageClientProps) 
 
   // Confirmation from Stripe redirect (rare with 'if_required' but handle it).
   // Initialized lazily from ?order= so we never call setState inside an effect.
-  const [successOrderNumber, setSuccessOrderNumber] = useState<string | null>(() =>
-    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('order') : null
-  );
+  const [successOrderNumber, setSuccessOrderNumber] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const order = new URLSearchParams(window.location.search).get('order');
+    // A paid cart must not reappear as an orphan: the in-app onSuccess path
+    // clears cart_session_id, so the redirect-back path must too.
+    if (order) localStorage.removeItem('cart_session_id');
+    return order;
+  });
 
   // Contact form
   const [form, setForm] = useState<ContactForm>({
@@ -82,9 +87,18 @@ export function CheckoutPageClient({ siteId, domain }: CheckoutPageClientProps) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId, sessionId]);
 
-  // Fetch shipping rates when address is complete enough
-  const fetchShippingRates = useCallback(async () => {
-    if (!form.country || !form.postalCode) return;
+  // Synchronous mirror: fetchShippingRates must not clobber an explicit
+  // user choice when refetching (stale closure would always see null).
+  // Synced in an effect, not during render (react-hooks/refs).
+  const shippingRateIdRef = useRef<number | string | null>(null);
+  useEffect(() => {
+    shippingRateIdRef.current = shippingRateId;
+  }, [shippingRateId]);
+
+  // Fetch shipping rates when address is complete enough.
+  // Returns false when rates could not be loaded so callers can stay put.
+  const fetchShippingRates = useCallback(async (): Promise<boolean> => {
+    if (!form.country || !form.postalCode) return false;
     setShippingLoading(true);
     try {
       const variantIds = items.filter(i => i.variantId).map(i => i.variantId!).join(',');
@@ -103,13 +117,17 @@ export function CheckoutPageClient({ siteId, domain }: CheckoutPageClientProps) 
       if (json.success) {
         setShippingRates(json.data || []);
         setShippingFetched(true);
-        // Auto-select the first rate if none chosen
-        if (json.data?.length > 0) {
+        // Auto-select the first rate only when the user hasn't chosen one —
+        // refetching (back-navigation, address edit) must keep their pick.
+        if (shippingRateIdRef.current == null && json.data?.length > 0) {
           setShippingRateId(json.data[0].id);
         }
+        return (json.data?.length ?? 0) > 0;
       }
+      return false;
     } catch (e) {
       console.error(e);
+      return false;
     } finally {
       setShippingLoading(false);
     }
@@ -134,7 +152,13 @@ export function CheckoutPageClient({ siteId, domain }: CheckoutPageClientProps) 
     const err = validateContact();
     if (err) { setCheckoutError(err); return; }
     setCheckoutError('');
-    await fetchShippingRates();
+    // Stay on contact when rates can't load — advancing with an empty list
+    // would let the user reach Pay with no shipping method selected.
+    const loaded = await fetchShippingRates();
+    if (!loaded) {
+      setCheckoutError('Could not load shipping methods. Check the address and retry.');
+      return;
+    }
     setStep('shipping');
   }
 
@@ -187,10 +211,16 @@ export function CheckoutPageClient({ siteId, domain }: CheckoutPageClientProps) 
         }
       } else {
         setCheckoutError(json.message || 'Could not create order. Please try again.');
+        // Drop any previous Elements session: its clientSecret is expired
+        // and the form below would charge against a dead intent.
+        setCheckoutResult(null);
+        setStripePromise(null);
         setStep('shipping');
       }
     } catch {
       setCheckoutError('Network error. Please try again.');
+      setCheckoutResult(null);
+      setStripePromise(null);
       setStep('shipping');
     } finally {
       setCheckoutLoading(false);
