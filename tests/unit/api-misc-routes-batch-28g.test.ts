@@ -28,9 +28,18 @@ vi.mock('@/lib/pm-activity', () => ({
 }));
 
 const filterUserIdsVisibleToClientMock = vi.fn();
+const assertUserVisibleToClientMock = vi.fn();
+// A real OwnershipError, so the route's `instanceof` check is what gets exercised.
+class OwnershipError extends Error {
+  constructor(public field: string, public id: number | string) {
+    super(`Forbidden: ${field}=${id} not in active client.`);
+  }
+}
 vi.mock('@/lib/security/assert-owned', () => ({
   filterUserIdsVisibleToClient: (...args: unknown[]) =>
     filterUserIdsVisibleToClientMock(...args),
+  assertUserVisibleToClient: (...args: unknown[]) => assertUserVisibleToClientMock(...args),
+  OwnershipError,
 }));
 
 const canUserEditProjectMock = vi.fn();
@@ -187,6 +196,7 @@ vi.mock('@/lib/db', () => {
         deleteCalls.push({ table: tableName, where: w });
         const rows = shiftDelete();
         return {
+          returning: () => Promise.resolve(rows),
           then: (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
             Promise.resolve(rows).then(onF, onR),
         };
@@ -255,6 +265,8 @@ beforeEach(() => {
   getPortalClientMock.mockReset();
   logCardActivityMock.mockReset();
   filterUserIdsVisibleToClientMock.mockReset();
+  assertUserVisibleToClientMock.mockReset();
+  assertUserVisibleToClientMock.mockResolvedValue(undefined); // default: target is on the team
   canUserEditProjectMock.mockReset();
   canUserEditProjectMock.mockResolvedValue(false); // default: client read-only
 });
@@ -374,6 +386,7 @@ describe('/api/portal/cards/[id]/assignees', () => {
     it('inserts assignee + watcher and logs activity', async () => {
       authMock.mockResolvedValue(ADMIN_SESSION);
       selectQueue.push([{ id: 42, projectId: 7 }]); // card
+      selectQueue.push([{ clientId: 3 }]); // card's owning company (PUX-230)
       insertQueue.push([]); // assignee
       insertQueue.push([]); // watcher
       selectQueue.push([{ name: 'Alice' }]); // user name lookup
@@ -385,6 +398,8 @@ describe('/api/portal/cards/[id]/assignees', () => {
       const body = await res.json();
       expect(body.success).toBe(true);
 
+      // The target is checked against the card's OWNING company, not the caller's.
+      expect(assertUserVisibleToClientMock).toHaveBeenCalledWith(9, 3);
       expect(insertCalls.find((c) => c.table === 'kanbanCardAssignees')).toBeDefined();
       expect(insertCalls.find((c) => c.table === 'kanbanCardWatchers')).toBeDefined();
       const assigneeInsert = insertCalls.find((c) => c.table === 'kanbanCardAssignees')!;
@@ -399,9 +414,24 @@ describe('/api/portal/cards/[id]/assignees', () => {
       );
     });
 
+    it('refuses a user outside the card\'s company — no assignee, no watcher, no activity (PUX-230)', async () => {
+      authMock.mockResolvedValue(ADMIN_SESSION);
+      selectQueue.push([{ id: 42, projectId: 7 }]); // card
+      selectQueue.push([{ clientId: 3 }]); // owning company
+      assertUserVisibleToClientMock.mockRejectedValue(new OwnershipError('userId', 999));
+      const res = await assigneesRoute.POST(
+        makeJsonReq('http://x/a', { userId: 999 }),
+        makeParams('42'),
+      );
+      expect(res.status).toBe(403);
+      expect(insertCalls).toHaveLength(0);
+      expect(logCardActivityMock).not.toHaveBeenCalled();
+    });
+
     it('passes name=null to activity log when user lookup is empty', async () => {
       authMock.mockResolvedValue(EMPLOYEE_SESSION);
       selectQueue.push([{ id: 42, projectId: 7 }]);
+      selectQueue.push([{ clientId: 3 }]); // owning company
       insertQueue.push([]);
       insertQueue.push([]);
       selectQueue.push([]); // user not found
@@ -461,10 +491,22 @@ describe('/api/portal/cards/[id]/assignees', () => {
       expect(res.status).toBe(400);
     });
 
+    it('does not name anyone in the activity feed when nobody was assigned (PUX-230)', async () => {
+      authMock.mockResolvedValue(ADMIN_SESSION);
+      selectQueue.push([{ id: 42, projectId: 7 }]);
+      deleteQueue.push([]); // nothing removed
+      const res = await assigneesRoute.DELETE(
+        makeReq('http://x/a?userId=999', { method: 'DELETE' }),
+        makeParams('42'),
+      );
+      expect(res.status).toBe(200);
+      expect(logCardActivityMock).not.toHaveBeenCalled();
+    });
+
     it('deletes the assignee row and logs activity', async () => {
       authMock.mockResolvedValue(ADMIN_SESSION);
       selectQueue.push([{ id: 42, projectId: 7 }]);
-      deleteQueue.push([]); // delete
+      deleteQueue.push([{ userId: 9 }]); // delete removed a row
       selectQueue.push([{ name: 'Bob' }]); // user lookup
       const res = await assigneesRoute.DELETE(
         makeReq('http://x/a?userId=9', { method: 'DELETE' }),

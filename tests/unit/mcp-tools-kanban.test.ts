@@ -285,6 +285,8 @@ vi.mock('@/lib/security/assert-owned', () => {
     assertUserVisibleToClient: vi.fn(async (userId: number) => {
       if (userId === 6666) throw new OwnershipError('userId', userId);
     }),
+    // Boolean form used by kanban_card_assign and kanban_update_card (PUX-230): same 6666 rule.
+    isUserVisibleToClient: vi.fn(async (userId: number) => userId !== 6666),
   };
 });
 
@@ -998,6 +1000,22 @@ describe('kanban_update_card', () => {
     // assignee + watcher insert => 2 inserts at minimum
     const inserts = dbState.insertCalls.length;
     expect(inserts).toBeGreaterThanOrEqual(2);
+  });
+
+  // PUX-230: assigning a user from another tenant, then listing assignees, used to
+  // return that user's name + email. Refused before ANY write — the card itself
+  // must not be half-updated either.
+  it('refuses a cross-tenant assignedTo and writes nothing', async () => {
+    dbState.selectQueue = [
+      [{ projectId: 1 }],   // card
+      [{ id: 1 }],          // project
+    ];
+    dbState.updateReturningDefault = [{ id: 9 }];
+    const tools = registerAll();
+    const res = await tools.get('kanban_update_card')!.handler({ id: 9, title: 'Renamed', assignedTo: 6666 });
+    expect(parseJson(res)).toEqual({ error: 'User not found' });
+    expect(dbState.insertCalls).toHaveLength(0);
+    expect(dbState.updateCalls).toHaveLength(0);
   });
 
   it('removes the assignee when assignedTo=null', async () => {

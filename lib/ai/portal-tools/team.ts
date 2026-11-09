@@ -176,7 +176,24 @@ export const teamHandlers: Record<string, TeamHandler> = {
   invite_team_member: async (input, clientId, userId) => {
     const name = input.name as string;
     const email = input.email as string;
-    const role = input.role as string;
+
+    // PUX-229: mirror the REST invite (app/api/portal/team/route.ts) exactly. This
+    // tool runs for any member who can reach the chat, and the MODEL chooses the
+    // role — unchecked, a member could invite their own alt address as admin and
+    // take it over via forgot-password. The input_schema enum is advisory only;
+    // this is the enforcement.
+    const [owner] = await db.select({ userId: clients.userId }).from(clients)
+      .where(eq(clients.id, clientId)).limit(1);
+    const [caller] = await db.select({ role: clientMembers.role }).from(clientMembers)
+      .where(and(eq(clientMembers.clientId, clientId), eq(clientMembers.userId, userId))).limit(1);
+    const callerRole = owner?.userId === userId ? 'owner' : caller?.role;
+    if (callerRole !== 'owner' && callerRole !== 'admin') {
+      return { error: 'Only owners and admins can invite team members.' };
+    }
+    const role = (['admin', 'member', 'viewer'] as const).find((r) => r === input.role) ?? 'member';
+    if (role === 'admin' && callerRole !== 'owner') {
+      return { error: 'Only owners can assign the admin role.' };
+    }
 
     // Check if user already exists
     let [existingUser] = await db.select().from(users)

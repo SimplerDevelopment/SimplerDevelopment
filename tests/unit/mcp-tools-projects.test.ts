@@ -673,6 +673,7 @@ describe('project_members_set', () => {
     dbState.selectQueue = [
       [{ id: 5 }],          // project found
       [{ role: 'owner' }],  // caller is owner
+      [{ userId: 10 }],     // visibility: user 10 is the company owner
     ];
     dbState.insertReturning = [{ id: 99, projectId: 5, userId: 10, role: 'editor' }];
     const tools = registerAll();
@@ -682,6 +683,24 @@ describe('project_members_set', () => {
     const out = parseJson(res) as Row;
     expect(out.id).toBe(99);
     expect(out.role).toBe('editor');
+  });
+
+  // PUX-230: adding any platform user, then reading project_members_list, used to
+  // return that user's name and email.
+  it('refuses a user from outside the company and inserts nothing', async () => {
+    dbState.selectQueue = [
+      [{ id: 5 }],            // project found
+      [{ role: 'owner' }],    // caller is project owner
+      [{ userId: 1 }],        // company owner is someone else
+      [],                     // not a member of this company
+      [{ role: 'client' }],   // and not platform staff
+    ];
+    dbState.insertReturning = [{ id: 99 }];
+    const tools = registerAll();
+    const res = await tools.get('project_members_set')!.handler({
+      projectId: 5, userId: 4242, role: 'editor',
+    });
+    expect(parseJson(res)).toEqual({ error: 'User not found' });
   });
 
   it('denies when caller lacks projects:write at handler time', async () => {

@@ -7,7 +7,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { and, desc, eq, ilike, inArray, isNull, or, sql, gte, lte } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, isNull, or, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { hash as hashPassword } from 'bcryptjs';
 import { db } from '@/lib/db';
@@ -126,6 +126,17 @@ import {
 export function registerTeamTools(server: McpServer, ctx: PortalMcpContext): void {
   const clientId = ctx.client.id;
 
+  // The caller's role on this company, resolved like the REST team routes
+  // (app/api/portal/team/route.ts#getUserRole): the client owner, else their
+  // client_members row. ctx.client IS the call's target company — it's resolved
+  // before buildMcpServer (lib/mcp/CLAUDE.md), so its userId is the right owner.
+  async function callerRole(): Promise<string | null> {
+    if (ctx.client.userId === ctx.userId) return 'owner';
+    const [row] = await db.select({ role: clientMembers.role }).from(clientMembers)
+      .where(and(eq(clientMembers.clientId, clientId), eq(clientMembers.userId, ctx.userId))).limit(1);
+    return row?.role ?? null;
+  }
+
   // ── TEAM ───────────────────────────────────────────────────────────────
   hasScope(ctx.scopes, 'team:read') && server.registerTool(
     'team_list_members',
@@ -158,7 +169,7 @@ export function registerTeamTools(server: McpServer, ctx: PortalMcpContext): voi
     {
       title: 'Change team member role',
       description:
-        'Change a team member\'s role (owner/admin/member/viewer). Requires team:write. Demoting the last remaining owner is rejected server-side to avoid orphaning the account.',
+        'Change a team member\'s role to admin, member or viewer. Requires team:write and an owner/admin caller; only owners can grant admin. You cannot change your own role or an owner\'s.',
       inputSchema: {
         memberId: z.number(),
         role: z.enum(['owner', 'admin', 'member', 'viewer']),
@@ -166,23 +177,23 @@ export function registerTeamTools(server: McpServer, ctx: PortalMcpContext): voi
     },
     async ({ memberId, role }) => {
       if (!requireScope(ctx, 'team:write')) return denied('team:write');
-      const [existing] = await db.select({ id: clientMembers.id, role: clientMembers.role }).from(clientMembers)
+      // PUX-233: mirror PATCH /api/portal/team/[memberId] exactly. The scope used to
+      // be the only check, so any member with a team:write key could set their OWN
+      // row to 'owner'. Owner rows can't be changed at all here, which also made the
+      // old last-owner guard unreachable.
+      const current = await callerRole();
+      if (current !== 'owner' && current !== 'admin') return json({ error: 'Only owners and admins can update roles' });
+      const [existing] = await db.select({ id: clientMembers.id, role: clientMembers.role, userId: clientMembers.userId })
+        .from(clientMembers)
         .where(and(eq(clientMembers.id, memberId), eq(clientMembers.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Member not found' });
-      // Sole-owner orphan guard: don't let the last owner be demoted out of
-      // 'owner', which would leave the client with no one able to perform
-      // owner-only operations (lock-out).
-      if (existing.role === 'owner' && role !== 'owner') {
-        const [{ ownerCount }] = await db
-          .select({ ownerCount: sql<number>`count(*)::int` })
-          .from(clientMembers)
-          .where(and(eq(clientMembers.clientId, clientId), eq(clientMembers.role, 'owner')));
-        if (ownerCount <= 1) {
-          return json({ error: 'Cannot demote the last owner — assign another owner first' });
-        }
-      }
+      if (existing.userId === ctx.userId) return json({ error: 'You cannot change your own role' });
+      if (existing.role === 'owner' || existing.userId === ctx.client.userId) return json({ error: 'Cannot change the owner role' });
+      // The enum still accepts 'owner' for backwards-compatible schemas; it is never assignable.
+      if (role === 'owner') return json({ error: 'Ownership cannot be assigned by a role change' });
+      if (current === 'admin' && role === 'admin') return json({ error: 'Only owners can assign the admin role' });
       const [row] = await db.update(clientMembers).set({ role })
-        .where(eq(clientMembers.id, memberId)).returning();
+        .where(and(eq(clientMembers.id, memberId), eq(clientMembers.clientId, clientId))).returning();
       revalidateForWrite('portal');
       return json(row);
     }
@@ -192,15 +203,22 @@ export function registerTeamTools(server: McpServer, ctx: PortalMcpContext): voi
     'team_remove_member',
     {
       title: 'Remove team member',
-      description: 'Remove a user\'s client_members row for this client. Does not delete the user account.',
+      description: 'Remove a user\'s client_members row for this client. Does not delete the user account. Requires an owner/admin caller; only owners can remove admins; the owner and yourself cannot be removed.',
       inputSchema: { memberId: z.number() },
     },
     async ({ memberId }) => {
       if (!requireScope(ctx, 'team:write')) return denied('team:write');
-      const [existing] = await db.select({ id: clientMembers.id }).from(clientMembers)
+      // PUX-233: mirror DELETE /api/portal/team/[memberId] — the scope used to be the only check.
+      const current = await callerRole();
+      if (current !== 'owner' && current !== 'admin') return json({ error: 'Only owners and admins can remove members' });
+      const [existing] = await db.select({ id: clientMembers.id, role: clientMembers.role, userId: clientMembers.userId })
+        .from(clientMembers)
         .where(and(eq(clientMembers.id, memberId), eq(clientMembers.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Member not found' });
-      await db.delete(clientMembers).where(eq(clientMembers.id, memberId));
+      if (existing.userId === ctx.userId) return json({ error: 'You cannot remove yourself' });
+      if (existing.role === 'owner' || existing.userId === ctx.client.userId) return json({ error: 'Cannot remove the account owner' });
+      if (current === 'admin' && existing.role === 'admin') return json({ error: 'Only owners can remove admins' });
+      await db.delete(clientMembers).where(and(eq(clientMembers.id, memberId), eq(clientMembers.clientId, clientId)));
       revalidateForWrite('portal');
       return json({ success: true, memberId });
     }
