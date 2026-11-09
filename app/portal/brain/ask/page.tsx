@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import McpApiKeysManager from '@/components/portal/McpApiKeysManager';
 import OAuthTokensManager from '@/components/portal/OAuthTokensManager';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import ConnectStudioIntro from '@/components/brain/connect/ConnectStudioIntro';
 import { pBtnGhost, pBtnPrimary, pBtnSoft, pCard, pSectionTitle, pCardPad } from '@/components/portal/portal-ui';
 
 type ClientId = 'claude-web' | 'claude-desktop' | 'claude-code' | 'chatgpt';
@@ -29,6 +31,7 @@ export default function ConnectAiPage() {
   }, []);
 
   const endpoint = `${origin}/api/mcp`;
+  const studio = useFeatureFlag('portal-redesign'); // PUX-202: pitch + catalogue + scopes above the endpoint
 
   return (
     <div className="max-w-4xl mx-auto py-8 space-y-8">
@@ -49,6 +52,8 @@ export default function ConnectAiPage() {
           </>
         }
       />
+
+      {studio && <ConnectStudioIntro />}
 
       <section className="space-y-3">
         <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">MCP endpoint</h2>

@@ -7,14 +7,15 @@ import CrmCustomFieldsPanel, { type CrmCustomFieldsPanelHandle } from '@/compone
 import { formatMoney } from '@/lib/utils/money';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import CrmAddDealModal from '@/components/portal/CrmAddDealModal';
-import { pBtnPrimary, pBtnGhost, pCard, pInput, pSectionTitle } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pCard, pSectionTitle, sBtn, sBtnGhost } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { GhostCard } from '@/components/portal/EmptyState';
+import ContactEmailsTab from './_components/ContactEmailsTab';
+import ContactNotesCard from './_components/ContactNotesCard';
 import ContactEditModal from './_components/ContactEditModal';
-
-interface Tag {
-  id: number;
-  name: string;
-  color: string | null;
-}
+import ContactActivityPanel, { type Activity } from './_components/ContactActivityPanel';
+import ContactEmailForm from './_components/ContactEmailForm';
+import ContactTagsCard, { type Tag } from './_components/ContactTagsCard';
 
 interface Contact {
   id: number;
@@ -44,14 +45,6 @@ function contactInitials(firstName: string, lastName: string): string {
   return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase() || '?';
 }
 
-interface Activity {
-  id: number;
-  type: string;
-  title: string;
-  description: string | null;
-  createdAt: string;
-}
-
 interface Deal {
   id: number;
   title: string;
@@ -59,27 +52,6 @@ interface Deal {
   stageName: string;
   status: string;
 }
-
-const activityTypes = [
-  { value: 'call', label: 'Call', icon: 'phone' },
-  { value: 'email', label: 'Email', icon: 'mail' },
-  { value: 'meeting', label: 'Meeting', icon: 'groups' },
-  { value: 'note', label: 'Note', icon: 'sticky_note_2' },
-  { value: 'task', label: 'Task', icon: 'task_alt' },
-];
-
-const activityIcons: Record<string, string> = {
-  call: 'phone',
-  email: 'mail',
-  meeting: 'groups',
-  note: 'sticky_note_2',
-  task: 'task_alt',
-  deal_created: 'add_circle',
-  deal_won: 'emoji_events',
-  deal_lost: 'cancel',
-  contact_created: 'person_add',
-  stage_change: 'swap_horiz',
-};
 
 const statusColor: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
@@ -94,22 +66,21 @@ const dealStatusColor: Record<string, string> = {
   lost: 'bg-red-100 text-red-700',
 };
 
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
-}
+// PUX-170 (design doc screen 29): six rooms for one person. 'general' and 'custom-fields'
+// keep their keys so the flag-off strip and the always-mounted fields panel are untouched.
+const STUDIO_TABS = [
+  { key: 'general', label: 'Activity', icon: 'timeline' },
+  { key: 'deals', label: 'Deals', icon: 'handshake' },
+  { key: 'bookings', label: 'Bookings', icon: 'event' },
+  { key: 'emails', label: 'Emails', icon: 'mail' },
+  { key: 'notes', label: 'Notes', icon: 'psychology' },
+  { key: 'custom-fields', label: 'Fields', icon: 'tune' },
+] as const;
+type TabKey = (typeof STUDIO_TABS)[number]['key'];
 
 export default function CrmContactDetailPage() {
   const params = useParams();
+  const studio = useFeatureFlag('portal-redesign');
   const router = useRouter();
   const contactId = params.id as string;
 
@@ -119,18 +90,9 @@ export default function CrmContactDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const customFieldsRef = useRef<CrmCustomFieldsPanelHandle>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'deals' | 'custom-fields'>('general');
-
-  const [newTag, setNewTag] = useState('');
-
-  const [activityForm, setActivityForm] = useState({ type: 'call', title: '', description: '' });
-  const [activitySaving, setActivitySaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabKey>('general');
 
   const [showEmailForm, setShowEmailForm] = useState(false);
-  const [emailForm, setEmailForm] = useState({ subject: '', body: '' });
-  const [emailSending, setEmailSending] = useState(false);
-  const [emailError, setEmailError] = useState('');
-  const [emailSuccess, setEmailSuccess] = useState('');
 
   const [showDealForm, setShowDealForm] = useState(false);
 
@@ -170,91 +132,6 @@ export default function CrmContactDetailPage() {
     if (!confirm('Are you sure you want to delete this contact?')) return;
     await fetch(`/api/portal/crm/contacts/${contactId}`, { method: 'DELETE' });
     router.push('/portal/crm/contacts');
-  }
-
-  async function addTag() {
-    const name = newTag.trim();
-    if (!name || !contact) return;
-
-    // If the tag (by name) is already on this contact, just clear the input.
-    const existing = (contact.tags ?? []).find(t => t.name.toLowerCase() === name.toLowerCase());
-    if (existing) {
-      setNewTag('');
-      return;
-    }
-
-    // Create-or-get a tag in the client's tag library, then link it to this contact.
-    const createRes = await fetch('/api/portal/crm/tags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    if (!createRes.ok) return;
-    const { data: newTagRow } = await createRes.json();
-    if (!newTagRow?.id) return;
-
-    const nextTags: Tag[] = [...(contact.tags ?? []), {
-      id: newTagRow.id, name: newTagRow.name, color: newTagRow.color ?? null,
-    }];
-    await fetch(`/api/portal/crm/contacts/${contactId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagIds: nextTags.map(t => t.id) }),
-    });
-    setContact(prev => prev ? { ...prev, tags: nextTags } : prev);
-    setNewTag('');
-  }
-
-  async function removeTag(tagId: number) {
-    if (!contact) return;
-    const nextTags = (contact.tags ?? []).filter(t => t.id !== tagId);
-    await fetch(`/api/portal/crm/contacts/${contactId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagIds: nextTags.map(t => t.id) }),
-    });
-    setContact(prev => prev ? { ...prev, tags: nextTags } : prev);
-  }
-
-  async function logActivity(e: React.FormEvent) {
-    e.preventDefault();
-    if (!activityForm.title.trim()) return;
-    setActivitySaving(true);
-    const res = await fetch('/api/portal/crm/activities', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...activityForm, contactId: Number(contactId) }),
-    });
-    const d = await res.json();
-    setActivitySaving(false);
-    if (d.success) {
-      setActivityForm({ type: 'call', title: '', description: '' });
-      fetchActivities();
-    }
-  }
-
-  async function sendEmail(e: React.FormEvent) {
-    e.preventDefault();
-    if (!emailForm.subject.trim() || !emailForm.body.trim()) return;
-    setEmailSending(true);
-    setEmailError('');
-    setEmailSuccess('');
-    const res = await fetch(`/api/portal/crm/contacts/${contactId}/send-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(emailForm),
-    });
-    const d = await res.json();
-    setEmailSending(false);
-    if (d.success) {
-      setEmailSuccess('Email sent successfully.');
-      setEmailForm({ subject: '', body: '' });
-      setShowEmailForm(false);
-      fetchActivities();
-      setTimeout(() => setEmailSuccess(''), 3000);
-    } else {
-      setEmailError(d.message ?? 'Failed to send email.');
-    }
   }
 
   if (loading) {
@@ -324,18 +201,18 @@ export default function CrmContactDetailPage() {
         actions={
           <div className="flex gap-2">
             {contact.email && (
-              <button onClick={() => setShowEmailForm(true)} className={pBtnPrimary}>
+              <button onClick={() => setShowEmailForm(true)} className={studio ? sBtn : pBtnPrimary}>
                 <span className="material-icons text-base">mail</span>
                 Send Email
               </button>
             )}
-            <button onClick={() => setIsEditModalOpen(true)} className={pBtnGhost}>
+            <button onClick={() => setIsEditModalOpen(true)} className={studio ? sBtnGhost : pBtnGhost}>
               <span className="material-icons text-base">edit</span>
               Edit
             </button>
             <button
               onClick={deleteContact}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-destructive transition hover:border-destructive/40 hover:shadow-sm"
+              className={studio ? `${sBtnGhost} text-destructive` : "inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-destructive transition hover:border-destructive/40 hover:shadow-sm"}
             >
               <span className="material-icons text-base">delete</span>
               Delete
@@ -374,7 +251,20 @@ export default function CrmContactDetailPage() {
 
       {/* Tabs: General / Deals / Custom Fields */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border overflow-x-auto">
+          {studio && STUDIO_TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+                activeTab === t.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span className="material-icons text-base">{t.icon}</span>
+              {t.key === 'deals' ? `Deals (${deals.length})` : t.label}
+            </button>
+          ))}
+          {!studio && <>
           <button
             onClick={() => setActiveTab('general')}
             className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
@@ -408,77 +298,23 @@ export default function CrmContactDetailPage() {
             <span className="material-icons text-base">tune</span>
             Custom Fields
           </button>
+          </>}
         </div>
 
         <div className="p-6">
         {activeTab === 'general' && (
         <div className="space-y-6">
-      {/* Email Success Banner */}
-      {emailSuccess && (
-        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-100 border border-green-200 rounded-lg px-3 py-2">
-          <span className="material-icons text-base">check_circle</span>
-          {emailSuccess}
-        </div>
-      )}
-
-      {/* Send Email Form */}
-      {showEmailForm && (
-        <form onSubmit={sendEmail} className={`${pCard} p-6 space-y-4`}>
-          <div className="flex items-center justify-between">
-            <h2 className={pSectionTitle}>Send Email to {contact.email}</h2>
-            <button type="button" onClick={() => setShowEmailForm(false)} className="text-muted-foreground hover:text-foreground">
-              <span className="material-icons text-base">close</span>
-            </button>
-          </div>
-          {emailError && (
-            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-              <span className="material-icons text-base">error</span>
-              {emailError}
-            </div>
-          )}
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Subject</label>
-            <input
-              required
-              value={emailForm.subject}
-              onChange={e => setEmailForm(f => ({ ...f, subject: e.target.value }))}
-              className={pInput}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Body</label>
-            <textarea
-              required
-              value={emailForm.body}
-              onChange={e => setEmailForm(f => ({ ...f, body: e.target.value }))}
-              rows={6}
-              className={`${pInput} resize-y`}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowEmailForm(false)}
-              className={pBtnGhost}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={emailSending}
-              className={pBtnPrimary}
-            >
-              {emailSending && <span className="material-icons animate-spin text-sm">refresh</span>}
-              <span className="material-icons text-sm">send</span>
-              Send Email
-            </button>
-          </div>
-        </form>
-      )}
+      <ContactEmailForm
+        contactId={contactId}
+        contactEmail={contact.email ?? ''}
+        open={showEmailForm}
+        onClose={() => setShowEmailForm(false)}
+        onSent={fetchActivities}
+      />
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Left Column */}
-        <div className="space-y-6">
+        {/* Left Column (studio: details sit to the right of the timeline) */}
+        <div className={studio ? 'space-y-6 lg:order-2' : 'space-y-6'}>
           {/* Contact Info */}
           <div className={`${pCard} p-6 space-y-4`}>
             <h2 className={pSectionTitle}>Contact Information</h2>
@@ -516,125 +352,12 @@ export default function CrmContactDetailPage() {
             </div>
           </div>
 
-          {/* Tags */}
-          <div className={`${pCard} p-6 space-y-3`}>
-            <h2 className={pSectionTitle}>Tags</h2>
-            <div className="flex flex-wrap gap-2">
-              {(contact.tags ?? []).length === 0 && (
-                <p className="text-sm text-muted-foreground">No tags yet.</p>
-              )}
-              {(contact.tags ?? []).map(tag => (
-                <span
-                  key={tag.id}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
-                  style={tag.color ? { backgroundColor: `${tag.color}1a`, color: tag.color } : undefined}
-                >
-                  {tag.name}
-                  <button onClick={() => removeTag(tag.id)} className="opacity-70 hover:opacity-100 ml-0.5">
-                    <span className="material-icons text-xs">close</span>
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={newTag}
-                onChange={e => setNewTag(e.target.value)}
-                placeholder="Add tag..."
-                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                className={`${pInput} py-1.5`}
-              />
-              <button
-                onClick={addTag}
-                disabled={!newTag.trim()}
-                className={`${pBtnPrimary} py-1.5 px-3`}
-              >
-                Add
-              </button>
-            </div>
-          </div>
+          <ContactTagsCard contactId={contactId} tags={contact.tags ?? []} onChanged={fetchContact} />
+          {studio && <ContactNotesCard contactId={contactId} firstName={contact.firstName} mode="card" />}
         </div>
 
         {/* Right Column */}
-        <div className="space-y-6">
-          {/* Log Activity Form */}
-          <div className={`${pCard} p-6 space-y-4`}>
-            <h2 className={pSectionTitle}>Log Activity</h2>
-            <form onSubmit={logActivity} className="space-y-3">
-              <div className="flex gap-2">
-                {activityTypes.map(t => (
-                  <button
-                    key={t.value}
-                    type="button"
-                    onClick={() => setActivityForm(f => ({ ...f, type: t.value }))}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      activityForm.type === t.value
-                        ? 'bg-foreground text-background'
-                        : 'bg-accent text-foreground hover:bg-accent/80'
-                    }`}
-                  >
-                    <span className="material-icons text-sm">{t.icon}</span>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              <input
-                required
-                value={activityForm.title}
-                onChange={e => setActivityForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="Activity title..."
-                className={pInput}
-              />
-              <textarea
-                value={activityForm.description}
-                onChange={e => setActivityForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Description (optional)..."
-                rows={2}
-                className={`${pInput} resize-none`}
-              />
-              <button
-                type="submit"
-                disabled={activitySaving || !activityForm.title.trim()}
-                className={pBtnPrimary}
-              >
-                {activitySaving && <span className="material-icons animate-spin text-sm">refresh</span>}
-                Log Activity
-              </button>
-            </form>
-          </div>
-
-          {/* Activity Timeline */}
-          <div className={`${pCard} p-6 space-y-4`}>
-            <h2 className={pSectionTitle}>Activity Timeline</h2>
-            {activities.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No activities logged yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {activities.map((a, i) => (
-                  <div key={a.id} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center shrink-0">
-                        <span className="material-icons text-sm text-foreground">
-                          {activityIcons[a.type] ?? 'circle'}
-                        </span>
-                      </div>
-                      {i < activities.length - 1 && (
-                        <div className="w-px flex-1 bg-border mt-1" />
-                      )}
-                    </div>
-                    <div className="pb-4 min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">{a.title}</p>
-                      {a.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{a.description}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">{relativeTime(a.createdAt)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <ContactActivityPanel contactId={contactId} activities={activities} onLogged={fetchActivities} />
       </div>
         </div>
         )}
@@ -673,6 +396,13 @@ export default function CrmContactDetailPage() {
             )}
           </div>
         )}
+
+        {studio && activeTab === 'bookings' && (
+          // No bookings↔contact link exists (bookings carry guestEmail, no contactId) — say so instead of a blank tab.
+          <GhostCard icon="event" title="Bookings aren't linked to contacts yet" body="A booking carries a guest email, not a contact. This tab fills in once bookings link to CRM contacts." />
+        )}
+        {studio && activeTab === 'emails' && <ContactEmailsTab contactId={contactId} />}
+        {studio && activeTab === 'notes' && <ContactNotesCard contactId={contactId} firstName={contact.firstName} mode="tab" />}
 
         {/* Always mounted so customFieldsRef.current stays live for the reload
             call after the edit modal saves, even while this tab is hidden.

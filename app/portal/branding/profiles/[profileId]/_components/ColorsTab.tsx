@@ -5,14 +5,25 @@
 import { ContrastMatrix } from '@/components/portal/ContrastMatrix';
 import { PaletteFromImage } from '@/components/portal/branding/PaletteFromImage';
 import { INPUT_CLASS, LABEL_CLASS, type DarkModeOverrides, type ProfileData } from '../_lib/types';
+import { swatchPills, type SwatchPill } from '@/lib/branding/swatch-contrast';
+
+// PUX-189: contrast pill tones (studio only).
+const PILL: Record<SwatchPill['tone'], string> = {
+  ok: 'bg-[var(--portal-ok-bg)] text-[var(--portal-ok)]',
+  warn: 'bg-[var(--portal-warn-bg)] text-[var(--portal-warn)]',
+  fail: 'bg-destructive/10 text-destructive',
+};
 
 interface Props {
   profile: ProfileData;
   update: (updates: Partial<ProfileData>) => void;
   updateDark: (updates: Partial<DarkModeOverrides>) => void;
+  /** PUX-189: contrast pass/fail pills on the swatches the audit pairs use. */
+  studio?: boolean;
 }
 
-export function ColorsTab({ profile, update, updateDark }: Props) {
+export function ColorsTab({ profile, update, updateDark, studio = false }: Props) {
+  const pills = studio ? swatchPills(profile) : null;
   return (
     <div>
       <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
@@ -40,7 +51,16 @@ export function ColorsTab({ profile, update, updateDark }: Props) {
           ] as const
         ).map(({ key, label, desc }) => (
           <div key={key}>
-            <label className={LABEL_CLASS}>{label}</label>
+            {pills?.[key] ? (
+              <div className="flex items-center justify-between gap-2">
+                <label className={LABEL_CLASS}>{label}</label>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${PILL[pills[key].tone]}`} title={`${pills[key].ratio}:1 against its default pair`}>
+                  {pills[key].grade === 'fail' ? 'Fails' : pills[key].grade} · {pills[key].ratio}:1
+                </span>
+              </div>
+            ) : (
+              <label className={LABEL_CLASS}>{label}</label>
+            )}
             <p className="text-[11px] text-muted-foreground mb-2">{desc}</p>
             <div className="flex items-center gap-2">
               <input

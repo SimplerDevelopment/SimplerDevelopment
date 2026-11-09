@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { orders, orderItems } from '@/lib/db/schema';
-import { and, eq, ilike, or, count, desc, asc, sql } from 'drizzle-orm';
+import { and, eq, ilike, or, count, desc, asc, sql, inArray } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
@@ -29,7 +29,11 @@ export async function GET(
   const offset = (page - 1) * limit;
 
   const conditions = [eq(orders.websiteId, site.id)];
-  if (status) conditions.push(eq(orders.status, status));
+  if (status) {
+    // PUX-209: the studio chips ask for several statuses at once ("open" = pending,confirmed,processing).
+    const list = status.split(',').map((x) => x.trim()).filter(Boolean);
+    conditions.push(list.length > 1 ? inArray(orders.status, list) : eq(orders.status, status));
+  }
   if (search) {
     conditions.push(
       or(

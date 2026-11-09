@@ -15,9 +15,13 @@ import { StyleTab } from './_components/StyleTab';
 import { MessagingTab } from './_components/MessagingTab';
 import { useBrandProfile } from './_hooks/useBrandProfile';
 import { VALID_TABS, type TabId } from './_lib/types';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { sBtn, sBtnGhost } from '@/components/portal/portal-ui';
+import { AppliedToCard } from './_components/AppliedToCard';
 
 export default function BrandingProfileEditorPage() {
   const { profileId } = useParams<{ profileId: string }>();
+  const studio = useFeatureFlag('portal-redesign');
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab');
   const startTab: TabId = VALID_TABS.includes(initialTab as TabId) ? (initialTab as TabId) : 'logos';
@@ -116,7 +120,7 @@ export default function BrandingProfileEditorPage() {
         <div className="flex items-center gap-2">
           <Link
             href={`/portal/branding/profiles/${profileId}/guide`}
-            className="px-4 py-2 border border-border bg-background text-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors flex items-center gap-2"
+            className={studio ? sBtnGhost : "px-4 py-2 border border-border bg-background text-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors flex items-center gap-2"}
           >
             <span className="material-icons text-base">menu_book</span>
             Brand Guide
@@ -124,7 +128,7 @@ export default function BrandingProfileEditorPage() {
           <button
             onClick={save}
             disabled={(!dirty && !messagingDirty) || saving}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className={studio ? `${sBtn} disabled:opacity-50 disabled:cursor-not-allowed` : "px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"}
           >
             <span className="material-icons text-base">{saving ? 'refresh' : 'save'}</span>
             {saving ? 'Saving...' : 'Save Changes'}
@@ -137,8 +141,9 @@ export default function BrandingProfileEditorPage() {
 
       {/* Brand audit — visible above tabs so issues are always surfaced */}
       <div className="border border-border rounded-lg bg-background p-4">
-        <BrandAuditPanel profileId={parseInt(profileId, 10)} />
+        <BrandAuditPanel profileId={parseInt(profileId, 10)} compact={studio} />
       </div>
+      {studio && <AppliedToCard profileId={parseInt(profileId, 10)} />}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
@@ -161,7 +166,7 @@ export default function BrandingProfileEditorPage() {
       {activeTab === 'logos' && (
         <AssetsTab profile={profile} update={update} updateDark={updateDark} updateTypo={updateTypo} />
       )}
-      {activeTab === 'colors' && <ColorsTab profile={profile} update={update} updateDark={updateDark} />}
+      {activeTab === 'colors' && <ColorsTab profile={profile} update={update} updateDark={updateDark} studio={studio} />}
       {activeTab === 'typography' && (
         <TypographyTab profile={profile} update={update} updateTypo={updateTypo} />
       )}

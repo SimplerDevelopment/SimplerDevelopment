@@ -1,6 +1,9 @@
 import { db } from '@/lib/db';
-import { clientWebsites, posts, postTypes } from '@/lib/db/schema';
-import { and, eq, count, sql } from 'drizzle-orm';
+import { clientWebsites, posts, postTypes, mcpPendingChanges, storeSettings, products, orders, websiteDomains } from '@/lib/db/schema';
+import { and, eq, count, sql, desc, gte, sum } from 'drizzle-orm';
+import { hasFlag } from '@/lib/feature-flags';
+import { changesForSite } from '@/lib/sites/site-changes';
+import SiteHome from '@/components/portal/websites/SiteHome';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -27,7 +30,7 @@ export default async function PortalCmsDashboardPage({
   const userId = parseInt(session.user.id, 10);
   const resolved = await resolvePortalSite(userId, parseInt(siteId));
   if (!resolved) notFound();
-  const { site } = resolved;
+  const { site, client } = resolved;
 
   const [sitePosts, contentTypes] = await Promise.all([
     db.select().from(posts).where(eq(posts.websiteId, site.id)).orderBy(posts.updatedAt),
@@ -37,6 +40,42 @@ export default async function PortalCmsDashboardPage({
   const published = sitePosts.filter(p => p.published);
   const drafts = sitePosts.filter(p => !p.published);
   const recentPosts = sitePosts.slice(-5).reverse();
+
+  // PUX-183 (design doc screen 42): under the redesign the room's home answers "what is this site doing right
+  // now" — every read below is scoped to this tenant/site; the legacy dashboard further down is untouched.
+  if (hasFlag(client, 'portal-redesign')) {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const [pending, storeRow, domainRows] = await Promise.all([
+      db.select({ id: mcpPendingChanges.id, summary: mcpPendingChanges.summary, entityType: mcpPendingChanges.entityType, entityId: mcpPendingChanges.entityId, at: mcpPendingChanges.createdAt })
+        .from(mcpPendingChanges)
+        .where(and(eq(mcpPendingChanges.clientId, client.id), eq(mcpPendingChanges.status, 'pending')))
+        .orderBy(desc(mcpPendingChanges.createdAt)).limit(50),
+      db.select({ enabled: storeSettings.enabled }).from(storeSettings).where(eq(storeSettings.websiteId, site.id)).limit(1),
+      db.select({ domain: websiteDomains.domain, status: websiteDomains.status, isPrimary: websiteDomains.isPrimary }).from(websiteDomains).where(eq(websiteDomains.websiteId, site.id)),
+    ]);
+    let store: { products: number; ordersWeek: number; revenueWeekCents: number } | null = null;
+    if (storeRow[0]?.enabled) {
+      const [[p], [o]] = await Promise.all([
+        db.select({ n: count() }).from(products).where(eq(products.websiteId, site.id)),
+        db.select({ n: count(), revenue: sum(orders.total) }).from(orders).where(and(eq(orders.websiteId, site.id), eq(orders.paymentStatus, 'paid'), gte(orders.createdAt, weekAgo))),
+      ]);
+      store = { products: p?.n ?? 0, ordersWeek: o?.n ?? 0, revenueWeekCents: Number(o?.revenue ?? 0) };
+    }
+    const changes = changesForSite(pending, site.id, sitePosts.map((p) => p.id)).map((c) => ({ id: c.id, summary: c.summary ?? `${c.entityType} change`, entityType: c.entityType, at: c.at.toISOString() }));
+    const primary = domainRows.find((d) => d.isPrimary) ?? domainRows[0] ?? null;
+    return (
+      <div className="space-y-6">
+        <SiteHome data={{
+          site: { id: site.id, name: site.name, subdomain: site.subdomain, domain: site.domain, deploymentStatus: site.deploymentStatus, updatedAt: site.updatedAt ? site.updatedAt.toISOString() : null },
+          pages: { total: sitePosts.length, drafts: drafts.length, recent: recentPosts.map((p) => ({ id: p.id, title: p.title, published: p.published, updatedAt: p.updatedAt.toISOString() })) },
+          changes,
+          store,
+          domain: primary ? { domain: primary.domain, status: primary.status } : null,
+        }} />
+      </div>
+    );
+  }
 
   // Count posts by type
   const typeCounts: Record<string, number> = {};

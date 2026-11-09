@@ -4,6 +4,12 @@ export function formatCents(cents: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 }
 
+// PUX-192: moved here from lib/portal.ts so client-safe components can label an invoice.
+export function invoiceStatusLabel(status: string) {
+  if (status === 'sent') return 'Owed';
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 export function invoiceStatusColor(status: string): string {
   const map: Record<string, string> = {
     draft: 'bg-muted text-muted-foreground',

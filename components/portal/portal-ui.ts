@@ -40,3 +40,14 @@ export const pSelect =
 // ── chips / pills ───────────────────────────────────────────────────────────
 export const pChip =
   'inline-flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1 text-[12px] font-semibold text-muted-foreground';
+
+/* ── Studio (PUX-142 onward) ─────────────────────────────────────────────────
+   "One teal for the one action that matters on a screen." --primary is teal
+   only under .portal-studio (globals.css), so outside the flag these are the
+   same buttons in the base palette — safe to use anywhere in the portal. */
+/** The ONE filled action on a page. */
+export const sBtn =
+  'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] bg-primary px-3 py-[7px] text-[12.5px] font-semibold leading-tight text-primary-foreground transition hover:opacity-90';
+/** Every other action — bordered, no fill. */
+export const sBtnGhost =
+  'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] border border-border bg-transparent px-3 py-[7px] text-[12.5px] font-semibold leading-tight text-foreground transition hover:border-[var(--studio-line-strong)]';

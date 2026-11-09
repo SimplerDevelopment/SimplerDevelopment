@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { priorityColor } from '@/lib/portal-utils';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import QuickAdd from '@/components/portal/my-tasks/QuickAdd';
+import { quickAddTargets } from '@/lib/portal/my-tasks-quick-add';
 
 type MyTaskCardSource = 'kanban' | 'brain';
 type MyTaskSourceFilter = 'all' | 'kanban' | 'brain';
@@ -129,6 +132,11 @@ function MyTasksPageInner() {
   const [projectsAvailable, setProjectsAvailable] = useState<ProjectOption[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [completing, setCompleting] = useState<Set<string>>(new Set());
+  // PUX-154 (design doc screen 13): one list, not a toggle — under the redesign
+  // the Source chips go, Brain groups wear a gold tag, and a quick-add row
+  // posts to whichever board or Brain queue the group belongs to.
+  const studio = useFeatureFlag('portal-redesign');
+  const [reloadKey, setReloadKey] = useState(0);
 
   const updateUrl = useCallback((next: UrlFilters) => {
     const qs = buildQuery(next);
@@ -151,7 +159,7 @@ function MyTasksPageInner() {
       })
       .catch(() => { if (!cancelled) setProjects([]); });
     return () => { cancelled = true; };
-  }, [filters]);
+  }, [filters, reloadKey]);
 
   const loadMore = useCallback(async () => {
     if (nextCursor == null || loadingMore) return;
@@ -283,9 +291,13 @@ function MyTasksPageInner() {
         }
       />
 
+      {studio && projects && (
+        <QuickAdd targets={quickAddTargets(projects, projects.some((p) => p.source === 'brain') || filters.source !== 'kanban')} onAdded={() => setReloadKey((k) => k + 1)} />
+      )}
+
       {/* Filter chips */}
       <div className="bg-card border border-border rounded-2xl p-3 space-y-3" aria-label="Task filters">
-        <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Source">
+        {!studio && <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Source">
           <span className="text-xs uppercase tracking-wide text-muted-foreground mr-1">Source</span>
           {(['all', 'kanban', 'brain'] as const).map((s) => (
             <button
@@ -303,7 +315,7 @@ function MyTasksPageInner() {
               {s === 'all' ? 'All' : s === 'kanban' ? 'Kanban' : 'Brain'}
             </button>
           ))}
-        </div>
+        </div>}
 
         <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Priority">
           <span className="text-xs uppercase tracking-wide text-muted-foreground mr-1">Priority</span>
@@ -412,6 +424,9 @@ function MyTasksPageInner() {
                       {p.name}
                     </Link>
                     {p.clientName && <span className="text-xs text-muted-foreground ml-2 shrink-0">· {p.clientName}</span>}
+                    {studio && p.source === 'brain' && (
+                      <span className="ml-1 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-[var(--studio-gold-soft)] text-[var(--studio-gold-ink)]">Brain</span>
+                    )}
                   </div>
                   <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5 shrink-0">
                     {p.cards.length} task{p.cards.length !== 1 ? 's' : ''}

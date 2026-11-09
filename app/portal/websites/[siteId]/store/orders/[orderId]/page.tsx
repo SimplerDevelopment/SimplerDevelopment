@@ -5,104 +5,14 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatMoney } from '@/lib/utils/money';
 import PortalPageHeader from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
-
-interface OrderItem {
-  id: number;
-  productName: string;
-  variantName?: string | null;
-  sku?: string | null;
-  quantity: number;
-  unitPriceCents: number;
-  totalCents: number;
-  // Original column on order_items.designId — present when the customer
-  // attached a saved design at checkout. May be set even when `design`
-  // below is null (the design row was deleted after the order shipped).
-  designId?: number | null;
-  design?: {
-    id: number;
-    uuid: string | null;
-    name: string | null;
-    thumbnailUrl: string | null;
-  } | null;
-}
-
-interface Address {
-  name?: string;
-  line1?: string;
-  line2?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
-}
-
-interface StatusEvent {
-  id: number;
-  status: string;
-  note?: string | null;
-  createdAt: string;
-}
-
-interface Order {
-  id: number;
-  orderNumber: string;
-  status: string;
-  paymentStatus?: string | null;
-  customerName: string;
-  customerEmail: string;
-  customerPhone?: string | null;
-  shippingAddress?: Address | null;
-  billingAddress?: Address | null;
-  items: OrderItem[];
-  subtotalCents: number;
-  shippingCents: number;
-  taxCents: number;
-  discountCents: number;
-  totalCents: number;
-  trackingNumber?: string | null;
-  trackingUrl?: string | null;
-  internalNotes?: string | null;
-  statusHistory: StatusEvent[];
-  createdAt: string;
-  carrier?: string | null;
-  shippingMethod?: string | null;
-  labelUrl?: string | null;
-  labelCostCents?: number | null;
-  labelPurchasedAt?: string | null;
-  easypostShipmentId?: string | null;
-  printfulOrderId?: string | null;
-  printfulFulfillmentStatus?: string | null;
-  printfulFulfillmentError?: string | null;
-  printfulSubmittedAt?: string | null;
-}
-
-interface RateQuote {
-  id: string;
-  shipmentId: string;
-  carrier: string;
-  service: string;
-  amountCents: number;
-  currency: string;
-  estDeliveryDays: number | null;
-}
-
-interface ParcelSummary {
-  lengthIn: number;
-  widthIn: number;
-  heightIn: number;
-  weightOz: number;
-}
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  confirmed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  processing: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-  shipped: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  delivered: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  refunded: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-};
+import { pBtnPrimary, pBtnGhost, pCard, pInput, pSelect, pSectionTitle, sBtn, sBtnGhost } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { canFulfil } from '@/lib/store/order-steps';
+import OrderStepper from './_components/OrderStepper';
+import ShippingLabelCard from './_components/ShippingLabelCard';
+import CustomerCards from './_components/CustomerCards';
+import StatusTimeline from './_components/StatusTimeline';
+import { statusColors, type Order, type RateQuote, type ParcelSummary } from './_components/types';
 
 const printfulStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -113,14 +23,6 @@ const printfulStatusColors: Record<string, string> = {
 };
 
 const statusOptions = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
-
-function formatAddress(addr?: Address | null) {
-  if (!addr) return null;
-  const parts = [addr.name, addr.line1, addr.line2, [addr.city, addr.state, addr.postalCode].filter(Boolean).join(', '), addr.country].filter(
-    Boolean
-  );
-  return parts;
-}
 
 export default function OrderDetailPage() {
   const { siteId, orderId } = useParams<{ siteId: string; orderId: string }>();
@@ -152,6 +54,24 @@ export default function OrderDetailPage() {
   const [labelBuying, setLabelBuying] = useState(false);
   const [labelRefunding, setLabelRefunding] = useState(false);
   const [labelError, setLabelError] = useState('');
+  // PUX-187: under the flag the customer card links to the CRM contact that
+  // shares the order's email. The contacts route has no exact-email param —
+  // `search` ILIKEs name/email — so match exactly on the client side.
+  const studio = useFeatureFlag('portal-redesign');
+  const [contactId, setContactId] = useState<number | null>(null);
+  const customerEmail = order?.customerEmail;
+  useEffect(() => {
+    if (!studio || !customerEmail) return;
+    let cancelled = false;
+    fetch(`/api/portal/crm/contacts?search=${encodeURIComponent(customerEmail)}&limit=5`)
+      .then((r) => r.json())
+      .then((data) => {
+        const hit = data?.data?.contacts?.find((c: { email?: string | null }) => c.email?.toLowerCase() === customerEmail.toLowerCase());
+        if (!cancelled) setContactId(hit?.id ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [studio, customerEmail]);
 
   const loadOrder = async () => {
     setLoading(true);
@@ -400,9 +320,6 @@ export default function OrderDetailPage() {
     );
   }
 
-  const shippingLines = formatAddress(order.shippingAddress);
-  const billingLines = formatAddress(order.billingAddress);
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Back-link — kept above PortalPageHeader per sweep convention */}
@@ -429,7 +346,14 @@ export default function OrderDetailPage() {
           </span>
         }
         subtitle={new Date(order.createdAt).toLocaleString()}
+        actions={studio && canFulfil(order.status) ? (
+          <button type="button" onClick={markAsShipped} disabled={saving} className={sBtn}>
+            <span className="material-icons text-base">local_shipping</span>
+            Mark fulfilled
+          </button>
+        ) : undefined}
       />
+      {studio && <OrderStepper status={order.status} />}
 
       {/* Messages */}
       {error && (
@@ -469,7 +393,7 @@ export default function OrderDetailPage() {
           <button
             onClick={updateStatus}
             disabled={saving || newStatus === order.status}
-            className={pBtnPrimary}
+            className={studio ? sBtnGhost : pBtnPrimary}
           >
             {saving && <span className="material-icons text-base animate-spin">refresh</span>}
             Update
@@ -478,38 +402,7 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Customer + Addresses */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className={`${pCard} p-5 space-y-2`}>
-          <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Customer</h3>
-          <p className="text-sm font-medium text-foreground">{order.customerName}</p>
-          <p className="text-sm text-muted-foreground">{order.customerEmail}</p>
-          {order.customerPhone && <p className="text-sm text-muted-foreground">{order.customerPhone}</p>}
-        </div>
-        <div className={`${pCard} p-5 space-y-2`}>
-          <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Shipping Address</h3>
-          {shippingLines ? (
-            shippingLines.map((line, i) => (
-              <p key={i} className="text-sm text-foreground">
-                {line}
-              </p>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">No shipping address</p>
-          )}
-        </div>
-        <div className={`${pCard} p-5 space-y-2`}>
-          <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Billing Address</h3>
-          {billingLines ? (
-            billingLines.map((line, i) => (
-              <p key={i} className="text-sm text-foreground">
-                {line}
-              </p>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">Same as shipping</p>
-          )}
-        </div>
-      </div>
+      <CustomerCards order={order} contactHref={contactId ? `/portal/crm/contacts/${contactId}` : undefined} />
 
       {/* Order Items */}
       <div className={`${pCard} overflow-hidden`}>
@@ -618,7 +511,7 @@ export default function OrderDetailPage() {
           >
             Save Tracking
           </button>
-          {order.status !== 'shipped' && order.status !== 'delivered' && (
+          {!studio && order.status !== 'shipped' && order.status !== 'delivered' && (
             <button
               onClick={markAsShipped}
               disabled={saving}
@@ -632,193 +525,20 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Shipping Label */}
-      <div className={`${pCard} p-6 space-y-4`}>
-        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
-          <span className="material-icons text-lg text-muted-foreground">label</span>
-          Shipping Label
-        </h2>
-
-        {labelError && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-            <span className="material-icons text-base">error</span>
-            {labelError}
-          </div>
-        )}
-
-        {order.labelUrl ? (
-          /* State B — label purchased */
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              {order.carrier && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Carrier</p>
-                  <p className="text-foreground">{order.carrier}</p>
-                </div>
-              )}
-              {order.shippingMethod && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Service</p>
-                  <p className="text-foreground">{order.shippingMethod}</p>
-                </div>
-              )}
-              {order.trackingNumber && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tracking</p>
-                  {order.trackingUrl ? (
-                    <a
-                      href={order.trackingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline font-mono text-xs"
-                    >
-                      {order.trackingNumber}
-                    </a>
-                  ) : (
-                    <p className="text-foreground font-mono text-xs">{order.trackingNumber}</p>
-                  )}
-                </div>
-              )}
-              {order.labelPurchasedAt && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Purchased</p>
-                  <p className="text-foreground">{new Date(order.labelPurchasedAt).toLocaleString()}</p>
-                </div>
-              )}
-              {order.labelCostCents != null && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Label Cost</p>
-                  <p className="text-foreground">{formatMoney(order.labelCostCents)}</p>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-3 pt-2">
-              <a
-                href={order.labelUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={pBtnPrimary}
-              >
-                <span className="material-icons text-base">download</span>
-                View Label
-              </a>
-              <button
-                onClick={refundLabel}
-                disabled={labelRefunding}
-                className={pBtnGhost}
-              >
-                {labelRefunding ? (
-                  <span className="material-icons text-base animate-spin">refresh</span>
-                ) : (
-                  <span className="material-icons text-base">cancel</span>
-                )}
-                Refund Label
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* State A — no label yet */
-          <div className="space-y-4">
-            {!rates && (
-              <button
-                onClick={computeRates}
-                disabled={ratesLoading}
-                className={pBtnPrimary}
-              >
-                {ratesLoading ? (
-                  <span className="material-icons text-base animate-spin">refresh</span>
-                ) : (
-                  <span className="material-icons text-base">calculate</span>
-                )}
-                Compute Rates
-              </button>
-            )}
-
-            {rates && parcelSummary && (
-              <>
-                <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-xl">
-                  <span className="font-medium">Parcel:</span>{' '}
-                  {parcelSummary.lengthIn} × {parcelSummary.widthIn} × {parcelSummary.heightIn} in,{' '}
-                  {parcelSummary.weightOz} oz
-                </div>
-
-                {rates.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No rates returned for this shipment.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {rates.map((r, idx) => {
-                      const isCheapest = idx === 0;
-                      const checked = selectedRateId === r.id;
-                      return (
-                        <label
-                          key={r.id}
-                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                            checked
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/40'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="rate"
-                            value={r.id}
-                            checked={checked}
-                            onChange={() => setSelectedRateId(r.id)}
-                            className="accent-primary"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-foreground">
-                                {r.carrier} {r.service}
-                              </p>
-                              {isCheapest && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                  <span className="material-icons text-[10px]">star</span>
-                                  Best value
-                                </span>
-                              )}
-                            </div>
-                            {r.estDeliveryDays != null && (
-                              <p className="text-xs text-muted-foreground">
-                                Est. {r.estDeliveryDays} day{r.estDeliveryDays === 1 ? '' : 's'}
-                              </p>
-                            )}
-                          </div>
-                          <p className="text-sm font-semibold text-foreground tabular-nums">
-                            ${(r.amountCents / 100).toFixed(2)}
-                          </p>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={buyLabel}
-                    disabled={labelBuying || !selectedRateId}
-                    className={pBtnPrimary}
-                  >
-                    {labelBuying ? (
-                      <span className="material-icons text-base animate-spin">refresh</span>
-                    ) : (
-                      <span className="material-icons text-base">shopping_cart</span>
-                    )}
-                    Buy Label
-                  </button>
-                  <button
-                    onClick={computeRates}
-                    disabled={ratesLoading || labelBuying}
-                    className={pBtnSoft}
-                  >
-                    <span className="material-icons text-base">refresh</span>
-                    Refresh rates
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      <ShippingLabelCard
+        order={order}
+        labelError={labelError}
+        rates={rates}
+        parcelSummary={parcelSummary}
+        selectedRateId={selectedRateId}
+        setSelectedRateId={setSelectedRateId}
+        ratesLoading={ratesLoading}
+        labelBuying={labelBuying}
+        labelRefunding={labelRefunding}
+        computeRates={computeRates}
+        buyLabel={buyLabel}
+        refundLabel={refundLabel}
+      />
 
       {/* Printful Fulfillment */}
       {fulfillmentProvider === 'printful' && (
@@ -911,37 +631,7 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Status History Timeline */}
-      <div className={`${pCard} p-6 space-y-4`}>
-        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
-          <span className="material-icons text-lg text-muted-foreground">history</span>
-          Status History
-        </h2>
-        {order.statusHistory.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No status changes recorded.</p>
-        ) : (
-          <div className="relative pl-6 space-y-4">
-            <div className="absolute left-2 top-1 bottom-1 w-0.5 bg-border" />
-            {order.statusHistory.map((event) => (
-              <div key={event.id} className="relative">
-                <div className="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full bg-primary border-2 border-card" />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        statusColors[event.status] || 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {event.status}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{new Date(event.createdAt).toLocaleString()}</span>
-                  </div>
-                  {event.note && <p className="text-sm text-muted-foreground mt-1">{event.note}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <StatusTimeline statusHistory={order.statusHistory} />
     </div>
   );
 }

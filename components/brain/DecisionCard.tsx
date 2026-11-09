@@ -16,6 +16,7 @@
  * contexts.
  */
 import type { BrainDecisionReversibility, BrainDecisionStatus } from '@/lib/db/schema';
+import Link from 'next/link';
 
 export interface DecisionRow {
   id: number;
@@ -102,9 +103,18 @@ export interface DecisionCardProps {
   highlighted?: boolean;
   /** Compact mode trims padding + truncation for use inside chains. */
   compact?: boolean;
+  /**
+   * PUX-162 (design doc screen 21): the redesign's row — the title links to
+   * the decision, "superseded by" is a followable link, and the reasoning
+   * (context · rationale · alternatives) expands in place via a native
+   * <details>. Renders as a <div> so the links are valid; pass `href`, not
+   * `onClick`.
+   */
+  studio?: boolean;
+  href?: string;
 }
 
-export default function DecisionCard({ decision, onClick, highlighted, compact }: DecisionCardProps) {
+export default function DecisionCard({ decision, onClick, highlighted, compact, studio, href }: DecisionCardProps) {
   const anchor = pickAnchor(decision);
   const reversibilityIcon = REVERSIBILITY_ICON[decision.reversibility];
   const reversibilityLabel = REVERSIBILITY_LABEL[decision.reversibility];
@@ -115,7 +125,7 @@ export default function DecisionCard({ decision, onClick, highlighted, compact }
         <div className="min-w-0 flex-1">
           <div className="font-semibold text-foreground truncate flex items-center gap-2">
             <span className="material-icons text-base text-primary shrink-0">gavel</span>
-            <span className="truncate">{decision.title}</span>
+            {studio && href ? <Link href={href} className="truncate hover:text-primary">{decision.title}</Link> : <span className="truncate">{decision.title}</span>}
           </div>
           {!compact && (
             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -149,13 +159,28 @@ export default function DecisionCard({ decision, onClick, highlighted, compact }
             {anchor.label}
           </span>
         )}
-        {decision.supersededByDecisionId && (
+        {decision.supersededByDecisionId && (studio ? (
+          <Link href={`/portal/brain/decisions/${decision.supersededByDecisionId}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 hover:underline dark:text-amber-300">
+            <span className="material-icons text-[12px] leading-none">arrow_forward</span>
+            superseded by #{decision.supersededByDecisionId}
+          </Link>
+        ) : (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
             <span className="material-icons text-[12px] leading-none">arrow_forward</span>
             superseded by #{decision.supersededByDecisionId}
           </span>
-        )}
+        ))}
       </div>
+      {studio && (decision.context || decision.rationale || decision.alternativesConsidered) && (
+        <details className="mt-2 text-xs">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Why — context, rationale, alternatives</summary>
+          <dl className="mt-2 space-y-2">
+            {decision.context && <div><dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Context</dt><dd className="text-[13px] text-foreground">{decision.context}</dd></div>}
+            {decision.rationale && <div><dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Rationale</dt><dd className="text-[13px] text-foreground">{decision.rationale}</dd></div>}
+            {decision.alternativesConsidered && <div><dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Alternatives considered</dt><dd className="text-[13px] text-foreground">{decision.alternativesConsidered}</dd></div>}
+          </dl>
+        </details>
+      )}
     </>
   );
 

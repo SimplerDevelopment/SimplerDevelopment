@@ -3,7 +3,9 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pCard, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import VisitorPanel from '@/components/portal/inbox/VisitorPanel';
 
 interface Conversation {
   id: number;
@@ -33,6 +35,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const studio = useFeatureFlag('portal-redesign'); // PUX-215: visitor panel beside the thread
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
@@ -118,6 +121,63 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     [conversationId],
   );
 
+  const thread = (
+    <>
+      <div className="rounded-2xl border border-border bg-muted/30 p-3 h-[480px] overflow-y-auto">
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={`flex ${m.authorKind === 'agent' ? 'justify-end' : 'justify-start'} mb-2`}
+          >
+            <div
+              className={`max-w-[75%] px-3 py-2 rounded-lg ${
+                m.authorKind === 'agent'
+                  ? 'bg-primary text-primary-foreground'
+                  : m.authorKind === 'system'
+                  ? 'bg-amber-100 text-amber-900'
+                  : 'bg-card border'
+              }`}
+            >
+              <div className="text-[10px] opacity-70">
+                {m.authorName || m.authorKind} · {new Date(m.occurredAt).toLocaleString()}
+              </div>
+              <div className="whitespace-pre-wrap break-words">{m.body}</div>
+            </div>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {conversation?.status !== 'closed' && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send();
+          }}
+          className="flex gap-2"
+        >
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Reply…"
+            maxLength={8000}
+            className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
+            disabled={sending}
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim() || sending}
+            className={studio ? `${sBtn} disabled:opacity-50` : pBtnPrimary}
+          >
+            <span className="material-icons text-base">send</span>
+            Send
+          </button>
+        </form>
+      )}
+    </>
+  );
+
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -188,58 +248,12 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
         </header>
       )}
 
-      <div className="rounded-2xl border border-border bg-muted/30 p-3 h-[480px] overflow-y-auto">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${m.authorKind === 'agent' ? 'justify-end' : 'justify-start'} mb-2`}
-          >
-            <div
-              className={`max-w-[75%] px-3 py-2 rounded-lg ${
-                m.authorKind === 'agent'
-                  ? 'bg-primary text-primary-foreground'
-                  : m.authorKind === 'system'
-                  ? 'bg-amber-100 text-amber-900'
-                  : 'bg-card border'
-              }`}
-            >
-              <div className="text-[10px] opacity-70">
-                {m.authorName || m.authorKind} · {new Date(m.occurredAt).toLocaleString()}
-              </div>
-              <div className="whitespace-pre-wrap break-words">{m.body}</div>
-            </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {conversation?.status !== 'closed' && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send();
-          }}
-          className="flex gap-2"
-        >
-          <input
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Reply…"
-            maxLength={8000}
-            className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
-            disabled={sending}
-          />
-          <button
-            type="submit"
-            disabled={!draft.trim() || sending}
-            className={pBtnPrimary}
-          >
-            <span className="material-icons text-base">send</span>
-            Send
-          </button>
-        </form>
-      )}
+      {studio && conversation ? (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+          <div className="space-y-6">{thread}</div>
+          <VisitorPanel conversation={conversation} messages={messages} />
+        </div>
+      ) : thread}
     </div>
   );
 }

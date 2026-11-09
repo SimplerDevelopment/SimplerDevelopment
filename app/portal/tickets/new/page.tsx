@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pCard, pBtnPrimary, pBtnGhost, pInput, pSelect } from '@/components/portal/portal-ui';
 
 export default function NewTicketPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ subject: '', category: 'general', priority: 'medium', body: '' });
+  // PUX-146: a locked room's "Ask us" button lands here with ?subject= prefilled.
+  const params = useSearchParams();
+  const [form, setForm] = useState({ subject: params.get('subject') ?? '', category: 'general', priority: 'medium', body: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

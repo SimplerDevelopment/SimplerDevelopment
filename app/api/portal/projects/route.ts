@@ -8,6 +8,8 @@ import { isPortalStaff } from '@/lib/portal';
 import { emitEvent } from '@/lib/automation';
 import type { ProjectRole } from '@/lib/portal/project-permissions';
 import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
+import { hasFlag } from '@/lib/feature-flags';
+import { getProjectListRollup } from '@/lib/projects/list-rollup';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -72,9 +74,15 @@ export async function GET(req: NextRequest) {
       .map(p => ({ ...p, myRole: roleByProject.get(p.id)! }));
   }
 
+  // PUX-151: under the redesign each row carries its board's roll-up
+  // (progress, lane counts, last activity, members) — four batched queries
+  // for the page. Unflagged clients pay nothing and get the same shape as before.
+  const rollup = hasFlag(client, 'portal-redesign') ? await getProjectListRollup(client.id, decorated.map(p => p.id)) : null;
+  const data = rollup ? decorated.map(p => ({ ...p, rollup: rollup[p.id] ?? null })) : decorated;
+
   return NextResponse.json({
     success: true,
-    data: decorated,
+    data,
     total: countResult.total,
     page,
     limit,

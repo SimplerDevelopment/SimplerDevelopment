@@ -1,12 +1,7 @@
 import { auth } from '@/lib/auth';
 import { getPortalClient as resolveClient } from '@/lib/portal-client';
 
-export { formatCents, invoiceStatusColor, ticketStatusColor, priorityColor } from '@/lib/portal-utils';
-
-export function invoiceStatusLabel(status: string) {
-  if (status === 'sent') return 'Owed';
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
+export { formatCents, invoiceStatusColor, invoiceStatusLabel, ticketStatusColor, priorityColor } from '@/lib/portal-utils';
 
 /** Returns the client record for the current session user, or null if not a client. */
 export async function getPortalClient() {

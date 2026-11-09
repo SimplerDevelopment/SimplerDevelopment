@@ -75,24 +75,8 @@ interface ListOpts {
  * cascades into "property missing" errors at consumer sites when
  * `drizzle-orm` typings are unavailable in a partial typecheck.
  */
-export interface BrainNoteListItem {
-  id: number;
-  clientId: number;
-  title: string;
-  meetingId: number | null;
-  relationshipOverlayId: number | null;
-  companyId: number | null;
-  dealId: number | null;
-  contactId: number | null;
-  tags: string[];
-  pinned: boolean;
-  source: string;
-  sourceUrl: string | null;
-  attachmentFilename: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-}
+export type { BrainNoteListItem } from './note-list-item';
+import type { BrainNoteListItem } from './note-list-item';
 
 /** Build the WHERE conditions shared by listNotes and countNotes. */
 function buildNoteFilters(clientId: number, opts: ListOpts) {
@@ -203,6 +187,7 @@ export async function listNotes(
     source: brainNotes.source,
     sourceUrl: brainNotes.sourceUrl,
     attachmentFilename: brainNotes.attachmentFilename,
+    needsReview: brainNotes.needsReview,
     createdAt: brainNotes.createdAt,
     updatedAt: brainNotes.updatedAt,
     deletedAt: brainNotes.deletedAt,

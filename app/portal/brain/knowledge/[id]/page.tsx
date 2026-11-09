@@ -37,6 +37,11 @@ import NoteMetaStrip from '@/components/brain/NoteMetaStrip';
 import CommandPalette from '@/components/brain/CommandPalette';
 import { pushRecentNoteId } from '@/lib/brain/recent-notes';
 import type { BrainNote } from '@/lib/brain/types';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import MarkdownView from '@/components/portal/MarkdownView';
+import NoteHistoryPanel from '@/components/brain/NoteHistoryPanel';
+import NoteLinkedEntities from '@/components/brain/NoteLinkedEntities';
+import { sBtn, sBtnGhost } from '@/components/portal/portal-ui';
 
 type SidePanel = 'outline' | 'backlinks' | 'fields';
 
@@ -48,6 +53,22 @@ export default function BrainNoteDetailPage() {
   const noteId = parseInt(params.id, 10);
 
   const [note, setNote] = useState<BrainNote | null>(null);
+  // PUX-160 (design doc screen 19): "Reading is the default, not editing." Under
+  // the redesign the note opens as prose; Edit is the one teal action and the
+  // editor below is exactly today's. Promote wires the route nothing called.
+  const studio = useFeatureFlag('portal-redesign');
+  const [editing, setEditing] = useState(false);
+  const reading = studio && !editing;
+  const [promoting, setPromoting] = useState(false);
+  const promote = async () => {
+    if (!note || promoting) return;
+    setPromoting(true);
+    try {
+      const r = await fetch('/api/portal/brain/documents/promote-from-note', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ noteId: note.id }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j?.data?.id) router.push(`/portal/brain/documents/${j.data.id}`);
+    } finally { setPromoting(false); }
+  };
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
@@ -249,6 +270,9 @@ export default function BrainNoteDetailPage() {
           Knowledge
         </button>
         <div className="flex-1 min-w-0">
+          {reading ? (
+            <h1 className="truncate px-1 py-1 font-display text-xl font-semibold text-foreground">{title || 'Untitled note'}</h1>
+          ) : (
           <input
             type="text"
             value={title}
@@ -257,7 +281,17 @@ export default function BrainNoteDetailPage() {
             className="w-full text-xl font-semibold bg-transparent border-0 border-b border-transparent focus:border-primary/50 px-1 py-1 focus:outline-none"
             aria-label="Note title"
           />
+          )}
         </div>
+        {reading ? (
+          <>
+            <button type="button" onClick={promote} disabled={promoting} className={`${sBtnGhost} border-[var(--studio-gold-line)] bg-[var(--studio-gold-soft)] text-[var(--studio-gold-ink)] disabled:opacity-50`}>
+              <span className="material-icons text-base">move_up</span>{promoting ? 'Promoting…' : 'Promote to document'}
+            </button>
+            <button type="button" onClick={() => setEditing(true)} className={sBtn}><span className="material-icons text-base">edit</span>Edit</button>
+          </>
+        ) : (
+          <>
         <SaveStatus state={saveState} dirty={dirty} />
         <button
           type="button"
@@ -268,6 +302,11 @@ export default function BrainNoteDetailPage() {
           <span className="material-icons text-base">save</span>
           Save
         </button>
+        {studio && (
+          <button type="button" onClick={() => { if (dirty) void save(); setEditing(false); }} className={sBtnGhost}>Done</button>
+        )}
+          </>
+        )}
         <NoteActionButtons
           note={note}
           onPatch={patchMeta}
@@ -287,6 +326,11 @@ export default function BrainNoteDetailPage() {
       {/* Body: editor + side panels */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
         <div className="min-w-0">
+          {reading ? (
+            <article className="rounded-lg border border-border bg-card px-6 py-5">
+              {body.trim() ? <MarkdownView>{body}</MarkdownView> : <p className="text-sm text-muted-foreground">Nothing written yet — Edit to start.</p>}
+            </article>
+          ) : (
           <MarkdownEditor
             value={body}
             onChange={setBody}
@@ -296,8 +340,16 @@ export default function BrainNoteDetailPage() {
             defaultMode="split"
             storageKey="brain.editor.detail.mode"
           />
+          )}
         </div>
 
+        <div className="space-y-4">
+        {studio && (
+          <>
+            <NoteLinkedEntities contactId={note.contactId} dealId={note.dealId} companyId={note.companyId} />
+            <div className="overflow-hidden rounded-lg border border-border bg-card"><NoteHistoryPanel noteId={note.id} /></div>
+          </>
+        )}
         <aside className="lg:sticky lg:top-4 bg-card border border-border rounded-lg overflow-hidden">
           <PanelTabs active={activePanel} onChange={setActivePanel} />
           <div className="max-h-[70vh] overflow-y-auto">
@@ -312,6 +364,7 @@ export default function BrainNoteDetailPage() {
             )}
           </div>
         </aside>
+        </div>
       </div>
       <CommandPalette
         open={paletteOpen}

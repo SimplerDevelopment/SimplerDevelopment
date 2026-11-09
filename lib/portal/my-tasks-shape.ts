@@ -39,6 +39,8 @@ export interface MyTaskGroup {
   projectKey: string | null;
   clientName: string | null;
   cards: MyTaskCard[];
+  /** PUX-154: the board's lowest-order non-done column — where a quick-added card lands. Kanban groups only. */
+  defaultColumnId?: number | null;
 }
 
 /** Map a brain task status to its display column label. */

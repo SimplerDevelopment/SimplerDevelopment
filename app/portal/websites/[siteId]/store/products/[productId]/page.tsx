@@ -9,6 +9,14 @@ import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { PrintfulFulfillmentPanel } from '@/components/portal/store/PrintfulFulfillmentPanel';
 import { ProductStylesPanel } from '@/components/portal/store/ProductStylesPanel';
 import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pCardPad, pInput, pSelect, pSectionTitle, pChip } from '@/components/portal/portal-ui';
+import { DetailsTabBody } from './_components/DetailsTabBody';
+import { PricingTabBody } from './_components/PricingTabBody';
+import { InventoryTabBody } from './_components/InventoryTabBody';
+import { StudioCard } from './_components/StudioCard';
+import SeoSnippetPreview from './_components/SeoSnippetPreview';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { stockLabel } from '@/lib/store/stock-label';
+import { sBtn } from '@/components/portal/portal-ui';
 
 interface ProductImage {
   id?: number;
@@ -49,7 +57,7 @@ interface Category {
 
 type ProductDesignMode = 'standard' | 'store' | 'customer';
 
-interface ProductForm {
+export interface ProductForm {
   name: string;
   slug: string;
   shortDescription: string;
@@ -237,6 +245,8 @@ export default function ProductEditPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('details');
+  // PUX-210: under the flag the five cards that get edited together stack on one scroll; the rest stay tabs.
+  const studio = useFeatureFlag('portal-redesign');
   const [showSeo, setShowSeo] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
   const [showBulkPricing, setShowBulkPricing] = useState(false);
@@ -514,6 +524,7 @@ export default function ProductEditPage() {
   }
 
 
+  const CORE_TABS = ['details', 'pricing', 'inventory', 'images', 'variants'];
   const TABS = [
     { id: 'details', label: 'Details' },
     { id: 'pricing', label: 'Pricing' },
@@ -545,7 +556,7 @@ export default function ProductEditPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className={pBtnPrimary}
+            className={studio ? `${sBtn} disabled:opacity-50` : pBtnPrimary}
           >
             {saving && <span className="material-icons text-base animate-spin">refresh</span>}
             {saving ? 'Saving...' : 'Save Product'}
@@ -585,7 +596,7 @@ export default function ProductEditPage() {
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1.5">
-        {TABS.map((tab) => (
+        {TABS.filter((tab) => !studio || !CORE_TABS.includes(tab.id)).map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -602,176 +613,26 @@ export default function ProductEditPage() {
       </div>
 
       {/* Details Tab */}
-      {activeTab === 'details' && (
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
-          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
-            <span className="material-icons text-lg text-muted-foreground">info</span>
-            Basic Information
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Name</label>
-              <input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Product name" className={pInput} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Slug</label>
-              <input
-                value={form.slug}
-                onChange={(e) => updateField('slug', e.target.value)}
-                placeholder="product-slug"
-                className={`${pInput} font-mono`}
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Short Description</label>
-            <input
-              value={form.shortDescription}
-              onChange={(e) => updateField('shortDescription', e.target.value)}
-              placeholder="Brief summary"
-              className={pInput}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => updateField('description', e.target.value)}
-              placeholder="Full product description..."
-              rows={5}
-              className={pInput}
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label htmlFor="product-status" className="text-sm font-medium text-foreground">Status</label>
-              <select id="product-status" value={form.status} onChange={(e) => updateField('status', e.target.value)} className={pSelect}>
-                <option value="draft">Draft</option>
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label id="product-featured-label" className="text-sm font-medium text-foreground">Featured</label>
-              <div className="flex items-center gap-3 pt-1.5">
-                <button
-                  type="button" role="switch" aria-checked={form.featured} aria-labelledby="product-featured-label"
-                  onClick={() => updateField('featured', !form.featured)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    form.featured ? 'bg-primary' : 'bg-border'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      form.featured ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-                <span className="text-sm text-muted-foreground">{form.featured ? 'Yes' : 'No'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      {(activeTab === 'details' || studio) && (
+        <StudioCard studio={studio} title="Details">
+        <DetailsTabBody form={form} updateField={updateField} handleNameChange={handleNameChange} />
+        </StudioCard>
       )}
 
       {/* Pricing Tab */}
-      {activeTab === 'pricing' && (
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
-          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
-            <span className="material-icons text-lg text-muted-foreground">payments</span>
-            Pricing
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Price ($)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={centsToDollars(form.priceCents)}
-                onChange={(e) => updateField('priceCents', dollarsToCents(e.target.value))}
-                placeholder="0.00"
-                className={pInput}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Compare at Price ($)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={centsToDollars(form.compareAtPriceCents)}
-                onChange={(e) => updateField('compareAtPriceCents', dollarsToCents(e.target.value))}
-                placeholder="0.00"
-                className={pInput}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Cost Price ($)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={centsToDollars(form.costPriceCents)}
-                onChange={(e) => updateField('costPriceCents', dollarsToCents(e.target.value))}
-                placeholder="0.00"
-                className={pInput}
-              />
-            </div>
-          </div>
-        </div>
+      {(activeTab === 'pricing' || studio) && (
+        <StudioCard studio={studio} title="Pricing">
+        <PricingTabBody form={form} updateField={updateField} />
+        </StudioCard>
       )}
 
       {/* Inventory Tab */}
-      {activeTab === 'inventory' && (
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
-          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
-            <span className="material-icons text-lg text-muted-foreground">inventory</span>
-            Inventory
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">SKU</label>
-              <input value={form.sku} onChange={(e) => updateField('sku', e.target.value)} placeholder="SKU-001" className={pInput} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Barcode</label>
-              <input value={form.barcode} onChange={(e) => updateField('barcode', e.target.value)} placeholder="123456789" className={pInput} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <label id="product-track-inventory-label" className="text-sm font-medium text-foreground">Track Inventory</label>
-            <div className="flex items-center gap-3 pt-1.5">
-              <button
-                type="button" role="switch" aria-checked={form.trackInventory} aria-labelledby="product-track-inventory-label"
-                onClick={() => updateField('trackInventory', !form.trackInventory)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  form.trackInventory ? 'bg-primary' : 'bg-border'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    form.trackInventory ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              <span className="text-sm text-muted-foreground">{form.trackInventory ? 'Enabled' : 'Disabled'}</span>
-            </div>
-          </div>
-          {form.trackInventory && (
-            <div className="space-y-1.5 max-w-xs">
-              <label className="text-sm font-medium text-foreground">Quantity</label>
-              <input
-                type="number"
-                min="0"
-                value={form.quantity}
-                onChange={(e) => updateField('quantity', parseInt(e.target.value) || 0)}
-                className={pInput}
-              />
-            </div>
-          )}
-        </div>
+      {(activeTab === 'inventory' || studio) && (
+        <StudioCard studio={studio} title="Inventory" extra={<span className={`rounded-full px-2 py-0.5 text-xs font-medium ${stockLabel(form).tone === 'warn' ? 'bg-[var(--portal-warn-bg)] text-[var(--portal-warn)]' : stockLabel(form).tone === 'ok' ? 'bg-[var(--portal-ok-bg)] text-[var(--portal-ok)]' : 'bg-muted text-muted-foreground'}`}>{stockLabel(form).label}</span>}>
+        <InventoryTabBody form={form} updateField={updateField} />
+        </StudioCard>
       )}
+      {studio && <SeoSnippetPreview title={form.seoTitle} description={form.seoDescription} name={form.name} slug={form.slug} />}
 
       {/* Shipping Tab */}
       {activeTab === 'shipping' && (
@@ -816,7 +677,8 @@ export default function ProductEditPage() {
       )}
 
       {/* Images Tab */}
-      {activeTab === 'images' && (
+      {(activeTab === 'images' || studio) && (
+        <StudioCard studio={studio} title="Images">
         <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className={`${pSectionTitle} flex items-center gap-2`}>
@@ -891,6 +753,7 @@ export default function ProductEditPage() {
             </button>
           )}
         </div>
+        </StudioCard>
       )}
 
       {/* Media Picker Modal — rendered outside tab guard so it can open from any tab */}
@@ -1076,7 +939,8 @@ export default function ProductEditPage() {
       )}
 
       {/* Variants Tab */}
-      {activeTab === 'variants' && (
+      {(activeTab === 'variants' || studio) && (
+        <StudioCard studio={studio} title="Variants">
         <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
           <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">tune</span>
@@ -1242,6 +1106,7 @@ export default function ProductEditPage() {
             </div>
           )}
         </div>
+        </StudioCard>
       )}
 
       {/* Customization Tab — only for existing products (!isNew) */}
@@ -1429,7 +1294,7 @@ export default function ProductEditPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className={pBtnPrimary}
+          className={studio ? `${sBtn} disabled:opacity-50` : pBtnPrimary}
         >
           {saving && <span className="material-icons text-base animate-spin">refresh</span>}
           {saving ? 'Saving...' : 'Save Product'}

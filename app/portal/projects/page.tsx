@@ -321,6 +321,7 @@ export default function PortalProjectsPage() {
         />
       ) : (
         <ProjectGrid
+          onCreate={() => setShowCreateForm(true)}
           projects={filtered}
           emptyMessage={
             search || statusFilter !== 'all'

@@ -1,5 +1,6 @@
 'use client';
 
+import { daysSinceActivity, isStale } from '@/lib/crm/deal-stale';
 import { useState } from 'react';
 import { priorityColor } from '../_lib/ui';
 import { formatMoney } from '@/lib/utils/money';
@@ -11,6 +12,8 @@ interface DealKanbanProps {
   loading: boolean;
   onMoveDeal: (dealId: number, newStageId: number) => void | Promise<void>;
   onOpenDeal: (deal: Deal) => void;
+  /** PUX-171: age on every card, a Stalled pill past the cron's 30-day rule. */
+  studio?: boolean;
 }
 
 /**
@@ -23,8 +26,7 @@ export default function DealKanban({
   deals,
   loading,
   onMoveDeal,
-  onOpenDeal,
-}: DealKanbanProps) {
+  onOpenDeal, studio = false }: DealKanbanProps) {
   const [dragDealId, setDragDealId] = useState<number | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<number | null>(null);
 
@@ -145,6 +147,9 @@ export default function DealKanban({
                             : 'mo'}
                       </span>
                     )}
+                    {studio && (isStale(deal)
+                      ? <span className="ml-auto rounded-full bg-[var(--portal-warn-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--portal-warn)]">Stalled {daysSinceActivity(deal)}d</span>
+                      : <span className="ml-auto text-[10px] text-muted-foreground">{daysSinceActivity(deal)}d</span>)}
                   </div>
                   {deal.contactName && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

@@ -90,6 +90,9 @@ export async function GET(req: NextRequest) {
       ownerName: users.name,
       recurringValue: crmDeals.recurringValue,
       billingCycle: crmDeals.billingCycle,
+      // PUX-171: latest activity per deal — one correlated, tenant-scoped subquery; the stale pill
+      // applies the cron's 30-day rule to it (lib/crm/deal-stale.ts).
+      lastActivityAt: sql<string | null>`(select max(a.created_at) from crm_activities a where a.deal_id = ${crmDeals.id} and a.client_id = ${client.id})`,
     })
     .from(crmDeals)
     .leftJoin(crmContacts, eq(crmDeals.contactId, crmContacts.id))

@@ -21,6 +21,8 @@ interface WidgetShellProps {
   /** Drag handle attributes from useSortable */
   dragHandleAttributes?: DraggableAttributes;
   dragHandleListeners?: SyntheticListenerMap;
+  /** PUX-145: 'gold' = the Brain did this. The only tinted surface on Home; studio-only. */
+  tone?: 'gold';
   children: ReactNode;
 }
 
@@ -36,15 +38,17 @@ export default function WidgetShell({
   onRemove,
   dragHandleAttributes,
   dragHandleListeners,
+  tone,
   children,
 }: WidgetShellProps) {
   return (
     <div
       className={[
-        'bg-card border rounded-2xl overflow-hidden flex flex-col',
+        'border rounded-2xl overflow-hidden flex flex-col',
+        tone === 'gold' ? 'bg-[var(--studio-gold-surface)]' : 'bg-card',
         isCustomizing
           ? 'border-dashed border-[var(--portal-border-strong)] cursor-grab'
-          : 'border-border',
+          : tone === 'gold' ? 'border-[var(--studio-gold-line)]' : 'border-border',
       ].join(' ')}
     >
       {/* Header */}

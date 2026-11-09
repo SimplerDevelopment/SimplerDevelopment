@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { token, password } = await req.json();
+  const { token, password, name } = await req.json();
 
   if (!token || !password) {
     return NextResponse.json({ error: 'Token and password are required' }, { status: 400 });
@@ -25,6 +25,14 @@ export async function POST(req: Request) {
   if (password.length < 8) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
   }
+
+  // PUX-149: the accept page now asks for the person's name (the inviter typed
+  // one; this is the first time the person confirms it). Optional — an old
+  // client posting without it changes nothing — and bounded like users.name.
+  if (name !== undefined && (typeof name !== 'string' || name.trim().length > 120)) {
+    return NextResponse.json({ error: 'Name must be 120 characters or fewer' }, { status: 400 });
+  }
+  const cleanName = typeof name === 'string' ? name.trim() : '';
 
   // Tokens are stored as SHA-256 hashes; hash the incoming token to look up.
   const tokenHash = hashToken(token);
@@ -51,6 +59,7 @@ export async function POST(req: Request) {
     .update(users)
     .set({
       password: hashedPassword,
+      ...(cleanName ? { name: cleanName } : {}),
       inviteToken: null,
       inviteExpiresAt: null,
       updatedAt: new Date(),

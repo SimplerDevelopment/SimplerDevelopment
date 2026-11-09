@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { buildPortalNavItems, flattenPortalNav, type PortalNavTarget } from '@/lib/portal-nav';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
 import type { SerializableEntitlements } from '@/app/portal/PortalShell';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 
 type EntityType =
   | 'meeting'
@@ -14,7 +15,8 @@ type EntityType =
   | 'company'
   | 'contact'
   | 'deal'
-  | 'post';
+  | 'post'
+  | 'ticket'; // PUX-147: from /api/portal/tickets?q=, not the Brain index
 
 interface BrainSearchHit {
   type: EntityType;
@@ -36,16 +38,21 @@ interface BrainSearchResponse {
   hits?: BrainSearchHit[];
 }
 
-const TYPE_META: Record<EntityType, { label: string; icon: string; tone: string }> = {
-  meeting:      { label: 'Meeting',      icon: 'forum',          tone: 'text-blue-600 dark:text-blue-400' },
-  note:         { label: 'Knowledge',    icon: 'sticky_note_2',  tone: 'text-amber-600 dark:text-amber-400' },
-  task:         { label: 'Task',         icon: 'task_alt',       tone: 'text-foreground' },
-  relationship: { label: 'Relationship', icon: 'group_work',     tone: 'text-cyan-600 dark:text-cyan-400' },
-  company:      { label: 'Company',      icon: 'business',       tone: 'text-emerald-600 dark:text-emerald-400' },
-  contact:      { label: 'Contact',      icon: 'person',         tone: 'text-rose-600 dark:text-rose-400' },
-  deal:         { label: 'Deal',         icon: 'handshake',      tone: 'text-violet-600 dark:text-violet-400' },
-  post:         { label: 'Page',         icon: 'web',            tone: 'text-sky-600 dark:text-sky-400' },
+// `group` is the section header under the redesign (PUX-147, design doc screen
+// 03): "summit" reads as Pages / People / Deals / Brain notes at a glance
+// instead of one "Search results" bucket. Declaration order = section order.
+const TYPE_META: Record<EntityType, { label: string; icon: string; tone: string; group: string }> = {
+  post:         { label: 'Page',         icon: 'web',            tone: 'text-sky-600 dark:text-sky-400',         group: 'Pages' },
+  contact:      { label: 'Contact',      icon: 'person',         tone: 'text-rose-600 dark:text-rose-400',       group: 'People' },
+  company:      { label: 'Company',      icon: 'business',       tone: 'text-emerald-600 dark:text-emerald-400', group: 'Companies' },
+  deal:         { label: 'Deal',         icon: 'handshake',      tone: 'text-violet-600 dark:text-violet-400',   group: 'Deals' },
+  note:         { label: 'Knowledge',    icon: 'sticky_note_2',  tone: 'text-amber-600 dark:text-amber-400',     group: 'Brain notes' },
+  meeting:      { label: 'Meeting',      icon: 'forum',          tone: 'text-blue-600 dark:text-blue-400',       group: 'Meetings' },
+  task:         { label: 'Task',         icon: 'task_alt',       tone: 'text-foreground',                        group: 'Tasks' },
+  relationship: { label: 'Relationship', icon: 'group_work',     tone: 'text-cyan-600 dark:text-cyan-400',       group: 'Relationships' },
+  ticket:       { label: 'Ticket',       icon: 'confirmation_number', tone: 'text-foreground',                   group: 'Tickets' },
 };
+const GROUP_ORDER = Object.keys(TYPE_META) as EntityType[];
 
 interface CreateAction {
   id: string;
@@ -82,6 +89,25 @@ const CREATE_ACTIONS: CreateAction[] = [
     icon: 'add_to_queue',
     tone: 'text-foreground',
     href: '/portal/tools/pitch-decks?new=1',
+  },
+  // PUX-147 — the two the design doc adds. "Ask the Brain" goes to the real
+  // chat page (/portal/brain/agent, which nothing links to today); it does
+  // not carry the query because that page does not read one.
+  {
+    id: 'new-ticket',
+    label: 'New ticket',
+    description: 'Ask for help or report a problem',
+    icon: 'confirmation_number',
+    tone: 'text-foreground',
+    href: '/portal/tickets/new',
+  },
+  {
+    id: 'ask-brain',
+    label: 'Ask the Brain',
+    description: 'Ask anything about your company',
+    icon: 'auto_awesome',
+    tone: 'text-[var(--studio-gold-ink)]',
+    href: '/portal/brain/agent',
   },
 ];
 
@@ -152,6 +178,7 @@ export default function CmdKPalette({ apps, entitlements, open: controlledOpen, 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const studio = useFeatureFlag('portal-redesign');
   const pathname = usePathname();
 
   // Detect active site from URL (mirror the sidebar's logic) so per-site
@@ -228,19 +255,27 @@ export default function CmdKPalette({ apps, entitlements, open: controlledOpen, 
     }
     setLoading(true);
     const ctrl = new AbortController();
+    const q = encodeURIComponent(trimmed);
+    const brain = async (): Promise<BrainSearchHit[]> => {
+      const res = await fetch(`/api/portal/brain/search?q=${q}&limit=12`, { signal: ctrl.signal, credentials: 'same-origin' });
+      if (!res.ok) return [];
+      const json: BrainSearchResponse = await res.json();
+      const payload = json.data ?? json;
+      return Array.isArray(payload?.hits) ? payload.hits! : [];
+    };
+    // PUX-147: tickets aren't in the Brain index (and that route is
+    // Brain-entitlement-gated), so they come from the tickets route's own ?q=.
+    const tickets = async (): Promise<BrainSearchHit[]> => {
+      const res = await fetch(`/api/portal/tickets?q=${q}&limit=5`, { signal: ctrl.signal, credentials: 'same-origin' });
+      if (!res.ok) return [];
+      const json = await res.json();
+      const rows: { id: number; number: number; subject: string; status: string }[] = Array.isArray(json?.data) ? json.data : [];
+      return rows.map((t) => ({ type: 'ticket', id: t.id, title: `#${t.number} ${t.subject}`, snippet: t.status.replace(/_/g, ' '), score: 0, url: `/portal/tickets/${t.id}` }));
+    };
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `/api/portal/brain/search?q=${encodeURIComponent(trimmed)}&limit=12`,
-          { signal: ctrl.signal, credentials: 'same-origin' },
-        );
-        if (!res.ok) {
-          setHits([]);
-          return;
-        }
-        const json: BrainSearchResponse = await res.json();
-        const payload = json.data ?? json;
-        setHits(Array.isArray(payload?.hits) ? payload.hits! : []);
+        const [b, t] = await Promise.all([brain().catch(() => []), tickets().catch(() => [])]);
+        if (!ctrl.signal.aborted) setHits([...b, ...t]);
       } catch {
         // Aborted or network error — silently ignore.
       } finally {
@@ -273,7 +308,9 @@ export default function CmdKPalette({ apps, entitlements, open: controlledOpen, 
       createItems = CREATE_ACTIONS
         .map((a) => {
           const haystack = `${a.label} ${a.description}`.toLowerCase();
-          return { action: a, score: scoreMatch(haystack, tokens) };
+          // Under the redesign "Ask the Brain" is always on offer once you've typed something.
+          const score = studio && a.id === 'ask-brain' ? 0 : scoreMatch(haystack, tokens);
+          return { action: a, score };
         })
         .filter((x) => x.score >= 0)
         .map((x) => ({ kind: 'create' as const, action: x.action, score: x.score }));
@@ -286,9 +323,15 @@ export default function CmdKPalette({ apps, entitlements, open: controlledOpen, 
         .map((x) => ({ kind: 'nav' as const, target: x.target, score: x.score }));
     }
 
+    if (studio) {
+      // PUX-147: one section per entity type (TYPE_META order; stable within a
+      // type, so the server's relevance order survives), Actions last.
+      const byType = [...hits].sort((a, b) => GROUP_ORDER.indexOf(a.type) - GROUP_ORDER.indexOf(b.type));
+      return [...navItems, ...byType.map((hit): Item => ({ kind: 'hit', hit })), ...createItems];
+    }
     const hitItems: Item[] = hits.map((hit) => ({ kind: 'hit', hit }));
     return [...createItems, ...navItems, ...hitItems];
-  }, [query, navTargets, hits]);
+  }, [query, navTargets, hits, studio]);
 
   // Keep selection within bounds when items change.
   useEffect(() => {
@@ -359,20 +402,25 @@ export default function CmdKPalette({ apps, entitlements, open: controlledOpen, 
   const showEmptyHint = !trimmedQuery && items.length === 0;
   const noResults = trimmedQuery && !loading && items.length === 0;
 
-  // Group items for section headers.
-  const grouped: Array<{ kind: Item['kind']; title: string; items: { item: Item; index: number }[] }> = [];
+  // Group items for section headers. Adjacent runs of the same key; under the
+  // redesign a hit's key is its entity type, so each type gets its own header.
+  const groupKey = (item: Item) => (studio && item.kind === 'hit' ? `hit:${item.hit.type}` : item.kind);
+  const grouped: Array<{ kind: string; title: string; items: { item: Item; index: number }[] }> = [];
   items.forEach((item, index) => {
+    const key = groupKey(item);
     const last = grouped[grouped.length - 1];
-    if (last && last.kind === item.kind) {
+    if (last && last.kind === key) {
       last.items.push({ item, index });
     } else {
       const title =
-        item.kind === 'create' ? 'Create' :
+        item.kind === 'create' ? (studio ? 'Actions' : 'Create') :
         item.kind === 'nav' ? (trimmedQuery ? 'Navigate' : 'Quick access') :
-        'Search results';
-      grouped.push({ kind: item.kind, title, items: [{ item, index }] });
+        studio ? TYPE_META[item.hit.type].group : 'Search results';
+      grouped.push({ kind: key, title, items: [{ item, index }] });
     }
   });
+  // One teal highlight under the redesign; today's neutral otherwise.
+  const rowCls = (selected: boolean) => (selected ? (studio ? 'bg-accent' : 'bg-muted') : 'hover:bg-muted/60');
 
   return (
     <div
@@ -443,7 +491,7 @@ export default function CmdKPalette({ apps, entitlements, open: controlledOpen, 
                           onMouseEnter={() => setSelectedIndex(index)}
                           onClick={() => activate(item)}
                           className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                            isSelected ? 'bg-muted' : 'hover:bg-muted/60'
+                            rowCls(isSelected)
                           }`}
                         >
                           <span className={`material-icons text-xl ${a.tone ?? 'text-foreground'}`}>{a.icon}</span>
@@ -466,7 +514,7 @@ export default function CmdKPalette({ apps, entitlements, open: controlledOpen, 
                           onMouseEnter={() => setSelectedIndex(index)}
                           onClick={() => activate(item)}
                           className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
-                            isSelected ? 'bg-muted' : 'hover:bg-muted/60'
+                            rowCls(isSelected)
                           }`}
                         >
                           <span className="material-icons text-xl text-muted-foreground shrink-0">{t.icon}</span>
@@ -496,7 +544,7 @@ export default function CmdKPalette({ apps, entitlements, open: controlledOpen, 
                         onMouseEnter={() => setSelectedIndex(index)}
                         onClick={() => activate(item)}
                         className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${
-                          isSelected ? 'bg-muted' : 'hover:bg-muted/60'
+                          rowCls(isSelected)
                         }`}
                       >
                         <span className={`material-icons text-xl mt-0.5 ${meta.tone}`}>{meta.icon}</span>

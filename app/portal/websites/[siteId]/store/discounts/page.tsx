@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { formatMoney } from '@/lib/utils/money';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pCard, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import DiscountsStudioTable from '@/components/portal/store/DiscountsStudioTable';
+import ShippingZonesCard from '@/components/portal/store/ShippingZonesCard';
 
 interface Discount {
   id: number;
@@ -62,6 +65,18 @@ export default function DiscountsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // PUX-211: the row switch sends only {active} — the PUT applies fields that are present.
+  const studio = useFeatureFlag('portal-redesign');
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const toggleActive = async (d: Discount) => {
+    setTogglingId(d.id);
+    try {
+      const res = await fetch(`${base}/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !d.active }) });
+      if (res.ok) load();
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -177,9 +192,9 @@ export default function DiscountsPage() {
         title="Discount Codes"
         subtitle="Create and manage discount codes for your store."
         actions={
-          <button onClick={openCreate} className={pBtnPrimary}>
+          <button onClick={openCreate} className={studio ? sBtn : pBtnPrimary}>
             <span className="material-icons text-base">add</span>
-            Add Discount
+            {studio ? 'New discount' : 'Add Discount'}
           </button>
         }
       />
@@ -348,6 +363,8 @@ export default function DiscountsPage() {
           <h2 className="font-semibold text-foreground mb-1">No discount codes</h2>
           <p className="text-sm text-muted-foreground">Create your first discount code to offer promotions.</p>
         </div>
+      ) : studio ? (
+        <DiscountsStudioTable rows={discounts} onEdit={openEdit} onToggle={toggleActive} busyId={togglingId} />
       ) : (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
@@ -422,6 +439,7 @@ export default function DiscountsPage() {
           </div>
         </div>
       )}
+      {studio && <ShippingZonesCard siteId={siteId} />}
     </div>
   );
 }

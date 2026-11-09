@@ -4,62 +4,26 @@ import { useState, useEffect, useRef, useCallback, use } from 'react';
 import { useCampaignSendingPoll } from '@/components/portal/email/use-campaign-sending-poll';
 import Link from 'next/link';
 import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
-import type { Block, BlockType, BlockEditorData } from '@/types/blocks';
-import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
-import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
-import { removeBlockById } from '@/lib/utils/blockHelpers';
-import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
+import type { Block } from '@/types/blocks';
+import type { BrandDefaultsContext } from '@/lib/branding/block-defaults';
 import { bindEmailToYjs, type EmailYjsBinding } from '@/lib/realtime/email-binding';
 import {
   EmailCollaborationProvider,
   useEmailPresence,
 } from './_components/EmailCollaborationProvider';
 import { EmailPresenceBar } from './_components/EmailPresenceBar';
-import { EmailFieldFocusIndicator } from './_components/EmailFieldFocusIndicator';
 import { EmailAbConfig } from './_components/EmailAbConfig';
+import { CampaignSendsTab, type Send } from './_components/CampaignSendsTab';
+import { CampaignStatsGrid } from './_components/CampaignStatsGrid';
+import { CampaignOverviewInfo } from './_components/CampaignOverviewInfo';
+import { CampaignContentEditor } from './_components/CampaignContentEditor';
+import type { Campaign } from './_components/campaign-types';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSectionTitle } from '@/components/portal/portal-ui';
-
-interface Campaign {
-  id: number;
-  name: string;
-  subject: string;
-  previewText: string | null;
-  fromName: string;
-  fromEmail: string;
-  replyTo: string | null;
-  listId: number;
-  listName: string | null;
-  htmlContent: string;
-  blockContent: BlockEditorData | null;
-  contentBlocks: Block[] | null;
-  useBlockEditor: boolean;
-  status: string;
-  scheduledAt: string | null;
-  sentAt: string | null;
-  totalRecipients: number;
-  totalSent: number;
-  totalOpened: number;
-  totalClicked: number;
-  totalBounced: number;
-  totalUnsubscribed: number;
-  abEnabled?: boolean;
-  abSubjectB?: string | null;
-  abWinnerMetric?: 'open' | 'click' | null;
-  abTestSizePct?: number | null;
-  abWinnerSubject?: string | null;
-  abDecidedAt?: string | null;
-}
-
-interface Send {
-  id: number;
-  email: string;
-  name: string | null;
-  sentAt: string | null;
-  openedAt: string | null;
-  clickedAt: string | null;
-  bouncedAt: string | null;
-}
+import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSectionTitle, sBtnGhost } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import CampaignScheduleAction from './_components/CampaignScheduleAction';
+import CampaignSettingsPreview from './_components/CampaignSettingsPreview';
+import { scheduledLabel } from '@/lib/email/campaign-rates';
 
 const statusColor: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -87,6 +51,9 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ queued: true; totalTargets: number } | null>(null);
   const [tab, setTab] = useState<'overview' | 'content' | 'sends'>('overview');
+  // PUX-175 (design doc screen 34): preview beside settings, the A/B panel as its own card, stats as soon as
+  // anything sent, Schedule as the one teal. Flag off is today's three tabs.
+  const studio = useFeatureFlag('portal-redesign');
 
   // Edit state
   const [editing, setEditing] = useState(false);
@@ -284,12 +251,6 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   if (loading) return <div className="p-6 text-muted-foreground text-sm">Loading…</div>;
   if (!campaign) return <div className="p-6 text-muted-foreground text-sm">Campaign not found.</div>;
 
-  const openRate = campaign.totalSent > 0 ? Math.round(campaign.totalOpened / campaign.totalSent * 100) : 0;
-  const clickRate = campaign.totalSent > 0 ? Math.round(campaign.totalClicked / campaign.totalSent * 100) : 0;
-  const bounceRate = campaign.totalSent > 0 ? Math.round(campaign.totalBounced / campaign.totalSent * 100) : 0;
-
-  const inputClass = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15';
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -311,7 +272,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
             <div className="flex items-center gap-2">
               <EmailPresenceBar />
               {campaign.status === 'draft' && !editing && (
-                <button onClick={startEdit} className={pBtnGhost}>
+                <button onClick={startEdit} className={studio ? sBtnGhost : pBtnGhost}>
                   <span className="material-icons text-base">edit</span>Edit
                 </button>
               )}
@@ -319,7 +280,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
                 <button
                   onClick={sendTestEmail}
                   disabled={sendingTest}
-                  className={`${pBtnGhost} disabled:opacity-50`}
+                  className={`${studio ? sBtnGhost : pBtnGhost} disabled:opacity-50`}
                   title="Send the rendered email to your own address"
                 >
                   <span className="material-icons text-base">science</span>
@@ -327,10 +288,14 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
                 </button>
               )}
               {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
-                <button onClick={sendCampaign} disabled={sending} className={`${pBtnPrimary} disabled:opacity-50`}>
+                <button onClick={sendCampaign} disabled={sending} className={`${studio ? sBtnGhost : pBtnPrimary} disabled:opacity-50`}>
                   <span className="material-icons text-base">{sending ? 'hourglass_empty' : 'send'}</span>
-                  {sending ? 'Sending…' : 'Send Now'}
+                  {sending ? 'Sending…' : studio ? 'Send now' : 'Send Now'}
                 </button>
+              )}
+              {studio && (campaign.status === 'draft' || campaign.status === 'scheduled') && (
+                <CampaignScheduleAction campaignId={String(campaign.id)} scheduledAt={campaign.scheduledAt} disabled={sending}
+                  onScheduled={(patch) => setCampaign(prev => prev ? { ...prev, ...patch } : prev)} />
               )}
             </div>
           }
@@ -352,79 +317,47 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
         </div>
       )}
 
-      {/* Stats */}
-      {campaign.status === 'sent' && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { label: 'Sent', value: campaign.totalSent, icon: 'send' },
-            { label: 'Open Rate', value: `${openRate}%`, icon: 'drafts' },
-            { label: 'Click Rate', value: `${clickRate}%`, icon: 'touch_app' },
-            { label: 'Bounce Rate', value: `${bounceRate}%`, icon: 'error_outline' },
-          ].map(stat => (
-            <div key={stat.label} className="bg-card border border-border rounded-2xl p-4">
-              <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                <span className="material-icons text-sm">{stat.icon}</span>
-                <span className="text-xs">{stat.label}</span>
-              </div>
-              <p className="text-xl font-display font-extrabold tracking-[-0.02em] text-foreground">{stat.value}</p>
-            </div>
-          ))}
-        </div>
+      {/* Stats — studio: as soon as anything has been sent (a test batch counts); legacy: only once status is 'sent' */}
+      {(studio ? campaign.totalSent > 0 : campaign.status === 'sent') && (
+        <CampaignStatsGrid campaign={campaign} />
       )}
 
-      {/* Tabs */}
-      <div className="border-b border-border flex gap-1">
+      {studio && !editing && (
+        <CampaignSettingsPreview
+          campaign={campaign}
+          blocks={hasBlockContent ? ((campaign.contentBlocks && campaign.contentBlocks.length > 0 ? campaign.contentBlocks : campaign.blockContent?.blocks) as Block[] | null ?? null) : null}
+          sendTime={campaign.status === 'sent' && campaign.sentAt ? `Sent ${new Date(campaign.sentAt).toLocaleString()}` : campaign.scheduledAt ? `Scheduled ${scheduledLabel(campaign.scheduledAt)}` : 'Not scheduled — use Schedule above'}
+          onEdit={campaign.status === 'draft' ? startEdit : undefined}
+        />
+      )}
+      {studio && (
+        <EmailAbConfig
+          campaign={campaign}
+          onChange={(patch) => setCampaign(prev => prev ? { ...prev, ...patch } as Campaign : prev)}
+        />
+      )}
+
+      {/* Tabs (legacy) */}
+      {!studio && <div className="border-b border-border flex gap-1">
         {(['overview', 'content', 'sends'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium capitalize border-b-2 transition-colors ${tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
             {t}
           </button>
         ))}
-      </div>
+      </div>}
 
-      {tab === 'overview' && (
+      {!studio && tab === 'overview' && (
         <>
         <EmailAbConfig
           campaign={campaign}
           onChange={(patch) => setCampaign(prev => prev ? { ...prev, ...patch } as Campaign : prev)}
         />
-        <div className="bg-card border border-border rounded-2xl divide-y divide-border mt-4">
-          {[
-            { label: 'From', value: `${campaign.fromName} <${campaign.fromEmail}>` },
-            { label: 'Reply-To', value: campaign.replyTo ?? '—' },
-            { label: 'List', value: campaign.listName ?? '—' },
-            { label: 'Preview Text', value: campaign.previewText ?? '—' },
-            { label: 'Sent At', value: campaign.sentAt ? new Date(campaign.sentAt).toLocaleString() : '—' },
-            { label: 'Unsubscribes', value: campaign.totalUnsubscribed },
-          ].map(row => (
-            <div key={row.label} className="flex px-5 py-3 gap-4">
-              <span className="text-sm text-muted-foreground w-28 shrink-0">{row.label}</span>
-              <span className="text-sm text-foreground">{row.value}</span>
-            </div>
-          ))}
-          {campaign.status === 'draft' && (
-            <div className="flex px-5 py-3 gap-4 items-center">
-              <span className="text-sm text-muted-foreground w-28 shrink-0">Editor</span>
-              <div className="flex items-center gap-3 flex-1">
-                <span className="text-sm text-foreground">
-                  {campaign.useBlockEditor ? 'Block builder (cached MJML-style render)' : 'Template / HTML'}
-                </span>
-                <button
-                  onClick={toggleUseBlockEditor}
-                  className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-xl text-xs hover:bg-accent"
-                  title="Toggle between the legacy template flow and the new block builder"
-                >
-                  <span className="material-icons text-sm">swap_horiz</span>
-                  Switch to {campaign.useBlockEditor ? 'template' : 'block builder'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <CampaignOverviewInfo campaign={campaign} onToggleUseBlockEditor={toggleUseBlockEditor} />
         </>
       )}
 
-      {tab === 'content' && (
+      {(studio ? editing : tab === 'content') && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h3 className="font-semibold text-foreground">{editing ? 'Edit Content' : 'Email Preview'}</h3>
@@ -437,91 +370,21 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
             )}
           </div>
           {editing ? (
-            <div>
-              <div className="p-5 space-y-4">
-                {editError && <p className="text-sm text-red-600">{editError}</p>}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">Subject *</label>
-                    <EmailFieldFocusIndicator fieldPath="subject">
-                      <input
-                        required
-                        value={editForm.subject}
-                        onChange={e => setEditForm(p => ({ ...p, subject: e.target.value }))}
-                        onFocus={() => presence.setFocusedField('subject')}
-                        onBlur={() => presence.setFocusedField(null)}
-                        className={inputClass}
-                      />
-                    </EmailFieldFocusIndicator>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">Preview Text</label>
-                    <EmailFieldFocusIndicator fieldPath="previewText">
-                      <input
-                        value={editForm.previewText}
-                        onChange={e => setEditForm(p => ({ ...p, previewText: e.target.value }))}
-                        onFocus={() => presence.setFocusedField('previewText')}
-                        onBlur={() => presence.setFocusedField(null)}
-                        className={inputClass}
-                      />
-                    </EmailFieldFocusIndicator>
-                  </div>
-                </div>
-              </div>
-
-              {hasBlockContent ? (
-                <div className={showPreview ? 'flex flex-col md:flex-row gap-4 p-4' : 'p-4'}>
-                  <div className={`${showPreview ? 'flex-1 min-w-0' : 'w-full'}`}>
-                    <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-340px)]" style={{ minHeight: '500px' }}>
-                      <VisualEditorShell
-                        key={`email-edit-${campaign.id}`}
-                        blocks={editBlocks}
-                        selectedBlockId={null}
-                        viewport="desktop"
-                        previewMode={false}
-                        initialZoom={100}
-                        iframeSrc="/portal/email/editor-preview?_edit=true"
-                        onBlocksChange={handleEditBlocksChange}
-                        onSelectBlock={(blockId) => {
-                          presence.setSelection(blockId ? { blockId } : null);
-                        }}
-                        onAddBlock={(type: string) => {
-                          const id = `block-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-                          let newBlock = { id, type: type as BlockType, order: editBlocks.length + 1, content: type === 'text' ? 'New text...' : type === 'heading' ? 'New heading' : undefined, level: type === 'heading' ? 2 : undefined } as Block;
-                          if (brandDefaults) newBlock = applyBrandDefaults(newBlock, brandDefaults);
-                          handleEditBlocksChange([...editBlocks, newBlock]);
-                        }}
-                        onDeleteBlock={(blockId: string) => handleEditBlocksChange(removeBlockById(editBlocks, blockId))}
-                        onUpdateBlock={(blockId: string, updates: Partial<Block>) => handleEditBlocksChange(editBlocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b))}
-                        siteId={undefined}
-                      />
-                    </div>
-                  </div>
-                  {showPreview && (
-                    <div className="w-full sm:w-[380px] shrink-0 bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 340px)' }}>
-                      <EmailPreviewPane blocks={editBlocks} />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-5 pt-0">
-                  <label className="block text-sm font-medium text-foreground mb-1">HTML Content *</label>
-                  <textarea required value={editForm.htmlContent} onChange={e => setEditForm(p => ({ ...p, htmlContent: e.target.value }))}
-                    rows={16} className={`${inputClass} font-mono text-xs`} />
-                </div>
-              )}
-
-              <div className="flex gap-2 p-5 pt-0">
-                <button type="button" onClick={saveEdit} disabled={editSaving}
-                  className={`${pBtnPrimary} disabled:opacity-50`}>
-                  {editSaving ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button type="button" onClick={() => setEditing(false)}
-                  className={pBtnGhost}>
-                  Cancel
-                </button>
-              </div>
-            </div>
+            <CampaignContentEditor
+              campaign={campaign}
+              editForm={editForm}
+              setEditForm={setEditForm}
+              editBlocks={editBlocks}
+              onBlocksChange={handleEditBlocksChange}
+              editError={editError}
+              editSaving={editSaving}
+              onSave={saveEdit}
+              onCancel={() => setEditing(false)}
+              showPreview={showPreview}
+              hasBlockContent={hasBlockContent}
+              brandDefaults={brandDefaults}
+              presence={presence}
+            />
           ) : (
             <div className="p-5">
               <div className="border border-border rounded-xl p-6 bg-white text-sm max-w-2xl mx-auto overflow-auto"
@@ -531,49 +394,8 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
         </div>
       )}
 
-      {tab === 'sends' && (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h3 className="font-semibold text-foreground">Send Log ({sends.length})</h3>
-          </div>
-          {sends.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">No sends recorded yet.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/40">
-                  <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Recipient</th>
-                  <th className="text-center px-3 py-2.5 font-medium text-muted-foreground">Sent</th>
-                  <th className="text-center px-3 py-2.5 font-medium text-muted-foreground">Opened</th>
-                  <th className="text-center px-3 py-2.5 font-medium text-muted-foreground">Clicked</th>
-                  <th className="text-center px-3 py-2.5 font-medium text-muted-foreground">Bounced</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {sends.map(s => (
-                  <tr key={s.id}>
-                    <td className="px-5 py-2.5">
-                      <p className="text-foreground">{s.email}</p>
-                      {s.name && <p className="text-xs text-muted-foreground">{s.name}</p>}
-                    </td>
-                    {[s.sentAt, s.openedAt, s.clickedAt].map((ts, i) => (
-                      <td key={i} className="px-3 py-2.5 text-center">
-                        <span className={`material-icons text-base ${ts ? 'text-green-500' : 'text-muted-foreground'}`}>
-                          {ts ? 'check_circle' : 'radio_button_unchecked'}
-                        </span>
-                      </td>
-                    ))}
-                    <td className="px-3 py-2.5 text-center">
-                      <span className={`material-icons text-base ${s.bouncedAt ? 'text-red-500' : 'text-muted-foreground'}`}>
-                        {s.bouncedAt ? 'error' : 'radio_button_unchecked'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+      {(studio || tab === 'sends') && (
+        <CampaignSendsTab sends={sends} />
       )}
     </div>
   );

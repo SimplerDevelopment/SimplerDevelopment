@@ -6,10 +6,13 @@ import Link from 'next/link';
 import CrmCustomFieldFilters from '@/components/portal/CrmCustomFieldFilters';
 import CrmImportExport from '@/components/portal/CrmImportExport';
 import CompanyMap, { type MapCompany } from '@/components/portal/CompanyMap';
-import MediaPicker from '@/components/admin/MediaPicker';
 import { formatMoney } from '@/lib/utils/money';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pCard, pInput } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pCard, pInput, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import CompaniesStudioTable from '@/components/portal/crm/CompaniesStudioTable';
+import CompanyPanel from '@/components/portal/crm/CompanyPanel';
+import CompanyCreateModal from './_components/CompanyCreateModal';
 
 interface Company {
   id: number;
@@ -27,17 +30,11 @@ interface Company {
   longitude: string | null;
   contactCount: number;
   totalDealValue: number;
+  // PUX-203: computed by the list route under the same client scope
+  openDeals?: number | null;
+  lastActivity?: { title: string; at: string } | null;
   createdAt: string;
 }
-
-const sizeOptions = [
-  { value: '1-10', label: '1-10 employees' },
-  { value: '11-50', label: '11-50 employees' },
-  { value: '51-200', label: '51-200 employees' },
-  { value: '201-500', label: '201-500 employees' },
-  { value: '501-1000', label: '501-1000 employees' },
-  { value: '1001+', label: '1001+ employees' },
-];
 
 const LIMIT = 25;
 
@@ -63,7 +60,10 @@ export default function CrmCompaniesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
   const [customFilters, setCustomFilters] = useState<Record<number, string>>({});
-  const [view, setView] = useState<'map' | 'table'>('map');
+  // PUX-203: the list idiom is the default under the flag; the map is one icon away.
+  const studio = useFeatureFlag('portal-redesign');
+  const [view, setView] = useState<'map' | 'table'>(studio ? 'table' : 'map');
+  const [panelId, setPanelId] = useState<number | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -157,155 +157,23 @@ export default function CrmCompaniesPage() {
         actions={
           <>
             <CrmImportExport entityType="company" currentFilters={{ search }} onImportComplete={fetchCompanies} />
-            <button onClick={() => setShowForm(f => !f)} className={pBtnPrimary}>
-              <span className="material-icons text-base">{showForm ? 'close' : 'domain_add'}</span>{showForm ? 'Cancel' : 'Add Company'}
+            <button onClick={() => setShowForm(f => !f)} className={studio ? sBtn : pBtnPrimary}>
+              <span className="material-icons text-base">{showForm ? 'close' : 'domain_add'}</span>{showForm ? 'Cancel' : studio ? 'New company' : 'Add Company'}
             </button>
           </>
         }
       />
 
-      {/* Add-company modal (CRM79-011: was an inline appear/disappear section) */}
+      {/* Add-company modal (CRM79-011: was an inline appear/disappear section; PUX-203: extracted to CompanyCreateModal) */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4" onClick={() => setShowForm(false)}>
-        <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()} className={`${pCard} my-8 w-full max-w-3xl p-6 space-y-4`}>
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-foreground">New Company</h2>
-            <button type="button" onClick={() => setShowForm(false)} aria-label="Close" className="text-muted-foreground hover:text-foreground">
-              <span className="material-icons text-base">close</span>
-            </button>
-          </div>
-          {error && (
-            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-              <span className="material-icons text-base">error</span>
-              {error}
-            </div>
-          )}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Name *</label>
-              <input
-                required
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Domain</label>
-              <input
-                value={form.domain}
-                onChange={e => setForm(f => ({ ...f, domain: e.target.value }))}
-                placeholder="example.com"
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Industry</label>
-              <input
-                value={form.industry}
-                onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Size</label>
-              <select
-                value={form.size}
-                onChange={e => setForm(f => ({ ...f, size: e.target.value }))}
-                className={pInput}
-              >
-                <option value="">Select size</option>
-                {sizeOptions.map(s => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
-              <input
-                value={form.phone}
-                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Website</label>
-              <input
-                value={form.website}
-                onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
-                placeholder="https://example.com"
-                className={pInput}
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Address</label>
-              <textarea
-                value={form.address}
-                onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                rows={2}
-                placeholder="123 Main St, City, State"
-                className={`${pInput} resize-y`}
-              />
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Latitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    min={-90}
-                    max={90}
-                    value={form.latitude}
-                    onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))}
-                    placeholder="e.g. 40.7128"
-                    className={pInput}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Longitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    min={-180}
-                    max={180}
-                    value={form.longitude}
-                    onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))}
-                    placeholder="e.g. -74.0060"
-                    className={pInput}
-                  />
-                </div>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">Auto-derived from address on save if left blank.</p>
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <MediaPicker
-                value={form.logoUrl}
-                onChange={(url) => setForm(f => ({ ...f, logoUrl: url }))}
-                label="Logo"
-                mimeTypeFilter="image"
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
-              <textarea
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                rows={2}
-                className={`${pInput} resize-y`}
-              />
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className={pBtnPrimary}
-            >
-              {saving && <span className="material-icons animate-spin text-sm">refresh</span>}
-              Create Company
-            </button>
-          </div>
-        </form>
-        </div>
+        <CompanyCreateModal
+          form={form}
+          setForm={setForm}
+          saving={saving}
+          error={error}
+          onSubmit={handleSubmit}
+          onClose={() => setShowForm(false)}
+        />
       )}
 
       {/* Search + custom field filters */}
@@ -324,6 +192,13 @@ export default function CrmCompaniesPage() {
           values={customFilters}
           onChange={v => { setCustomFilters(v); setPage(1); }}
         />
+        {studio ? (
+          <button type="button" onClick={() => setView(v => (v === 'map' ? 'table' : 'map'))} aria-pressed={view === 'map'} title={view === 'map' ? 'Table view' : 'Map view'}
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:text-foreground">
+            <span className="material-icons text-base">{view === 'map' ? 'table_rows' : 'map'}</span>
+          </button>
+        ) : (
+        <>
         {/* View toggle: Map ⇄ Table (CRM79-010) */}
         <div className="flex items-center gap-0.5 border border-border rounded-xl p-0.5 ml-auto">
           <button
@@ -351,6 +226,8 @@ export default function CrmCompaniesPage() {
             Table
           </button>
         </div>
+        </>
+        )}
       </div>
 
       {/* Grid + Map (2-column on lg+), or Table (full width) */}
@@ -368,6 +245,11 @@ export default function CrmCompaniesPage() {
           >
             Add First Company
           </button>
+        </div>
+      ) : studio && view === 'table' ? (
+        <div className={`grid gap-6 lg:items-start ${panelId ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''}`}>
+          <CompaniesStudioTable rows={companies} onOpen={(c) => setPanelId(c.id)} selectedId={panelId} footer={`${companies.length} of ${total} compan${total !== 1 ? 'ies' : 'y'}`} />
+          {panelId !== null && <CompanyPanel companyId={panelId} name={companies.find((c) => c.id === panelId)?.name ?? ''} onClose={() => setPanelId(null)} />}
         </div>
       ) : view === 'table' ? (
         <div className={`${pCard} overflow-hidden`}>

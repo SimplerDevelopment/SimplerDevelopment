@@ -8,6 +8,9 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import AgencyBrandingForm from './_components/AgencyBrandingForm';
+import AgencyPreview from './_components/AgencyPreview';
 
 interface AgencyStatus {
   customDomain: string | null;
@@ -77,6 +80,10 @@ export default function AgencyHubPage() {
 
   const verified = !!status.verifiedAt;
   const canEnable = verified && !!status.agencyName;
+  // PUX-196: under the flag the branding form lives here beside a live preview
+  // (two pages become one); /agency/branding keeps rendering the same form.
+  const studio = useFeatureFlag('portal-redesign');
+  const [previewColor, setPreviewColor] = useState<string | null>(null);
 
   return (
     <div className="max-w-3xl">
@@ -183,6 +190,13 @@ export default function AgencyHubPage() {
             </div>
           </Link>
 
+          {studio ? (
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start">
+              <AgencyBrandingForm studio onColorChange={setPreviewColor} />
+              <AgencyPreview color={previewColor} name={status.agencyName} logoUrl={status.agencyLogoUrl} />
+            </div>
+          ) : (
+            <>
           {/* Agency branding card */}
           <Link
             href="/portal/agency/branding"
@@ -212,6 +226,8 @@ export default function AgencyHubPage() {
               <span className="material-icons text-muted-foreground">chevron_right</span>
             </div>
           </Link>
+            </>
+          )}
         </div>
       )}
     </div>

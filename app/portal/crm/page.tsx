@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 import { formatMoney } from '@/lib/utils/money';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, sBtn, sBtnGhost } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
+import { EmptyState } from '@/components/portal/EmptyState';
 
 // --- Types ---
 
@@ -110,7 +112,19 @@ function DonutChart({ won, lost, open }: { won: number; lost: number; open: numb
 }
 
 function LineChart({ data }: { data: RevenueMonth[] }) {
-  if (data.length === 0) return <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No revenue data yet</div>;
+  // PUX-144: a labeled sample instead of "No revenue data yet" (design doc screen 27).
+  if (data.length === 0) return (
+    <EmptyState
+      layout="stack"
+      body="Won value by month, once a few deals have closed."
+      sample={(
+        <svg viewBox="0 0 200 40" preserveAspectRatio="none" className="h-10 w-full">
+          <polyline points="0,32 20,30 40,26 60,28 80,18 100,22 120,12 140,16 160,8 180,10 200,4" fill="none" stroke="var(--primary)" strokeWidth="2" />
+        </svg>
+      )}
+      legacy={<div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No revenue data yet</div>}
+    />
+  );
 
   const values = data.map((d) => Number(d.won_value));
   const maxVal = Math.max(...values, 1);
@@ -140,9 +154,43 @@ function LineChart({ data }: { data: RevenueMonth[] }) {
   );
 }
 
-function FunnelChart({ stages }: { stages: FunnelStage[] }) {
-  if (stages.length === 0) return <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No pipeline data</div>;
+const SAMPLE_FUNNEL: [string, number, string][] = [['100%', 40, 'bg-accent'], ['60%', 18, 'bg-accent'], ['22%', 6, 'bg-primary'], ['8%', 2, 'bg-[var(--portal-ok)]']];
+
+function FunnelChart({ stages, studio = false }: { stages: FunnelStage[]; studio?: boolean }) {
+  // PUX-144: the funnel a business this size draws, as a sample (design doc screen 27).
+  // Ghost button, not teal — the page's one teal action is "New deal" in the header.
+  if (stages.length === 0) return (
+    <EmptyState
+      layout="stack"
+      body="Lead → Qualified → Proposal → Won, a typical month for a business this size."
+      cta={{ label: 'New deal', icon: 'add', href: '/portal/crm/deals', ghost: true }}
+      sample={(
+        <div className="space-y-1.5 pt-1">
+          {SAMPLE_FUNNEL.map(([width, n, bg]) => (
+            <div key={width} className="grid grid-cols-[minmax(0,1fr)_22px] items-center gap-2.5">
+              <div className={`h-3.5 rounded ${bg}`} style={{ width }} />
+              <span className="text-right font-mono text-[11px] text-muted-foreground">{n}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      legacy={<div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No pipeline data</div>}
+    />
+  );
   const maxValue = Math.max(...stages.map((s) => Number(s.total_value)), 1);
+
+  // PUX-168: with real data the funnel is the same picture as the sample — bars, deal count on the right (screen 27).
+  if (studio) return (
+    <div className="space-y-1.5 pt-1">
+      {stages.map((stage) => (
+        <div key={stage.stage_name} className="grid grid-cols-[84px_minmax(0,1fr)_28px] items-center gap-2.5 text-xs">
+          <span className="truncate text-muted-foreground">{stage.stage_name}</span>
+          <div className="h-3.5 rounded" title={formatMoney(Number(stage.total_value), { fractionDigits: 0 })} style={{ width: `${Math.max((Number(stage.total_value) / maxValue) * 100, 2)}%`, backgroundColor: stage.color || 'var(--primary)' }} />
+          <span className="text-right font-mono text-[11px] text-muted-foreground">{Number(stage.deal_count)}</span>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-2.5">
@@ -169,6 +217,8 @@ export default function CrmDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [period, setPeriod] = useState('12m');
+  // PUX-168 (design doc screen 27): studio header with the one teal New deal; Quick Actions become ghosts. Flag off is today's page.
+  const studio = useFeatureFlag('portal-redesign');
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
@@ -210,22 +260,32 @@ export default function CrmDashboardPage() {
     { value: 'all', label: 'All' },
   ];
 
+  const periodSel = (
+    <div className="flex items-center gap-1 bg-accent rounded-lg p-1">
+      {periods.map((p) => (
+        <button key={p.value} onClick={() => setPeriod(p.value)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.value ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header with period selector */}
       <PortalPageHeader
-        eyebrow="Sales"
-        title="CRM Dashboard"
-        subtitle="Sales performance and pipeline health"
-        actions={
-          <div className="flex items-center gap-1 bg-accent rounded-lg p-1">
-            {periods.map((p) => (
-              <button key={p.value} onClick={() => setPeriod(p.value)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.value ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
-                {p.label}
-              </button>
-            ))}
+        eyebrow={studio ? 'Grow · CRM' : 'Sales'}
+        title={studio ? 'CRM' : 'CRM Dashboard'}
+        subtitle={studio ? 'Pipeline health across every deal, contact and campaign.' : 'Sales performance and pipeline health'}
+        actions={studio ? (
+          <div className="flex items-center gap-2">
+            {periodSel}
+            <Link href="/portal/crm/deals" className={sBtn}>
+              <span className="material-icons text-base">add</span>
+              New deal
+            </Link>
           </div>
-        }
+        ) : periodSel}
       />
 
       <DomainGetStarted domainKey="crm" />
@@ -275,7 +335,7 @@ export default function CrmDashboardPage() {
         {analytics && (
           <div className="bg-card border border-border rounded-2xl p-5">
             <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm mb-3">Pipeline Funnel</h2>
-            <FunnelChart stages={analytics.pipelineFunnel} />
+            <FunnelChart stages={analytics.pipelineFunnel} studio={studio} />
           </div>
         )}
 
@@ -301,16 +361,16 @@ export default function CrmDashboardPage() {
         <div className="bg-card border border-border rounded-2xl p-5">
           <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm mb-3">Quick Actions</h2>
           <div className="space-y-2">
-            <Link href="/portal/crm/contacts" className={`${pBtnPrimary} w-full text-xs`}>
+            <Link href="/portal/crm/contacts" className={`${studio ? sBtnGhost : pBtnPrimary} w-full text-xs`}>
               <span className="material-icons text-sm">person_add</span>Add Contact
             </Link>
-            <Link href="/portal/crm/deals" className={`${pBtnGhost} w-full text-xs`}>
+            <Link href="/portal/crm/deals" className={`${studio ? sBtnGhost : pBtnGhost} w-full text-xs`}>
               <span className="material-icons text-sm">add_circle</span>Create Deal
             </Link>
-            <Link href="/portal/crm/companies" className={`${pBtnGhost} w-full text-xs`}>
+            <Link href="/portal/crm/companies" className={`${studio ? sBtnGhost : pBtnGhost} w-full text-xs`}>
               <span className="material-icons text-sm">domain_add</span>Add Company
             </Link>
-            <Link href="/portal/crm/proposals" className={`${pBtnGhost} w-full text-xs`}>
+            <Link href="/portal/crm/proposals" className={`${studio ? sBtnGhost : pBtnGhost} w-full text-xs`}>
               <span className="material-icons text-sm">description</span>New Proposal
             </Link>
           </div>

@@ -9,12 +9,15 @@ import PortalSidebar from '@/components/portal/PortalSidebar';
 import PortalTopbar from '@/components/portal/PortalTopbar';
 import PortalTitle from '@/components/portal/PortalTitle';
 import CmdKLauncher from '@/components/CmdKLauncher';
+import AskLauncher from '@/components/brain/ask/AskLauncher';
 import { AgencyChromeProvider } from '@/components/portal/AgencyChromeProvider';
+import { FeatureFlagsProvider } from '@/components/portal/FeatureFlagsProvider';
 import ImpersonationBanner from '@/components/portal/ImpersonationBanner';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
 import type { SerializableEntitlements } from './PortalShell';
+import { bricolage } from './fonts';
 
 // AI chat widget is purely on-demand — its FAB is the only first-paint
 // surface and a ~50ms shimmer before it appears is fine. Dynamic import keeps
@@ -41,6 +44,13 @@ interface PortalLayoutClientProps {
 
 export default function PortalLayoutClient({ children, apps, entitlements }: PortalLayoutClientProps) {
   const pathname = usePathname();
+  // PUX-142 — the Studio redesign is one class on the shell wrapper. It
+  // redefines the same token names the base theme defines (globals.css,
+  // `.portal-studio`), and a nearest-ancestor definition wins, so the whole
+  // portal repaints without a single per-component edit. Off = the class is
+  // absent and nothing below it changes.
+  const studio = entitlements?.flags?.includes('portal-redesign') ?? false;
+  const studioClass = studio ? `portal-studio ${bricolage.variable}` : '';
   // Pre-auth pages render without portal chrome (no sidebar/topbar). Onboarding
   // joins them: it renders its own full-bleed split-screen shell (stepper rail
   // + content), so the portal sidebar/topbar would only fight it.
@@ -124,13 +134,16 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
   if (isLoginPage || isIframePage) {
     return (
       <AgencyChromeProvider>
+    {/* PUX-135: client-side flag reads (useFeatureFlag) for everything under the shell */}
+    <FeatureFlagsProvider flags={entitlements?.flags}>
         <PortalTitle />
         {isIframePage ? children : (
           <div className="min-h-screen flex items-center justify-center bg-background">
             {children}
           </div>
         )}
-      </AgencyChromeProvider>
+      </FeatureFlagsProvider>
+    </AgencyChromeProvider>
     );
   }
 
@@ -146,9 +159,11 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
 
   return (
     <AgencyChromeProvider>
+    {/* PUX-135: client-side flag reads (useFeatureFlag) for everything under the shell */}
+    <FeatureFlagsProvider flags={entitlements?.flags}>
       <PortalTitle />
       <ImpersonationBanner />
-      <div className="portal-shell min-h-screen bg-background overflow-x-hidden">
+      <div className={`portal-shell ${studioClass} min-h-screen bg-background overflow-x-hidden`}>
         {!previewMode && (
           <PortalSidebar
             apps={apps}
@@ -189,6 +204,9 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
         {/* {!previewMode && <AIChatWidget />} */}
       </div>
       <CmdKLauncher apps={apps} entitlements={entitlements} />
+      {/* PUX-199: ⌘J Ask panel; renders nothing unless portal-redesign is on */}
+      <AskLauncher />
+    </FeatureFlagsProvider>
     </AgencyChromeProvider>
   );
 }

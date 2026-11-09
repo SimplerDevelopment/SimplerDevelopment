@@ -1,5 +1,7 @@
 'use client';
 
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { sBtn, sBtnGhost } from '@/components/portal/portal-ui';
 import Link from 'next/link';
 
 interface PostEditorLayoutProps {
@@ -28,6 +30,8 @@ interface PostEditorLayoutProps {
   onCodeToggle?: () => void;
   hasCustomCode?: boolean;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  /** PUX-185: a save that keeps the post a draft (onPublish forces published). Rendered as a ghost under the flag. */
+  onSaveDraft?: () => void;
 }
 
 export function PostEditorLayout({
@@ -50,8 +54,12 @@ export function PostEditorLayout({
   onCodeToggle,
   hasCustomCode,
   saveStatus = 'idle',
+  onSaveDraft,
 }: PostEditorLayoutProps) {
   const isCompact = !editorControls;
+  // PUX-185 (design doc screen 44): Studio chrome for the bar — one teal (Publish / Update), Preview and Save draft
+  // as ghosts. Fails closed outside the portal provider, so the admin editor is byte-identical.
+  const studio = useFeatureFlag('portal-redesign');
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -107,7 +115,7 @@ export function PostEditorLayout({
                 <button
                   type="button"
                   onClick={onPreviewToggle}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors shrink-0 ${
+                  className={studio ? `${sBtnGhost} shrink-0 ${previewMode ? 'border-foreground' : ''}` : `flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors shrink-0 ${
                     previewMode
                       ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
                       : 'border-border hover:bg-accent'
@@ -176,11 +184,16 @@ export function PostEditorLayout({
 
               {/* min-w sized to the widest label ("Saving...") so the button
                   doesn't resize on status toggle — VEQA-008. */}
+              {studio && onSaveDraft && !published && (
+                <button type="button" onClick={onSaveDraft} disabled={saveStatus === 'saving'} className={`${sBtnGhost} shrink-0 disabled:opacity-50`}>
+                  Save draft
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onPublish}
                 disabled={saveStatus === 'saving'}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 min-w-[104px] text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0 disabled:opacity-50"
+                className={studio ? `${sBtn} min-w-[104px] shrink-0 disabled:opacity-50` : "flex items-center justify-center gap-1.5 px-3 py-1.5 min-w-[104px] text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0 disabled:opacity-50"}
               >
                 {saveStatus === 'saving' ? (
                   <span className="material-icons text-base animate-spin">progress_activity</span>

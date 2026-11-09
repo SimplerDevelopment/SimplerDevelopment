@@ -36,6 +36,8 @@ import NoteCustomFieldsPanel from '@/components/brain/NoteCustomFieldsPanel';
 import NoteHistoryPanel from '@/components/brain/NoteHistoryPanel';
 import CommandPalette from '@/components/brain/CommandPalette';
 import { pushRecentNoteId } from '@/lib/brain/recent-notes';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import KnowledgeListView from '@/components/brain/KnowledgeListView';
 
 type SidePanel = 'outline' | 'backlinks' | 'fields' | 'history';
 type MobileTab = 'list' | 'editor' | 'side';
@@ -72,6 +74,9 @@ export default function BrainKnowledgePage() {
   const [mobileTab, setMobileTab] = useState<MobileTab>('list');
   const editorViewRef = useRef<EditorView | null>(null);
   const isNarrow = useIsNarrow();
+  // PUX-159 (design doc screen 18): under the redesign the room opens as a
+  // list; opening a note hands off to the three-pane editor below, unchanged.
+  const studioList = useFeatureFlag('portal-redesign') && selectedId === null;
 
   const handleSelect = useCallback((id: number) => {
     pushRecentNoteId(id);
@@ -140,7 +145,9 @@ export default function BrainKnowledgePage() {
 
   return (
     <div className="fixed inset-0 top-[var(--portal-header-height,3.5rem)]">
-      {isNarrow ? (
+      {studioList ? (
+        <KnowledgeListView onSelect={handleSelect} onCreate={handleCreate} refreshTick={refreshTick} />
+      ) : isNarrow ? (
         <div className="h-full flex flex-col">
           <div className="flex-1 min-h-0 overflow-hidden pb-[calc(3rem+env(safe-area-inset-bottom))]">
             <div className={`h-full ${mobileTab === 'list' ? 'block' : 'hidden'}`}>

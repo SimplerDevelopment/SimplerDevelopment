@@ -10,6 +10,8 @@ import TicketStatusControl from '@/components/portal/TicketStatusControl';
 import TicketSlaBadge from '@/components/portal/TicketSlaBadge';
 import { SLA_BY_PRIORITY, type TicketPriority } from '@/lib/tickets/sla';
 import { pCard } from '@/components/portal/portal-ui';
+import { hasFlag } from '@/lib/feature-flags';
+import { slaSentence, turnLabel, turnPillClass, whoseTurn } from '@/lib/tickets/turn';
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -22,11 +24,15 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const isStaff = role === 'admin' || role === 'employee';
 
   let clientId: number | null = null;
+  let client: typeof clients.$inferSelect | null = null;
   if (!isStaff) {
-    const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+    [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
     if (!client) redirect('/portal/dashboard');
     clientId = client.id;
   }
+  // PUX-156 (design doc screen 15): whose turn it is, first; the SLA as a
+  // sentence. Staff have no client row → today's page.
+  const studio = client ? hasFlag(client, 'portal-redesign') : false;
 
   const ticketQuery = isStaff
     ? db.select().from(supportTickets).where(eq(supportTickets.id, ticketId)).limit(1)
@@ -100,13 +106,23 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             <span className={`text-xs px-2 py-1 rounded-full font-medium ${priorityColor(ticket.priority)}`}>
               {ticket.priority}
             </span>
+            {studio ? (
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${turnPillClass(whoseTurn(ticket.status))}`}>{turnLabel(ticket.status)}</span>
+            ) : (
             <span className={`text-xs px-2 py-1 rounded-full font-medium ${ticketStatusColor(ticket.status)}`}>
               {ticket.status.replace(/_/g, ' ')}
             </span>
+            )}
           </div>
         </div>
 
-        {/* SLA badges */}
+        {/* SLA badges — under the redesign, one sentence with a clock */}
+        {studio ? (
+          <p className="flex items-center gap-2 border-t border-border/60 pt-2 text-sm text-foreground">
+            <span className="material-icons text-base text-muted-foreground">timer</span>
+            {slaSentence(ticket)}
+          </p>
+        ) : (
         <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/60">
           <div className="text-xs text-muted-foreground">
             SLA: <span className="text-foreground font-medium">{slaPolicy.label}</span>
@@ -118,6 +134,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             resolvedAt={ticket.resolvedAt}
           />
         </div>
+        )}
       </div>
 
       {/* Staff-only status + assignment controls */}
@@ -188,6 +205,11 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       {/* Reply form */}
       {ticket.status !== 'closed' && (
         <TicketReplyForm ticketId={ticketId} isStaff={isStaff} />
+      )}
+      {studio && !isStaff && ticket.status !== 'closed' && (
+        <p className="-mt-4 text-xs text-muted-foreground">
+          {whoseTurn(ticket.status) === 'you' ? 'Replying moves this ticket back to our queue — the clock is on our side, not yours.' : 'Our first reply is what the clock above is counting; replying again does not reset it.'}
+        </p>
       )}
 
       {ticket.status === 'closed' && (

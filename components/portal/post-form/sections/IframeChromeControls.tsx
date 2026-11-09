@@ -1,6 +1,8 @@
 // Iframe-mode toolbar controls: viewport picker, prod/local toggle, and undo/redo.
 'use client';
 
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+
 export function IframeViewportControls({
   iframeViewport,
   setIframeViewport,
@@ -16,21 +18,28 @@ export function IframeViewportControls({
   localPort: string;
   setLocalPort: (v: string) => void;
 }) {
+  // PUX-185 (design doc screen 44): the same Desktop | Tablet | Phone switch, drawn as a segment under the redesign.
+  const studio = useFeatureFlag('portal-redesign');
   return (
     <div className="flex items-center gap-3">
-      <div className="flex items-center gap-1">
+      <div className={studio ? 'inline-flex rounded-[9px] border border-border p-0.5' : 'flex items-center gap-1'} role={studio ? 'group' : undefined} aria-label={studio ? 'Viewport' : undefined}>
         {(['desktop', 'tablet', 'mobile'] as const).map((vp) => (
           <button
             key={vp}
             type="button"
             onClick={() => setIframeViewport(vp)}
-            className={`rounded p-1.5 ${
+            aria-pressed={studio ? iframeViewport === vp : undefined}
+            className={studio
+              ? `rounded-[7px] px-2 py-1 transition-colors ${iframeViewport === vp ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`
+              : `rounded p-1.5 ${
               iframeViewport === vp ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'
             }`}
             title={vp.charAt(0).toUpperCase() + vp.slice(1)}
           >
-            <span className="material-icons text-lg">
-              {vp === 'desktop' ? 'computer' : vp === 'tablet' ? 'tablet' : 'phone_iphone'}
+            <span className={studio ? 'material-icons text-base' : 'material-icons text-lg'}>
+              {studio
+                ? (vp === 'desktop' ? 'desktop_windows' : vp === 'tablet' ? 'tablet_mac' : 'smartphone')
+                : (vp === 'desktop' ? 'computer' : vp === 'tablet' ? 'tablet' : 'phone_iphone')}
             </span>
           </button>
         ))}

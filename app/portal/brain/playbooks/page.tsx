@@ -19,7 +19,10 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PlaybookCard from '@/components/brain/PlaybookCard';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, sBtnGhost } from '@/components/portal/portal-ui';
+import { EmptyState, GhostCard } from '@/components/portal/EmptyState';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import ActiveRunPanel from '@/components/brain/ActiveRunPanel';
 import {
   PLAYBOOK_TRIGGER_KINDS,
   playbookStatusChip,
@@ -58,9 +61,33 @@ function ListFallback() {
   );
 }
 
+/** Pre-redesign empty state, verbatim — EmptyState's `legacy` under the flag. */
+function LegacyEmpty() {
+  return (
+    <div className="text-center py-16 bg-card border border-border rounded-xl">
+      <span className="material-icons text-5xl text-muted-foreground mb-2 block">
+        play_circle
+      </span>
+      <p className="text-foreground text-sm font-medium">No playbooks yet.</p>
+      <p className="text-muted-foreground text-xs mt-1 mb-4 max-w-md mx-auto">
+        Define your first repeatable process — onboarding, renewals, incident response.
+      </p>
+      <Link
+        href="/portal/brain/playbooks/new"
+        className={pBtnPrimary}
+      >
+        <span className="material-icons text-base">add</span>
+        New playbook
+      </Link>
+    </div>
+  );
+}
+
 function PlaybooksListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // PUX-164 (design doc screen 23): the active run beside its playbook; New playbook is a ghost, Complete step is the teal. Flag off is today's page.
+  const studio = useFeatureFlag('portal-redesign');
 
   const status = (searchParams.get('status') as StatusFilter | null) ?? 'active';
   const triggerKindParam =
@@ -174,16 +201,16 @@ function PlaybooksListContent() {
     <div className="space-y-4">
       <div className="sticky top-[var(--portal-header-height,3.5rem)] z-10 bg-background -mx-4 sm:mx-0 px-4 sm:px-0 pt-1 pb-3 border-b border-border">
         <PortalPageHeader
-          eyebrow="Brain"
+          eyebrow={studio ? 'Brain · Do' : 'Brain'}
           title={<span className="flex items-center gap-2"><span className="material-icons text-primary">play_circle</span>Playbooks</span>}
-          subtitle="Repeatable, multi-step processes. Onboarding, renewals, incident response — define once, run many times."
+          subtitle={studio ? 'Repeatable processes, run step by step.' : 'Repeatable, multi-step processes. Onboarding, renewals, incident response — define once, run many times.'}
           actions={
             <div className="flex items-center gap-2">
-              <Link href="/portal/brain/playbook-runs" className={pBtnGhost}>
+              <Link href="/portal/brain/playbook-runs" className={studio ? sBtnGhost : pBtnGhost}>
                 <span className="material-icons text-base">playlist_play</span>
                 View runs
               </Link>
-              <Link href="/portal/brain/playbooks/new" className={pBtnPrimary}>
+              <Link href="/portal/brain/playbooks/new" className={studio ? sBtnGhost : pBtnPrimary}>
                 <span className="material-icons text-base">add</span>
                 New playbook
               </Link>
@@ -287,21 +314,27 @@ function PlaybooksListContent() {
       {loading ? (
         <ListFallback />
       ) : items.length === 0 ? (
-        <div className="text-center py-16 bg-card border border-border rounded-xl">
-          <span className="material-icons text-5xl text-muted-foreground mb-2 block">
-            play_circle
-          </span>
-          <p className="text-foreground text-sm font-medium">No playbooks yet.</p>
-          <p className="text-muted-foreground text-xs mt-1 mb-4 max-w-md mx-auto">
-            Define your first repeatable process — onboarding, renewals, incident response.
-          </p>
-          <Link
-            href="/portal/brain/playbooks/new"
-            className={pBtnPrimary}
-          >
-            <span className="material-icons text-base">add</span>
-            New playbook
-          </Link>
+        <EmptyState
+          title="No playbooks yet."
+          body="Define your first repeatable process — onboarding, renewals, incident response."
+          cta={{ label: 'New playbook', href: '/portal/brain/playbooks/new', icon: 'add', ghost: true }}
+          ghostLabel="Your first playbook"
+          legacy={<LegacyEmpty />}
+        />
+      ) : studio ? (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+          <div className="space-y-3">
+            {items.map((p) => (
+              <PlaybookCard key={p.id} playbook={p} ownerLookup={ownerLookup} />
+            ))}
+          </div>
+          <aside className="space-y-3" aria-label="Runs in progress">
+            {items.some((p) => p.activeRunCount > 0)
+              ? items.filter((p) => p.activeRunCount > 0).map((p) => (
+                  <ActiveRunPanel key={p.id} playbookId={p.id} owners={ownerLookup} />
+                ))
+              : <GhostCard icon="play_circle" title="No run in progress" body="Start one from a playbook's page." />}
+          </aside>
         </div>
       ) : (
         <div className="space-y-3">
