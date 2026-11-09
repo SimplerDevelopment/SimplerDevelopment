@@ -26,6 +26,7 @@ import { DeferredStylesheet } from '@/components/sites/DeferredStylesheet';
 // static import here would ship them to custom-layout pages too. See the file.
 import { SiteNavClient, SiteRouteProgress } from '@/components/sites/LazySiteViews';
 import { siteBaseUrl } from '@/lib/sites/site-base-url';
+import { isAppHostname } from '@/lib/sites/app-host';
 import { organizationSchema, webSiteSchema, jsonLd } from '@/lib/sites/structured-data';
 
 // Per-site footer contact overrides — keyed by subdomain. Hardcoded for now
@@ -198,12 +199,24 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // Tracking is suppressed on gated/in-development sites so unfinished URLs
   // never reach GA / Meta / etc. Preview-unlock logic lives in
   // [[...slug]]/page.tsx; mirroring it here would duplicate state.
-  const trackingConfig = site.publicAccess ? await getTrackingConfigForWebsite(site.id) : null;
+  // Nor on an app host (PUX-255): customHeadHtml/customBodyHtml and a tenant's
+  // GTM container are tenant-authored script, and on www/sites/…, the editor
+  // iframe or an approval preview they would run with the portal's origin.
+  // Analytics belong to the tenant's own host anyway.
+  const onAppHost = isAppHostname(headersList.get('host') ?? '');
+  const trackingConfig =
+    site.publicAccess && !onAppHost ? await getTrackingConfigForWebsite(site.id) : null;
 
   // Build link + button brand styles.
   // The h1-h6 rule wires up `--brand-heading-font` (set by lib/branding/css-vars
   // via the site stylesheet) — without it, headings inherit the body font
   // and the brandingProfile.headingFont value silently has no effect.
+  // brandStyles interpolates stored branding fields (colours, fonts) straight
+  // into CSS. It is emitted below as <style>{brandStyles}</style> — the CHILDREN
+  // form, never dangerouslySetInnerHTML: on an app host a crafted field like
+  // `blue } </style><img onerror=…>` would otherwise break out and run with the
+  // portal's origin. React escapes the `</style` terminator in style children
+  // while leaving CSS intact (PUX-255).
   const brandStyles = [
     // Map the brand primary onto the THEME token inside the tenant wrapper.
     // Typed blocks color accents with Tailwind's `text-primary`/`bg-primary`
@@ -264,7 +277,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
         <TrackingNoscriptBody config={trackingConfig} />
         <TrackingScripts config={trackingConfig} />
         {ldScripts}
-        {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
+        {brandStyles && <style>{brandStyles}</style>}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {googleFontsUrl && <DeferredStylesheet href={googleFontsUrl} />}
@@ -325,7 +338,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
       <TrackingNoscriptBody config={trackingConfig} />
       <TrackingScripts config={trackingConfig} />
       <SiteRouteProgress color={branding.primaryColor || '#cfa122'} />
-      {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
+      {brandStyles && <style>{brandStyles}</style>}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       {googleFontsUrl && <link href={googleFontsUrl} rel="stylesheet" />}

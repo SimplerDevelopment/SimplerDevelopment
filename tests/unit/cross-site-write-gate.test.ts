@@ -5,18 +5,26 @@
  * logged-in staff session. CORS does not stop it — CORS governs reading the
  * response, not sending the request.
  *
+ * PUX-255 widened the scope to all of /api (see the last two describes).
+ *
  * These cases pin both directions, because both are easy to get wrong: the gate
  * must block the sibling-subdomain case, and must NOT block the several kinds
  * of legitimate caller that would otherwise be locked out of the API.
  */
 import { describe, it, expect } from 'vitest';
-import { isCrossSiteWriteBlocked } from '@/lib/security/cross-site-write-gate';
+import {
+  isCrossSiteWriteBlocked,
+  hasSessionCookie,
+  stripSessionCookie,
+} from '@/lib/security/cross-site-write-gate';
 
 const base = {
   method: 'POST',
   pathname: '/api/portal/cms/posts',
   secFetchSite: 'same-origin' as string | null,
   isTrustedDevOrigin: false,
+  hasSessionCookie: false,
+  hasAuthorization: false,
 };
 const at = (o: Partial<typeof base>) => isCrossSiteWriteBlocked({ ...base, ...o });
 
@@ -69,15 +77,82 @@ describe('what must keep working', () => {
     expect(at({ method, secFetchSite: 'cross-site' })).toBe(false);
   });
 
-  // Scope is deliberately /api/portal/**. Widening it here would be a separate,
-  // much larger decision — public site routes and webhooks live elsewhere and
-  // legitimately receive cross-origin traffic.
+  // Outside /api/portal the gate only refuses requests that would ride a
+  // session (PUX-255). Public routes and webhooks legitimately receive
+  // cross-origin traffic, and without the session cookie there is nothing to
+  // ride — so they keep working.
   it.each([
     '/api/surveys/abc',          // public, CORS-enabled by design
     '/api/sites/1/navigation',   // public, CORS-enabled by design
     '/api/mcp',                  // external agents, bearer-authenticated
     '/api/cron/process-scheduled-posts',
-  ])('does not touch %s', (pathname) => {
+  ])('does not touch %s when no session cookie rides along', (pathname) => {
     expect(at({ pathname, secFetchSite: 'cross-site' })).toBe(false);
+  });
+});
+
+// PUX-255: the first version stopped at /api/portal/**, which left every other
+// cookie-authenticated mutation open — POST /api/users creates platform admins,
+// and a route that reads request.json() accepts a text/plain simple request
+// with no preflight.
+describe('the rest of /api — refused when it would ride the session', () => {
+  const ride = { pathname: '/api/users', hasSessionCookie: true };
+
+  it.each(['same-site', 'cross-site', 'none'])('blocks a %s write carrying the session cookie', (site) => {
+    expect(at({ ...ride, secFetchSite: site })).toBe(true);
+  });
+
+  it('still allows the app talking to itself', () => {
+    expect(at({ ...ride, secFetchSite: 'same-origin' })).toBe(false);
+  });
+
+  // No cookie → no ambient authority to abuse.
+  it('allows the same request without the session cookie', () => {
+    expect(at({ ...ride, hasSessionCookie: false, secFetchSite: 'same-site' })).toBe(false);
+  });
+
+  // A page cannot attach Authorization cross-origin without a preflight we never
+  // grant, so its presence means the caller is not a forged browser request.
+  it('allows a request that authenticates with an Authorization header', () => {
+    expect(at({ ...ride, hasAuthorization: true, secFetchSite: 'cross-site' })).toBe(false);
+  });
+
+  it('leaves /api/auth/** to NextAuth and its own CSRF token', () => {
+    expect(at({ ...ride, pathname: '/api/auth/signout', secFetchSite: 'same-site' })).toBe(false);
+  });
+
+  it('keeps /api/portal/** refused even without the cookie (unchanged)', () => {
+    expect(at({ secFetchSite: 'same-site', hasSessionCookie: false })).toBe(true);
+  });
+
+  it('does not touch non-API paths', () => {
+    expect(at({ ...ride, pathname: '/portal/dashboard', secFetchSite: 'cross-site' })).toBe(false);
+  });
+});
+
+describe('session cookie detection and stripping', () => {
+  it.each([
+    '__Secure-authjs.session-token=abc',
+    'authjs.session-token=abc',
+    'a=1; __Secure-authjs.session-token.0=abc; __Secure-authjs.session-token.1=def',
+  ])('detects %s', (header) => {
+    expect(hasSessionCookie(header)).toBe(true);
+  });
+
+  it.each([null, '', 'a=1; b=2', 'authjs.csrf-token=x', 'xauthjs.session-token=1'])(
+    'does not mistake %s for a session',
+    (header) => {
+      expect(hasSessionCookie(header)).toBe(false);
+    },
+  );
+
+  it('removes every session chunk and keeps everything else', () => {
+    expect(
+      stripSessionCookie('sd_visitor=v1; __Secure-authjs.session-token.0=a; theme=dark; __Secure-authjs.session-token.1=b'),
+    ).toBe('sd_visitor=v1; theme=dark');
+  });
+
+  it('returns an empty string when only the session was there', () => {
+    expect(stripSessionCookie('__Secure-authjs.session-token=a')).toBe('');
   });
 });
