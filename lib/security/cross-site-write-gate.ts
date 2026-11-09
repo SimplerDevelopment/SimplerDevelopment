@@ -1,6 +1,6 @@
 /**
- * Refuses state-changing requests to /api/portal/** that a browser tells us
- * did not originate from our own origin.
+ * Refuses state-changing requests to /api/** that a browser tells us did not
+ * originate from our own origin (scope: see "Scope" below).
  *
  * ## Why this exists
  *
@@ -44,7 +44,60 @@
  *
  * Read-only methods are untouched: this closes a write hole, and gating GETs
  * would break ordinary navigation for no security gain.
+ *
+ * ## Scope: all of /api, not just /api/portal (PUX-255)
+ *
+ * The first version only covered /api/portal/**. Every other cookie-
+ * authenticated mutation (`/api/users` creates platform admins, `/api/posts`,
+ * `/api/block-templates`, `/api/admin/**`) was still reachable from tenant
+ * script, and a JSON route reading `request.json()` accepts a text/plain body —
+ * a simple request, no preflight. So:
+ *
+ *   - /api/portal/** → refused as above, unconditionally (unchanged).
+ *   - /api/auth/**   → left to NextAuth, whose POST endpoints carry their own
+ *                      CSRF token.
+ *   - rest of /api/** → refused when the request would RIDE the session: it
+ *                      carries the session cookie and no Authorization header.
+ *                      No cookie means no ambient authority to abuse (public
+ *                      widget endpoints keep working cross-site); an
+ *                      Authorization header can't be attached cross-origin
+ *                      without a preflight, so its presence proves the caller
+ *                      isn't a forged browser request (extension, API keys).
+ *
+ * The gate only sees requests arriving at the APP host. A tenant subdomain also
+ * serves /api/**, where tenant script is same-origin and sails through every
+ * branch above — middleware strips the session cookie on those hosts instead
+ * (see stripSessionCookie and middleware's tenant branch).
  */
+
+/**
+ * The NextAuth session cookie: secure or plain name (lib/auth.ts), whole or
+ * chunked into `.0`, `.1`… when the JWT outgrows one cookie.
+ */
+const SESSION_COOKIE_RX = /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?$/;
+
+function cookieName(pair: string): string {
+  const eq = pair.indexOf('=');
+  return (eq === -1 ? pair : pair.slice(0, eq)).trim();
+}
+
+/** Whether a raw `Cookie` header carries the NextAuth session cookie. */
+export function hasSessionCookie(cookieHeader: string | null): boolean {
+  if (!cookieHeader) return false;
+  return cookieHeader.split(';').some((pair) => SESSION_COOKIE_RX.test(cookieName(pair)));
+}
+
+/**
+ * The `Cookie` header with every NextAuth session cookie removed, everything
+ * else untouched. Empty string when nothing is left.
+ */
+export function stripSessionCookie(cookieHeader: string): string {
+  return cookieHeader
+    .split(';')
+    .map((pair) => pair.trim())
+    .filter((pair) => pair && !SESSION_COOKIE_RX.test(cookieName(pair)))
+    .join('; ');
+}
 
 /** Methods that can change state. HEAD/GET/OPTIONS deliberately absent. */
 const STATE_CHANGING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -62,11 +115,15 @@ export interface CrossSiteWriteInput {
    * middleware's isAllowedDevOrigin returns false when NODE_ENV==='production'.
    */
   isTrustedDevOrigin: boolean;
+  /** The request carries the NextAuth session cookie (see hasSessionCookie). */
+  hasSessionCookie: boolean;
+  /** The request carries an `Authorization` header. */
+  hasAuthorization: boolean;
 }
 
 export function isCrossSiteWriteBlocked(input: CrossSiteWriteInput): boolean {
   if (!STATE_CHANGING.has(input.method.toUpperCase())) return false;
-  if (!input.pathname.startsWith('/api/portal/')) return false;
+  if (!input.pathname.startsWith('/api/')) return false;
 
   // No header → not a browser → not this attack. See the table above.
   if (!input.secFetchSite) return false;
@@ -76,5 +133,7 @@ export function isCrossSiteWriteBlocked(input: CrossSiteWriteInput): boolean {
   // The one legitimate cross-site browser caller, and only outside production.
   if (input.isTrustedDevOrigin) return false;
 
-  return true;
+  if (input.pathname.startsWith('/api/portal/')) return true;
+  if (input.pathname.startsWith('/api/auth/')) return false;
+  return input.hasSessionCookie && !input.hasAuthorization;
 }

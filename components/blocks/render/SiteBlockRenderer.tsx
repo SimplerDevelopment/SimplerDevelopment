@@ -9,6 +9,8 @@ import { BrandingProvider } from '@/contexts/BrandingContext';
 import { collectBlockFonts, googleFontsHref } from '@/lib/blocks/page-fonts';
 import { DeferredStylesheet } from '@/components/sites/DeferredStylesheet';
 import { HydrationSignal, SiteEditRenderer } from './SiteBlockRenderer.client';
+import { headers } from 'next/headers';
+import { isAppHostname } from '@/lib/sites/app-host';
 
 interface CodeLayer {
   customCss?: string | null;
@@ -62,17 +64,24 @@ function jsWrapper(label: string, body: string): string {
 // (including the hero's background-image and all layout styling) only applied
 // after hydration. That produced a large layout shift (CLS) and a very late
 // LCP once first paint got fast. Hoisting it fixes both.
-function SiteCodeAndFonts({ content, branding, site, type, customCss, customJs }: SiteBlockRendererProps) {
+async function SiteCodeAndFonts({ content, branding, site, type, customCss, customJs }: SiteBlockRendererProps) {
   // Cascade order: site → type → post. Earliest in the document wins least.
   const cssLayers: Array<[string, string]> = [];
   if (site?.customCss) cssLayers.push(['site-custom-css', site.customCss]);
   if (type?.customCss) cssLayers.push(['type-custom-css', type.customCss]);
   if (customCss) cssLayers.push(['post-custom-css', customCss]);
 
+  // Tenant-authored JS runs only on the tenant's own host (PUX-255). The same
+  // page is also rendered on APP hosts — /sites/<domain> on www, the visual-
+  // editor iframe, approval previews — where it would run with the portal's
+  // origin, i.e. as whoever is looking at it, staff included. CSS stays.
+  const tenantJsAllowed = !isAppHostname((await headers()).get('host') ?? '');
   const jsLayers: Array<[string, string]> = [];
-  if (site?.customJs) jsLayers.push(['site-custom-js', site.customJs]);
-  if (type?.customJs) jsLayers.push(['type-custom-js', type.customJs]);
-  if (customJs) jsLayers.push(['post-custom-js', customJs]);
+  if (tenantJsAllowed) {
+    if (site?.customJs) jsLayers.push(['site-custom-js', site.customJs]);
+    if (type?.customJs) jsLayers.push(['type-custom-js', type.customJs]);
+    if (customJs) jsLayers.push(['post-custom-js', customJs]);
+  }
 
   // Collect every Google Font used by this page's blocks into ONE combined
   // request. `branding.headingFont`/`bodyFont` are emitted by the site layout,
@@ -92,8 +101,14 @@ function SiteCodeAndFonts({ content, branding, site, type, customCss, customJs }
   return (
     <>
       {fontsHref && <DeferredStylesheet href={fontsHref} />}
+      {/* Children form, NOT dangerouslySetInnerHTML: tenant-authored CSS is raw
+          author input, and on an app host (editor iframe, www/sites) a
+          `</style><img onerror>` payload would break out and run with the
+          portal's origin. React escapes the `</style` terminator in style
+          CHILDREN (to `</\73 tyle`) while leaving `>` and `&` intact, so real
+          CSS renders identically. See the cssLayers test (PUX-255). */}
       {cssLayers.map(([label, css]) => (
-        <style key={label} data-layer={label} dangerouslySetInnerHTML={{ __html: css }} />
+        <style key={label} data-layer={label}>{css}</style>
       ))}
       {jsLayers.map(([label, js]) => (
         <script

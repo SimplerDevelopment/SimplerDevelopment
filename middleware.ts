@@ -15,49 +15,20 @@ import { ensureVisitorCookie } from '@/lib/ab/visitor';
 import { ensureAttributionCookie } from '@/lib/attribution';
 import { APPROVAL_COOKIE } from '@/lib/mcp/approval-cookie';
 import { isApprovalWriteBlocked } from '@/lib/mcp/approval-write-gate';
-import { isCrossSiteWriteBlocked } from '@/lib/security/cross-site-write-gate';
+import {
+  isCrossSiteWriteBlocked,
+  hasSessionCookie,
+  stripSessionCookie,
+} from '@/lib/security/cross-site-write-gate';
+import { isAppHostname } from '@/lib/sites/app-host';
 
 /** Paths that never represent a lead arriving: APIs, authenticated app
  *  surfaces, OAuth, the embeddable widget, and Next internals. */
 const ATTRIBUTION_EXCLUDED_PATH = /^\/(api|portal|admin|oauth|widget|_next)(\/|$)/;
 
 // Hostnames that belong to the app itself (not client sites)
-const APP_HOSTNAMES = new Set([
-  'localhost',
-  'localhost:3000',
-  'localhost:3001',
-  'localhost:3005',
-  'localhost:3100',
-  '127.0.0.1',
-  '127.0.0.1:3000',
-  '127.0.0.1:3100',
-  'simplerdevelopment.com',
-  'www.simplerdevelopment.com',
-  'staging.simplerdevelopment.com',
-  'dev.simplerdevelopment.com',
-]);
-
-function getAppHostname(): string | null {
-  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
-  if (!url) return null;
-  try {
-    return new URL(url).host;
-  } catch {
-    return null;
-  }
-}
-
-function isAppHostname(host: string): boolean {
-  if (APP_HOSTNAMES.has(host)) return true;
-  const appHost = getAppHostname();
-  if (appHost && host === appHost) return true;
-  // Vercel preview/prod defaults (e.g. simplerdevelopment.vercel.app,
-  // simplerdevelopment-git-<branch>-<team>.vercel.app)
-  if (host.endsWith('.vercel.app')) return true;
-  // Legacy Railway default domains — kept for any lingering deployments
-  if (host.endsWith('.up.railway.app')) return true;
-  return false;
-}
+// The app-host list lives in lib/sites/app-host.ts so server components can
+// apply the same test (PUX-255).
 
 /**
  * Extract the subdomain from a hostname if it's a *.simplerdevelopment.com address.
@@ -176,12 +147,48 @@ function blockApprovalWrite(req: NextRequest): NextResponse | null {
  * so it is unit-testable rather than only reachable through the edge runtime —
  * same reasoning as blockApprovalWrite above.
  */
+/**
+ * Request init that forwards a tenant-host request WITHOUT the portal session
+ * cookie (PUX-255), or undefined when there is nothing to strip.
+ *
+ * In production lib/auth.ts pins the session cookie to `.simplerdevelopment.com`,
+ * so the browser sends it to every tenant subdomain too — and this app serves
+ * /api/** on those hosts (the tenant branch passes /api/ straight through).
+ * Tenant pages run tenant-authored script (customJs, tracking HTML), which on
+ * `<sub>.simplerdevelopment.com` is SAME-ORIGIN with that host's /api: no
+ * Sec-Fetch-Site gate can tell it apart from a real page, and it can read the
+ * answers — acting as whoever is visiting, staff included.
+ *
+ * Nothing served on a tenant host needs the portal session: /portal redirects
+ * to the app host, and the editor and approval previews load from the app host.
+ * So the cookie never reaches a route from here. Hosts outside the cookie's
+ * domain (tenant custom domains, white-label portal domains) never receive it,
+ * so they are left alone.
+ */
+function withoutPortalSession(
+  req: NextRequest,
+  host: string,
+): { request: { headers: Headers } } | undefined {
+  const cookieDomain = (process.env.AUTH_COOKIE_DOMAIN?.trim() || '.simplerdevelopment.com').replace(/^\./, '');
+  const bare = host.split(':')[0].toLowerCase();
+  if (bare !== cookieDomain && !bare.endsWith(`.${cookieDomain}`)) return undefined;
+  const cookie = req.headers.get('cookie');
+  if (!hasSessionCookie(cookie)) return undefined;
+  const headers = new Headers(req.headers);
+  const rest = stripSessionCookie(cookie!);
+  if (rest) headers.set('cookie', rest);
+  else headers.delete('cookie');
+  return { request: { headers } };
+}
+
 function blockCrossSiteWrite(req: NextRequest): NextResponse | null {
   const blocked = isCrossSiteWriteBlocked({
     method: req.method,
     pathname: req.nextUrl.pathname,
     secFetchSite: req.headers.get('sec-fetch-site'),
     isTrustedDevOrigin: isAllowedDevOrigin(req.headers.get('origin')),
+    hasSessionCookie: hasSessionCookie(req.headers.get('cookie')),
+    hasAuthorization: req.headers.has('authorization'),
   });
   if (!blocked) return null;
 
@@ -240,6 +247,9 @@ export async function middleware(req: NextRequest) {
   // If this is a custom domain (not the app itself), rewrite to the sites renderer
   if (host && !isAppHostname(host)) {
     const { pathname } = req.nextUrl;
+    // Every request forwarded from here drops the portal session cookie on
+    // tenant subdomains — see withoutPortalSession. Redirects forward nothing.
+    const forward = withoutPortalSession(req, host);
 
     // Don't rewrite API routes, static files, or Next.js internals
     if (
@@ -247,7 +257,7 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith('/_next/') ||
       pathname.startsWith('/favicon.ico')
     ) {
-      return NextResponse.next();
+      return NextResponse.next(forward);
     }
 
     // Reject obviously-non-tenant Host headers before we use the host as a
@@ -266,7 +276,7 @@ export async function middleware(req: NextRequest) {
     if (pathname === '/sitemap.xml' || pathname === '/robots.txt' || pathname === '/llms.txt') {
       const url = req.nextUrl.clone();
       url.pathname = `/sites/${host.split(':')[0]}${pathname}`;
-      return NextResponse.rewrite(url);
+      return NextResponse.rewrite(url, forward);
     }
 
     // Bypass rewrite for requests to files in /public/ (e.g. /iconLogo.png,
@@ -275,7 +285,7 @@ export async function middleware(req: NextRequest) {
     // renderer which would 404 them.
     // Match any pathname whose last segment has a file extension.
     if (/\.[a-z0-9]{2,5}(?:\?|$)/i.test(pathname)) {
-      return NextResponse.next();
+      return NextResponse.next(forward);
     }
 
     // Portal paths are only valid on the main app domain. Any subdomain that
@@ -291,7 +301,7 @@ export async function middleware(req: NextRequest) {
 
     // Booking subdomain passthrough — /book is used on client subdomains legitimately
     if (subdomain && pathname.startsWith('/book')) {
-      return NextResponse.next();
+      return NextResponse.next(forward);
     }
 
     // ── White-label custom domain ────────────────────────────────────────────
@@ -349,7 +359,7 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     const slug = pathname === '/' ? '' : pathname;
     url.pathname = `/sites/${domain}${slug}`;
-    const response = NextResponse.rewrite(url);
+    const response = NextResponse.rewrite(url, forward);
     // Pass the resolved path so layouts can detect specific routes
     response.headers.set('x-site-pathname', slug || '/');
     // Surface the tenant domain so deep components that don't get route params
