@@ -3,19 +3,20 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { kanbanCards, kanbanCardComments, kanbanCardFiles, projects } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { eq, and, inArray } from 'drizzle-orm';
 import { logCardActivity } from '@/lib/pm-activity';
 import { filterUserIdsVisibleToClient } from '@/lib/security/assert-owned';
 import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function authorizeCard(cardId: number, session: any) {
+async function authorizeCard(cardId: number, session: any): Promise<{ card: typeof kanbanCards.$inferSelect; client: Awaited<ReturnType<typeof getPortalClient>> } | null> {
   const [card] = await db.select().from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
   if (!card) return null;
 
   const s = session as unknown as { user?: { id: string; role?: string } } | null;
   const role = s?.user?.role;
-  if (role === 'admin' || role === 'employee') return card;
+  if (role === 'admin' || role === 'employee') return { card, client: null };
 
   const userId = parseInt(s!.user!.id, 10);
   const client = await getPortalClient(userId);
@@ -24,7 +25,7 @@ async function authorizeCard(cardId: number, session: any) {
   const [proj] = await db.select().from(projects)
     .where(and(eq(projects.id, card.projectId), eq(projects.clientId, client.id)))
     .limit(1);
-  return proj ? card : null;
+  return proj ? { card, client } : null;
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,8 +35,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const cardId = parseInt(id, 10);
 
-  const card = await authorizeCard(cardId, session);
-  if (!card) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  const access = await authorizeCard(cardId, session);
+  if (!access) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // role-matrix: commenting is content authoring (member+). `client` is null for staff.
+  if (access.client) {
+    const denied = await gatePortalRole(parseInt(session.user.id, 10), access.client, 'write');
+    if (denied) return denied;
+  }
 
   const { body, mentions, fileIds } = await req.json();
   if (!body?.trim() && (!fileIds?.length)) return NextResponse.json({ success: false, message: 'body is required' }, { status: 400 });

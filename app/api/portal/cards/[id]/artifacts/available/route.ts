@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { db } from '@/lib/db';
 import {
   kanbanCards,
@@ -47,6 +48,9 @@ export async function GET(
     if (!client || client.id !== project.clientId) {
       return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
     }
+    // role-matrix: listing linkable artifacts is a read (viewer+). Staff skip this branch.
+    const denied = await gatePortalRole(userId, client, 'read');
+    if (denied) return denied;
   }
 
   const clientId = project.clientId;

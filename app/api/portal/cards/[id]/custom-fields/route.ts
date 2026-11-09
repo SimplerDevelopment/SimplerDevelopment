@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { kanbanCards, projectCustomFields, cardCustomFieldValues, projects } from '@/lib/db/schema';
 import { and, asc, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { isPortalStaff } from '@/lib/portal';
 import { canUserEditProject } from '@/lib/portal/project-access';
 
@@ -22,11 +23,13 @@ async function authorize(cardId: number) {
   const [project] = await db.select().from(projects).where(eq(projects.id, card.projectId)).limit(1);
   if (!project) return null;
 
+  let client: Awaited<ReturnType<typeof getPortalClient>> = null;
   if (!staff) {
-    const client = await getPortalClient(userId);
+    client = await getPortalClient(userId);
     if (!client || client.id !== project.clientId) return null;
   }
-  return { card, canEdit: staff || (await canUserEditProject(userId, card.projectId)) };
+  // `client` stays null for staff, who have no company role to gate.
+  return { card, userId, client, canEdit: staff || (await canUserEditProject(userId, card.projectId)) };
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +37,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const cardId = parseInt(id, 10);
   const access = await authorize(cardId);
   if (!access) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // role-matrix: reading custom-field values is viewer+.
+  if (access.client) {
+    const denied = await gatePortalRole(access.userId, access.client, 'read');
+    if (denied) return denied;
+  }
 
   const fields = await db.select().from(projectCustomFields)
     .where(eq(projectCustomFields.projectId, access.card.projectId))
@@ -62,6 +70,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const cardId = parseInt(id, 10);
   const access = await authorize(cardId);
   if (!access) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // role-matrix: writing custom-field values is a content edit (member+).
+  if (access.client) {
+    const denied = await gatePortalRole(access.userId, access.client, 'write');
+    if (denied) return denied;
+  }
   if (!access.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
   const body = await req.json() as { values?: { fieldId: number; value: unknown }[] };

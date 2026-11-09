@@ -16,7 +16,7 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 const TOKEN_RE = /^ExponentPushToken\[.+\]$|^ExpoPushToken\[.+\]$/;
 
-export async function POST(req: Request) {
+export async function POST(req: Request) { // role-gate: read-ok registers/revokes the caller's OWN push token, scoped to their user+client (own-account exempt class)
   const authResult = await authorizePortal({ action: 'read' });
   if (isAuthError(authResult)) return authResult.response;
   const { client, userId } = authResult;
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ success: true });
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(req: Request) { // role-gate: read-ok registers/revokes the caller's OWN push token, scoped to their user+client (own-account exempt class)
   const authResult = await authorizePortal({ action: 'read' });
   if (isAuthError(authResult)) return authResult.response;
   const { client } = authResult;

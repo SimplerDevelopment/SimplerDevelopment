@@ -40,6 +40,7 @@
     "test:critical:local": "./scripts/prepare-e2e-local.sh && DATABASE_URL='postgresql://'$USER'@localhost:5432/simplerdev_test' scripts/test.sh --layer=e2e --tag=@critical --no-coverage",
     "test:tenancy": "./scripts/run-tenancy.sh",
     "doctor": "bun scripts/doctor.ts",
+    "check:role-gates": "bun scripts/check-portal-role-gates.ts",
     "cli": "bun packages/cli/src/index.ts",
     "setup": "bun packages/cli/src/index.ts setup",
     "cli:build": "bun run --cwd packages/cli build",

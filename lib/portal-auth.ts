@@ -282,6 +282,37 @@ export async function authorizePortalSite(opts: {
 }
 
 /**
+ * Role/action gate for routes that already resolved the caller's company
+ * themselves — the raw `auth()` + `getPortalClient(userId)` routes AUTH79-020
+ * found gating on membership only. It adds the role check and nothing else.
+ *
+ * Why not move those routes onto authorizePortal: it also accepts bearer
+ * tokens, so the swap would quietly open ~450 session-only routes to API keys.
+ * Widening the auth surface is its own decision, not a side effect of a role
+ * sweep.
+ *
+ * Log-only by default, per ADR portal-role-matrix: an insufficient role is
+ * logged as `portal.role.insufficient` and allowed until AUTH_ROLE_ENFORCE=1.
+ *
+ *   const denied = await gatePortalRole(userId, client, 'write');
+ *   if (denied) return denied;
+ */
+export async function gatePortalRole(
+  userId: number,
+  client: typeof clients.$inferSelect,
+  action: PortalAction,
+  opts: { observe?: boolean } = {},
+): Promise<NextResponse | null> {
+  // A read gate can never deny: every role, including the no-membership fallback, is viewer or above.
+  // Skip the membership query — the DB pool defaults to one connection, so it would be a serialized
+  // round trip on every GET (including the card-open GET PUX-087 optimized) that cannot change the answer.
+  if (ACTION_REQUIRED_LEVEL[action] === 0) return null;
+  const role = await resolveRole(userId, client);
+  const gate = roleGate(role, action, opts.observe ?? true, { clientId: client.id, userId });
+  return gate ? gate.response : null;
+}
+
+/**
  * Resolve a user's site like `resolveClientSite`, but ALSO require the owning
  * client to have an active `store` subscription (bundle-aware via
  * `hasServiceAccess`). Returns null if the site isn't the user's OR the client
@@ -311,7 +342,10 @@ async function resolveRole(userId: number, client: typeof clients.$inferSelect):
     .where(and(eq(clientMembers.clientId, client.id), eq(clientMembers.userId, userId)))
     .limit(1);
 
-  return (membership?.role as PortalRole) ?? 'viewer';
+  // Any role value outside the ladder (legacy/typo'd rows) is a viewer. Left as-is, ROLE_LEVELS[unknown]
+  // is undefined and `undefined >= n` is false, so such a row would be denied even 'read' at enforce.
+  const role = membership?.role;
+  return role && Object.prototype.hasOwnProperty.call(ROLE_LEVELS, role) ? (role as PortalRole) : 'viewer';
 }
 
 /**

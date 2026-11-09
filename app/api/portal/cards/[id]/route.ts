@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db, getFanoutDb } from '@/lib/db';
 import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardActivities, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardWatchers, kanbanCardDependencies, kanbanCardArtifacts, kanbanColumns, users, projects, clientMembers, projectCustomFields, cardCustomFieldValues } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { eq, and, or, inArray, asc, desc } from 'drizzle-orm';
 import { logCardActivity } from '@/lib/pm-activity';
 import { filterUserIdsVisibleToClient, isParentCardInProject } from '@/lib/security/assert-owned';
@@ -16,12 +17,12 @@ function getRole(session: any): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function authorizeCard(cardId: number, session: any): Promise<{ card: typeof kanbanCards.$inferSelect; canEdit: boolean } | null> {
+async function authorizeCard(cardId: number, session: any): Promise<{ card: typeof kanbanCards.$inferSelect; canEdit: boolean; client: Awaited<ReturnType<typeof getPortalClient>> } | null> {
   const [card] = await db.select().from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
   if (!card) return null;
 
   const role = getRole(session);
-  if (role === 'admin' || role === 'employee') return { card, canEdit: true };
+  if (role === 'admin' || role === 'employee') return { card, canEdit: true, client: null };
 
   const s = session as unknown as { user?: { id: string } } | null;
   const userId = parseInt(s!.user!.id, 10);
@@ -33,7 +34,7 @@ async function authorizeCard(cardId: number, session: any): Promise<{ card: type
     .limit(1);
   if (!proj) return null;
 
-  return { card, canEdit: await canUserEditProject(userId, proj.id) };
+  return { card, canEdit: await canUserEditProject(userId, proj.id), client };
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -57,6 +58,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const client = await getPortalClient(sessUserId);
     if (!isStaff) {
       if (!client) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+      // role-matrix: reading a card is viewer+ (the staff branch above skips this).
+      const denied = await gatePortalRole(sessUserId, client, 'read');
+      if (denied) return denied;
       const [proj] = await db.select({ id: projects.id }).from(projects)
         .where(and(eq(projects.id, card.projectId), eq(projects.clientId, client.id))).limit(1);
       if (!proj) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
@@ -280,6 +284,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const result = await authorizeCard(cardId, session);
   if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // role-matrix: editing/deleting a card is member+. `client` is null for staff, who have no company role.
+  if (result.client) {
+    const denied = await gatePortalRole(parseInt(session.user.id, 10), result.client, 'write');
+    if (denied) return denied;
+  }
   if (!result.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
   const body = await req.json();
@@ -417,6 +426,11 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
   const result = await authorizeCard(cardId, session);
   if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // role-matrix: editing/deleting a card is member+. `client` is null for staff, who have no company role.
+  if (result.client) {
+    const denied = await gatePortalRole(parseInt(session.user.id, 10), result.client, 'write');
+    if (denied) return denied;
+  }
   if (!result.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
   await db.delete(kanbanCards).where(eq(kanbanCards.id, cardId));

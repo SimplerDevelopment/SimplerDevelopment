@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole, type PortalAction } from '@/lib/portal-auth';
 import { db } from '@/lib/db';
 import {
   kanbanCards,
@@ -44,7 +45,8 @@ function getRole(session: unknown): string {
   return (session as { user?: { role?: string } } | null)?.user?.role ?? '';
 }
 
-async function getAuthedCard(cardId: number) {
+// `action` is the role-matrix level for the calling handler (GET = read, the rest = write).
+async function getAuthedCard(cardId: number, action: PortalAction) {
   const session = await auth();
   if (!session?.user?.id) return { error: NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 }) };
   const userId = parseInt(session.user.id, 10);
@@ -61,6 +63,8 @@ async function getAuthedCard(cardId: number) {
     if (!client || client.id !== project.clientId) {
       return { error: NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 }) };
     }
+    const denied = await gatePortalRole(userId, client, action);
+    if (denied) return { error: denied };
   }
 
   return { userId, card, clientId: project.clientId };
@@ -74,7 +78,7 @@ export async function GET(
   const cardId = parseInt(id, 10);
   if (isNaN(cardId)) return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
-  const result = await getAuthedCard(cardId);
+  const result = await getAuthedCard(cardId, 'read');
   if ('error' in result) return result.error;
 
   const artifacts = await db
@@ -94,7 +98,7 @@ export async function POST(
   const cardId = parseInt(id, 10);
   if (isNaN(cardId)) return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
-  const result = await getAuthedCard(cardId);
+  const result = await getAuthedCard(cardId, 'write');
   if ('error' in result) return result.error;
 
   const body = await req.json();
@@ -178,7 +182,7 @@ export async function PUT(
   const cardId = parseInt(id, 10);
   if (isNaN(cardId)) return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
-  const result = await getAuthedCard(cardId);
+  const result = await getAuthedCard(cardId, 'write');
   if ('error' in result) return result.error;
 
   const body = await req.json();
@@ -208,7 +212,7 @@ export async function DELETE(
   const cardId = parseInt(id, 10);
   if (isNaN(cardId)) return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
-  const result = await getAuthedCard(cardId);
+  const result = await getAuthedCard(cardId, 'write');
   if ('error' in result) return result.error;
 
   const body = await req.json();

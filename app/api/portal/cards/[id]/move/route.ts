@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { logCardActivity } from '@/lib/pm-activity';
 import { recordCardColumnMove } from '@/lib/portal/sprint-snapshots';
 import { checkWipLimit } from '@/lib/portal/wip-limit';
@@ -46,6 +47,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const userId = parseInt(session.user.id, 10);
     const client = await getPortalClient(userId);
     if (!client) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+    // role-matrix: moving a card changes the board, so it is a write (member+) even though
+    // it is not gated by project canEdit. Staff skip this branch.
+    const denied = await gatePortalRole(userId, client, 'write');
+    if (denied) return denied;
     const [project] = await db
       .select({ id: projects.id, clientId: projects.clientId, systemKind: projects.systemKind })
       .from(projects)
