@@ -17,13 +17,14 @@ import type { Metadata } from 'next';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { siteTracking } from '@/lib/db/schema';
-import { SiteNavClient } from './SiteNavClient';
 import { SiteFooter } from './SiteFooter';
 import { TrackingScripts, TrackingNoscriptBody } from '@/components/sites/TrackingScripts';
 import { googleFontsHref } from '@/lib/blocks/page-fonts';
 import { cssFontStack } from '@/lib/blocks/css-font-stack';
 import { DeferredStylesheet } from '@/components/sites/DeferredStylesheet';
-import { SiteRouteProgress } from '@/components/sites/SiteRouteProgress';
+// Standard-chrome-only client views behind async split points (PUX-252) — a
+// static import here would ship them to custom-layout pages too. See the file.
+import { SiteNavClient, SiteRouteProgress } from '@/components/sites/LazySiteViews';
 import { siteBaseUrl } from '@/lib/sites/site-base-url';
 import { organizationSchema, webSiteSchema, jsonLd } from '@/lib/sites/structured-data';
 
