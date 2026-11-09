@@ -1,7 +1,7 @@
 'use client';
 
 import { Breakpoint, BREAKPOINTS } from '@/types/responsive';
-import { useBlockEditorOptional } from '@/contexts/BlockEditorContext';
+import { useBlockEditorOptional } from '@/contexts/BlockEditorContext.shared';
 
 interface ViewportSelectorProps {
   currentViewport?: Breakpoint;

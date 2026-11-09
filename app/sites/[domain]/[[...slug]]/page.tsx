@@ -23,7 +23,9 @@ import { siteBaseUrl } from '@/lib/sites/site-base-url';
 import { blogPostingSchema, jsonLd } from '@/lib/sites/structured-data';
 // Conditional client views behind async split points — see the file for why they
 // must not be static imports of this server component.
-import { ProductPage, ShopPage, AccessCodeForm, AbGoalTracker } from '@/components/sites/LazySiteViews';
+import { ProductPage, ShopPage, AccessCodeForm } from '@/components/sites/LazySiteViews';
+// A server component (no 'use client'): static import ships zero client JS — keep it out of LazySiteViews.
+import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
 import { auth } from '@/lib/auth';
 import { verifyPreviewToken } from '@/lib/preview-token';
 import { unlockCookieName, verifyUnlockCookieValue } from '@/lib/preview-unlock';

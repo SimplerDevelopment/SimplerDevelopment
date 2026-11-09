@@ -25,6 +25,10 @@ import {
   saveWindowConfig,
 } from '@/lib/utils/settingsWindowStorage';
 import { findBlockById, updateBlockById } from '@/lib/utils/blockHelpers';
+// The context object lives in the .shared module so public renderers (e.g.
+// ColumnsBlockRender) can read the optional editor viewport without importing
+// this file's immer/history stack. Import `useBlockEditorOptional` from there.
+import { BlockEditorContext } from './BlockEditorContext.shared';
 
 // Context value interface
 export interface BlockEditorContextValue {
@@ -77,13 +81,6 @@ export interface BlockEditorContextValue {
   pageSettings: PageSettings;
   updatePageSettings: (updates: Partial<PageSettings>) => void;
 }
-
-// The context object + optional hook live in BlockEditorContext.shared.ts so the
-// PUBLIC renderers (ColumnsBlockRender) can read the optional editor viewport
-// without importing this file — which pulls in immer + the history/undo stack
-// (PUX-241: ~18 KB raw on every tenant page). Re-exported for existing callers.
-import { BlockEditorContext, useBlockEditorOptional } from './BlockEditorContext.shared';
-export { useBlockEditorOptional };
 
 // Provider props
 interface BlockEditorProviderProps {

@@ -60,11 +60,6 @@ import {
   SurveyInputBlockRender,
   HtmlEmbedBlockRender,
   HtmlRenderBlockRender,
-} from './lazy-blocks';
-// PUX-241: heavy-dependency blocks (framer-motion via Card; the sanitize-html
-// stack via lib/security/sanitize-html) are code-split so a page that doesn't
-// use them doesn't download/evaluate ~300 KB raw. See lazy-blocks.tsx.
-import {
   StickyScrollTabsBlockRender,
   CardGridBlockRender,
   TimelineBlockRender,
