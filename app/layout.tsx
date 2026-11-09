@@ -7,11 +7,8 @@ import { generateOrganizationSchema } from "@/lib/utils/structured-data";
 import { headers } from "next/headers";
 import { AppChromeShell } from "@/components/AppChromeShell";
 
-// App chrome (SessionProvider + LayoutContent) lives behind AppChromeShell, a
-// client module that code-splits them with next/dynamic. It must NOT be a
-// `dynamic()` declared in this server file: that makes them client references
-// of the root layout, whose chunks then ship on every route including public
-// tenant sites (PUX-241: 76 KB raw). See components/AppChromeShell.tsx.
+// App chrome is code-split inside AppChromeShell — see that file for why it
+// must not be a dynamic() declared here (PUX-241).
 
 // preload: false — these app/portal fonts were being <link rel=preload>ed on
 // EVERY route (~180KB of woff2), including public client sites that use their

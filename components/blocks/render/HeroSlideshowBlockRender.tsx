@@ -111,7 +111,7 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
           key={slide.id}
           slide={slide}
           isActive={i === current}
-          loadImage={loadedSlides.has(i) || wantedSlides.has(i)}
+          loadImage={loadedSlides.has(i)}
           transition={transition}
           transMs={transMs}
           kenBurns={kenBurns}

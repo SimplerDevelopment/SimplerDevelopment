@@ -13,11 +13,6 @@
 // block tree so the renderer can emit a SINGLE combined request.
 
 import { renderHtmlTemplate } from '@/lib/blocks/html-render-template';
-// cssFontStack lives in its own dependency-free module so CLIENT code
-// (BlockStyleWrapper) can use it without importing this file, which drags in
-// html-render-template → the sanitize-html stack (~170 KB raw). Re-exported so
-// existing server-side importers keep working.
-export { cssFontStack } from '@/lib/blocks/css-font-stack';
 
 // Generic CSS keywords and common system fonts that are NOT Google Fonts and
 // must never be sent to the css2 endpoint. Compared lowercase.
