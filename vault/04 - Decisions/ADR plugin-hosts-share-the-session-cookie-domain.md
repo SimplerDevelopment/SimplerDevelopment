@@ -19,6 +19,15 @@ plugin ships.** Recorded 2026-08-05 while migrating the Plugins domain map into
 code; the risk was described in that note and the mitigation was in the code,
 but the *decision* had never been written down.
 
+> **Update 2026-11-10 (PUX-258):** the *session-exposure* half described below is
+> now closed. The session cookie is host-only (`__Host-authjs.session-token`, no
+> `Domain`) and no longer reaches plugin hosts — see
+> [[ADR session-cookie-is-host-scoped]]. Content Tools authenticates via the
+> `sd-plugin-tenant` handoff JWT, not the session cookie, so this is safe. What
+> remains of this ADR is the *handoff* cookie itself, still apex-pinned (the last
+> apex-pinned auth artifact); moving it off the shared domain — option 1 below —
+> is still the end state before a third-party plugin ships.
+
 ## Context
 
 Two independent choices meet badly.

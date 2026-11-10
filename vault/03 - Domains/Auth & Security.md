@@ -190,7 +190,7 @@ Coverage floor: **90% lines / 80% functions** on `lib/crypto/**` (enforced in `t
 ## Invariants & gotchas
 
 - **JWT is stateless; active checks are throttled, not per-request.** A deleted/deactivated user keeps a valid session for up to 60 seconds (`REVALIDATE_MS`). The throttle is intentional (avoids a DB hit on every request); fail-open on transient DB errors preserves availability.
-- **Session cookie is shared across all `*.simplerdevelopment.com` subdomains.** Cookie name is `__Secure-authjs.session-token` in production, `authjs.session-token` in dev. Portal paths on a client subdomain are 308-redirected to the canonical app domain so auth stays correct.
+- **Session cookie is host-scoped (`__Host-`), NOT shared across subdomains (PUX-258).** Production name is `__Host-authjs.session-token` (no `Domain`, host-only to the app host); dev is `authjs.session-token`. Self-hosters opt into the old `Domain`-pinned `__Secure-` scheme via `AUTH_COOKIE_DOMAIN`. Portal paths on a client subdomain are 308-redirected to the canonical app host, where the cookie lives. See [[ADR session-cookie-is-host-scoped]].
 - **Two separate AES-256-GCM key universes.** `ENCRYPTION_KEY` (BYOK AI keys in `client_api_keys`) and `WORKSPACE_TENANT_SECRETS_KEY` (workspace OAuth credentials). They must never share a key material.
 - **Password-reset and invite tokens are SHA-256 hashed at rest** (`lib/security/token-hash.ts`). Raw token only travels in the email link; DB stores only the hash.
 - **`client` role users are blocked from `/admin`** in the `authorized` callback — they are redirected to `/portal/dashboard`. Admin routes require `admin` or `editor` role.
@@ -200,7 +200,7 @@ Coverage floor: **90% lines / 80% functions** on `lib/crypto/**` (enforced in `t
 - **Password policy is shared, not per-endpoint** (`lib/security/password-policy.ts`). Signup, reset, and change all call `validatePasswordStrength` + `isPasswordReused`; reset/change roll `passwordHistory` forward via `nextPasswordHistory` (last 5). Don't re-implement a length check inline — route through the helper (AUTH79-002/003).
 - **Post-login redirect targets go through `safeCallbackUrl`** (`lib/security/safe-callback-url.ts`) — a string-prefix check is insufficient (`/\evil.com` resolves off-site). Any new place that consumes a `callbackUrl` must use this helper (AUTH79-007).
 - **Every MFA-mutating endpoint is rate-limited by userId** (setup/verify-and-enable/disable) — an authed endpoint that brute-checks a code or password needs a per-account cap, not just IP (AUTH79-008).
-- **Known open auth gaps (July 2026 audit):** consent scopes are NOT enforced on the `/api/portal/**` REST surface (AUTH79-011), MFA is bypassable via the Google path (AUTH79-012), and the apex-pinned session cookie + tenant custom-JS is a cross-subdomain CSRF surface (AUTH79-013). Tracked as AUTH79-### on portal project 172.
+- **Known open auth gaps (July 2026 audit):** consent scopes are NOT enforced on the `/api/portal/**` REST surface (AUTH79-011), MFA is bypassable via the Google path (AUTH79-012), and the apex-pinned session cookie + tenant custom-JS cross-subdomain surface (AUTH79-013) is **contained** by PUX-255 and **structurally closed** by PUX-258 — the session cookie is now host-only (`__Host-`), see [[ADR session-cookie-is-host-scoped]]. Tracked as AUTH79-### on portal project 172.
 
 ## Planning notes
 
