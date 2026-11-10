@@ -54,7 +54,7 @@ export interface EdgeCacheRequest {
 
 // Anchored at a cookie boundary so a cookie merely CONTAINING the name — say
 // `not_sd_unlocked_42` — doesn't trip the check.
-const SESSION_COOKIE = /(^|;\s*)(__Secure-)?(next-auth|authjs)\.session-token=/;
+const SESSION_COOKIE = /(^|;\s*)(__Secure-|__Host-)?(next-auth|authjs)\.session-token=/;
 const UNLOCK_COOKIE = /(^|;\s*)sd_unlocked_/;
 
 /** Params that mean "render unpublished content". */

@@ -89,13 +89,14 @@ function LoginForm() {
           return;
         }
 
-        // Only hop to the client's `*.simplerdevelopment.com` subdomain when we
-        // are ALREADY on a simplerdevelopment.com host (prod/staging), where the
-        // subdomain resolves and the session cookie is shared across subdomains.
-        // From localhost the subdomain doesn't resolve; from a `*.vercel.app`
-        // preview the hop would bounce the user OFF the preview to production and
-        // the host-only preview cookie wouldn't follow. In both cases, stay put —
-        // the just-issued session is scoped to the current host.
+        // Hop to the client's `*.simplerdevelopment.com` subdomain only when
+        // ALREADY on a simplerdevelopment.com host. NOTE (PUX-258): the portal
+        // lives only on the app host — a subdomain `/portal` is 308-redirected
+        // back there (middleware.ts) and the session cookie is host-only
+        // (`__Host-`, no Domain), so this hop is now a redundant round-trip that
+        // lands back on the app host; it's kept harmless and could be dropped in
+        // a follow-up. From localhost the subdomain doesn't resolve; from a
+        // `*.vercel.app` preview the hop would leave the preview — stay put in both.
         const onSimplerDevHost = window.location.hostname.endsWith('.simplerdevelopment.com');
         if (onSimplerDevHost && subData.subdomain && window.location.hostname !== `${subData.subdomain}.simplerdevelopment.com`) {
           window.location.href = `https://${subData.subdomain}.simplerdevelopment.com${callbackUrl}`;

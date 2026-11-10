@@ -71,10 +71,11 @@
  */
 
 /**
- * The NextAuth session cookie: secure or plain name (lib/auth.ts), whole or
- * chunked into `.0`, `.1`… when the JWT outgrows one cookie.
+ * The NextAuth session cookie: `__Host-` (host-only, the PUX-258 default),
+ * `__Secure-` (self-hoster Domain-pinned opt-in) or plain name (lib/auth.ts),
+ * whole or chunked into `.0`, `.1`… when the JWT outgrows one cookie.
  */
-const SESSION_COOKIE_RX = /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?$/;
+const SESSION_COOKIE_RX = /^(?:__Secure-|__Host-)?authjs\.session-token(?:\.\d+)?$/;
 
 function cookieName(pair: string): string {
   const eq = pair.indexOf('=');

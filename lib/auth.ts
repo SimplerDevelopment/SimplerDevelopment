@@ -1,4 +1,4 @@
-import { secureCookiesEnabled } from '@/lib/auth-cookies';
+import { secureCookiesEnabled, sessionCookieName } from '@/lib/auth-cookies';
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
@@ -32,6 +32,16 @@ const AUTH_RATE_LIMIT_DISABLED =
 // see lib/auth-cookies.ts. Do not restate the condition here — three copies of
 // it drifted once already (QAD-047).
 const USE_SECURE_COOKIES = secureCookiesEnabled();
+
+// PUX-258: default the session cookie to a host-only `__Host-` cookie (no
+// `Domain`), so a sibling tenant subdomain can neither read it nor plant one —
+// closing session-riding (PUX-255) and fixation at the structural level and
+// removing the plugin-host session exposure (ADR plugin-hosts-share-the-session-
+// cookie-domain). A self-hoster who genuinely needs ONE session across several
+// subdomains opts back into the `Domain`-pinned `__Secure-` scheme by setting
+// AUTH_COOKIE_DOMAIN to their apex (e.g. `.example.com`). `|| undefined`, not
+// `??`, so an empty `AUTH_COOKIE_DOMAIN=` doesn't pin the cookie to `''`.
+const COOKIE_DOMAIN = process.env.AUTH_COOKIE_DOMAIN?.trim() || undefined;
 
 // A fixed bcrypt hash to compare against when the user doesn't exist / is
 // inactive, so the credentials path spends the same ~bcrypt time on every branch
@@ -120,25 +130,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   cookies: {
     sessionToken: {
-      name: USE_SECURE_COOKIES ? '__Secure-authjs.session-token' : 'authjs.session-token', // pragma: allowlist secret (cookie name, not a secret)
+      // Name encodes the scheme: `__Host-` (host-only default), `__Secure-`
+      // (self-hoster Domain-pinned opt-in), or the bare dev name. See
+      // sessionCookieName in lib/auth-cookies.ts for why `__Host-` is the default.
+      name: sessionCookieName(USE_SECURE_COOKIES, COOKIE_DOMAIN),
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
         secure: USE_SECURE_COOKIES,
-        // Share the session cookie across subdomains by pinning its `domain`.
-        // SELF-HOSTERS: set AUTH_COOKIE_DOMAIN to your apex (e.g. `.example.com`)
-        // so sessions work on your domain — without it, a custom-domain deploy
-        // would inherit the operator default below and the browser would reject
-        // the cookie, bouncing users back to /portal/login after a "successful"
-        // sign-in. When AUTH_COOKIE_DOMAIN is unset we fall back to the operator's
-        // own behavior: pin `.simplerdevelopment.com` ONLY on the real production
-        // deploy (VERCEL_ENV==='production'); previews/local stay host-only
-        // (undefined), since pinning a domain on a `*.vercel.app` preview or
-        // localhost makes the browser reject the cookie outright.
-        domain:
-          process.env.AUTH_COOKIE_DOMAIN ??
-          (process.env.VERCEL_ENV === 'production' ? '.simplerdevelopment.com' : undefined),
+        // Host-only by default (`undefined`). Only pinned when a self-hoster
+        // explicitly opts into cross-subdomain sessions via AUTH_COOKIE_DOMAIN.
+        // The old operator default pinned `.simplerdevelopment.com` on
+        // VERCEL_ENV==='production' — that apex pin is exactly what PUX-258 drops.
+        domain: COOKIE_DOMAIN,
       },
     },
   },
