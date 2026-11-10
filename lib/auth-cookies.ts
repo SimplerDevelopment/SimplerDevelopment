@@ -45,6 +45,24 @@ export function secureCookiesEnabled(): boolean {
   return false;
 }
 
+/**
+ * The NextAuth session cookie name for the active cookie scheme (PUX-258).
+ *
+ * - Insecure builds (dev/test/CI-over-http) use the bare `authjs.session-token`.
+ * - Secure + a pinned Domain (a self-hoster set AUTH_COOKIE_DOMAIN to share one
+ *   session across subdomains) uses `__Secure-` — the `__Host-` prefix forbids a
+ *   Domain attribute, so it can't coexist with a pin.
+ * - Secure + host-only (the default, including the operator's own production)
+ *   uses `__Host-`: the browser refuses to send it to, or set it from, any other
+ *   host, which closes cross-subdomain session riding (PUX-255) and fixation.
+ */
+export function sessionCookieName(secure: boolean, cookieDomain: string | undefined): string {
+  if (!secure) return 'authjs.session-token'; // pragma: allowlist secret (cookie name, not a secret)
+  return cookieDomain
+    ? '__Secure-authjs.session-token' // pragma: allowlist secret (cookie name, not a secret)
+    : '__Host-authjs.session-token'; // pragma: allowlist secret (cookie name, not a secret)
+}
+
 let warned = false;
 function warnIgnoredOnProd(): void {
   if (warned) return;

@@ -132,6 +132,7 @@ describe('the rest of /api — refused when it would ride the session', () => {
 
 describe('session cookie detection and stripping', () => {
   it.each([
+    '__Host-authjs.session-token=abc',
     '__Secure-authjs.session-token=abc',
     'authjs.session-token=abc',
     'a=1; __Secure-authjs.session-token.0=abc; __Secure-authjs.session-token.1=def',

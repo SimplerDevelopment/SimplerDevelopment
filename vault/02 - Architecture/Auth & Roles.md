@@ -55,8 +55,8 @@ middleware.ts  (matches all routes except _next/static, _next/image, favicon.ico
 
 NextAuth v5 uses a **JWT strategy** (no server-side session store).
 
-- Cookie: `__Secure-authjs.session-token` (prod) / `authjs.session-token` (dev)
-- Domain: `.simplerdevelopment.com` in production — shared across all subdomains
+- Cookie: `__Host-authjs.session-token` (prod, host-only) / `authjs.session-token` (dev). Self-hosters who set `AUTH_COOKIE_DOMAIN` get the `Domain`-pinned `__Secure-` scheme instead (see `sessionCookieName`, `lib/auth-cookies.ts`).
+- Domain: **none** by default — host-only (`__Host-`, PUX-258). Only pinned when `AUTH_COOKIE_DOMAIN` is set. The old `.simplerdevelopment.com` apex pin was dropped to close cross-subdomain session riding + fixation; see [[ADR session-cookie-is-host-scoped]].
 - Max age: 7 days; idle-refresh: once per 24 hours
 - JWT payload additions (see `types/next-auth.d.ts`):
   - `role: string` — stamped at sign-in from `users.role`; refreshed on every DB re-validation

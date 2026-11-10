@@ -8,7 +8,7 @@
  * and must be ignored where it is dangerous.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { secureCookiesEnabled, __resetSecureCookieWarning } from '@/lib/auth-cookies';
+import { secureCookiesEnabled, sessionCookieName, __resetSecureCookieWarning } from '@/lib/auth-cookies';
 
 const saved = { ...process.env };
 
@@ -76,6 +76,25 @@ describe('secureCookiesEnabled', () => {
     secureCookiesEnabled();
     expect(spy).toHaveBeenCalledOnce();
     spy.mockRestore();
+  });
+});
+
+// PUX-258: the session cookie name encodes the scheme. `__Host-` is the
+// host-only default that closes cross-subdomain riding/fixation; a self-hoster
+// who pins AUTH_COOKIE_DOMAIN falls back to `__Secure-` because `__Host-` cannot
+// carry a Domain; insecure builds use the bare name.
+describe('sessionCookieName (PUX-258)', () => {
+  it('uses the bare name for insecure builds, Domain pinned or not', () => {
+    expect(sessionCookieName(false, undefined)).toBe('authjs.session-token');
+    expect(sessionCookieName(false, '.example.com')).toBe('authjs.session-token');
+  });
+
+  it('defaults to a host-only __Host- cookie when secure and no Domain is pinned', () => {
+    expect(sessionCookieName(true, undefined)).toBe('__Host-authjs.session-token');
+  });
+
+  it('falls back to __Secure- when a Domain is pinned — __Host- forbids a Domain', () => {
+    expect(sessionCookieName(true, '.example.com')).toBe('__Secure-authjs.session-token');
   });
 });
 
